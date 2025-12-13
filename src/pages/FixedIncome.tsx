@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,7 @@ import { fixedIncomeAssets, formatCurrency, formatDate, type FixedIncomeAsset } 
 import { useToast } from "@/hooks/use-toast";
 
 export default function FixedIncome() {
+  const navigate = useNavigate();
   const [assets, setAssets] = useState(fixedIncomeAssets);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -283,6 +285,10 @@ export default function FixedIncome() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=fixed`)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Ver Detalhes
+                            </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Pencil className="h-4 w-4 mr-2" />
                               Editar

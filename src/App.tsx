@@ -9,6 +9,7 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import FixedIncome from "./pages/FixedIncome";
 import VariableIncome from "./pages/VariableIncome";
+import InvestmentDetails from "./pages/InvestmentDetails";
 import Import from "./pages/Import";
 import Analysis from "./pages/Analysis";
 import Settings from "./pages/Settings";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/renda-fixa" element={<FixedIncome />} />
             <Route path="/renda-variavel" element={<VariableIncome />} />
+            <Route path="/investimento/:id" element={<InvestmentDetails />} />
             <Route path="/importar" element={<Import />} />
             <Route path="/analise" element={<Analysis />} />
             <Route path="/configuracoes" element={<Settings />} />

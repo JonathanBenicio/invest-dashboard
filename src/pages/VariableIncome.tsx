@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, ArrowUpRight, ArrowDownRight, Eye } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import { variableIncomeAssets, dividends, formatCurrency, formatDate, type Varia
 import { useToast } from "@/hooks/use-toast";
 
 export default function VariableIncome() {
+  const navigate = useNavigate();
   const [assets, setAssets] = useState(variableIncomeAssets);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -265,6 +267,10 @@ export default function VariableIncome() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=variable`)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Ver Detalhes
+                                </DropdownMenuItem>
                                 <DropdownMenuItem>
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Editar
