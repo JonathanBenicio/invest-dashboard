@@ -28,6 +28,7 @@ import { currentUser } from "@/lib/mock-data";
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Carteiras", url: "/carteiras", icon: Wallet },
   { title: "Renda Fixa", url: "/renda-fixa", icon: Landmark },
   { title: "Renda Variável", url: "/renda-variavel", icon: TrendingUp },
   { title: "Importar Dados", url: "/importar", icon: Upload },
