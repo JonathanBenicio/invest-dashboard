@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
+import Portfolios from "./pages/Portfolios";
 import FixedIncome from "./pages/FixedIncome";
 import VariableIncome from "./pages/VariableIncome";
 import InvestmentDetails from "./pages/InvestmentDetails";
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/cadastro" element={<Register />} />
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/carteiras" element={<Portfolios />} />
             <Route path="/renda-fixa" element={<FixedIncome />} />
             <Route path="/renda-variavel" element={<VariableIncome />} />
             <Route path="/investimento/:id" element={<InvestmentDetails />} />

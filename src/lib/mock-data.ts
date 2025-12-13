@@ -7,6 +7,103 @@ export interface User {
   avatar?: string;
 }
 
+export interface Bank {
+  id: string;
+  name: string;
+  logo: string;
+  type: 'Banco' | 'Corretora' | 'DTVM';
+}
+
+export interface Portfolio {
+  id: string;
+  name: string;
+  bankId: string;
+  bankName: string;
+  bankLogo: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  description?: string;
+  totalValue: number;
+  totalInvested: number;
+  profitability: number;
+  assetsCount: number;
+  createdAt: string;
+}
+
+export const currentUser: User = {
+  id: '1',
+  name: 'João Silva',
+  email: 'joao@email.com',
+};
+
+export const mockUsers: User[] = [
+  { id: '1', name: 'João Silva', email: 'joao@email.com' },
+  { id: '2', name: 'Maria Santos', email: 'maria@email.com' },
+  { id: '3', name: 'Pedro Oliveira', email: 'pedro@email.com' },
+];
+
+export const mockBanks: Bank[] = [
+  { id: '1', name: 'XP Investimentos', logo: '🟡', type: 'Corretora' },
+  { id: '2', name: 'BTG Pactual', logo: '🔵', type: 'Banco' },
+  { id: '3', name: 'Banco Inter', logo: '🟠', type: 'Banco' },
+  { id: '4', name: 'Nu Invest', logo: '🟣', type: 'Corretora' },
+  { id: '5', name: 'Clear', logo: '⚪', type: 'Corretora' },
+  { id: '6', name: 'Rico', logo: '🔴', type: 'Corretora' },
+  { id: '7', name: 'Itaú', logo: '🟤', type: 'Banco' },
+];
+
+export const mockPortfolios: Portfolio[] = [
+  {
+    id: 'portfolio-1',
+    name: 'Carteira Principal',
+    bankId: '1',
+    bankName: 'XP Investimentos',
+    bankLogo: '🟡',
+    userId: '1',
+    userName: 'João Silva',
+    userEmail: 'joao@email.com',
+    description: 'Carteira de longo prazo',
+    totalValue: 175800,
+    totalInvested: 165000,
+    profitability: 6.54,
+    assetsCount: 5,
+    createdAt: '2023-01-15',
+  },
+  {
+    id: 'portfolio-2',
+    name: 'Renda Variável',
+    bankId: '3',
+    bankName: 'Banco Inter',
+    bankLogo: '🟠',
+    userId: '1',
+    userName: 'João Silva',
+    userEmail: 'joao@email.com',
+    description: 'Ações e FIIs',
+    totalValue: 89500,
+    totalInvested: 82000,
+    profitability: 9.15,
+    assetsCount: 7,
+    createdAt: '2023-03-20',
+  },
+  {
+    id: 'portfolio-3',
+    name: 'Reserva de Emergência',
+    bankId: '4',
+    bankName: 'Nu Invest',
+    bankLogo: '🟣',
+    userId: '2',
+    userName: 'Maria Santos',
+    userEmail: 'maria@email.com',
+    description: 'Liquidez diária',
+    totalValue: 42985,
+    totalInvested: 40000,
+    profitability: 7.46,
+    assetsCount: 2,
+    createdAt: '2024-01-10',
+  },
+];
+
 export interface FixedIncomeAsset {
   id: string;
   name: string;
@@ -51,12 +148,6 @@ export interface Transaction {
   price?: number;
   total: number;
 }
-
-export const currentUser: User = {
-  id: '1',
-  name: 'João Silva',
-  email: 'joao@email.com',
-};
 
 export const fixedIncomeAssets: FixedIncomeAsset[] = [
   {
