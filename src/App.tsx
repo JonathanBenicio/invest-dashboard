@@ -14,6 +14,7 @@ import VariableIncome from "./pages/VariableIncome";
 import InvestmentDetails from "./pages/InvestmentDetails";
 import Import from "./pages/Import";
 import Analysis from "./pages/Analysis";
+import Simulator from "./pages/Simulator";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/investimento/:id" element={<InvestmentDetails />} />
             <Route path="/importar" element={<Import />} />
             <Route path="/analise" element={<Analysis />} />
+            <Route path="/simulador" element={<Simulator />} />
             <Route path="/configuracoes" element={<Settings />} />
           </Route>
           <Route path="*" element={<NotFound />} />
