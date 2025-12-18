@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Portfolios from "./pages/Portfolios";
+import PortfolioDetails from "./pages/PortfolioDetails";
 import FixedIncome from "./pages/FixedIncome";
 import VariableIncome from "./pages/VariableIncome";
 import InvestmentDetails from "./pages/InvestmentDetails";
@@ -31,6 +32,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/carteiras" element={<Portfolios />} />
+            <Route path="/carteira/:id" element={<PortfolioDetails />} />
             <Route path="/renda-fixa" element={<FixedIncome />} />
             <Route path="/renda-variavel" element={<VariableIncome />} />
             <Route path="/investimento/:id" element={<InvestmentDetails />} />
