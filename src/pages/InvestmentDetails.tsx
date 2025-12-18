@@ -39,6 +39,8 @@ import {
   Wallet,
   Percent,
   LineChart,
+  Calendar,
+  Target,
 } from "lucide-react";
 import {
   LineChart as RechartsLineChart,
@@ -127,6 +129,51 @@ export default function InvestmentDetails() {
   const profit = totalValue - investedValue;
   const profitPercentage = (profit / investedValue) * 100;
 
+  // Calculate projected value at maturity for fixed income
+  const calculateProjectedValue = () => {
+    if (!fixedAsset) return null;
+    
+    const today = new Date();
+    const maturity = new Date(fixedAsset.maturityDate);
+    const purchase = new Date(fixedAsset.purchaseDate);
+    
+    // Days remaining until maturity
+    const daysRemaining = Math.max(0, Math.ceil((maturity.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    const totalDays = Math.ceil((maturity.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24));
+    const yearsRemaining = daysRemaining / 365;
+    
+    // Parse rate and calculate projection
+    let annualRate = 0;
+    const CDI_RATE = 0.1215; // 12.15% CDI aproximado
+    const IPCA_RATE = 0.045; // 4.5% IPCA aproximado
+    
+    if (fixedAsset.rateType === 'CDI') {
+      const cdiPercentage = parseFloat(fixedAsset.rate.replace('%', '')) / 100;
+      annualRate = CDI_RATE * cdiPercentage;
+    } else if (fixedAsset.rateType === 'IPCA') {
+      const spreadMatch = fixedAsset.rate.match(/[\d,]+/g);
+      const spread = spreadMatch ? parseFloat(spreadMatch[spreadMatch.length - 1].replace(',', '.')) / 100 : 0.06;
+      annualRate = IPCA_RATE + spread;
+    } else {
+      annualRate = parseFloat(fixedAsset.rate.replace('%', '').replace(',', '.')) / 100;
+    }
+    
+    // Compound interest projection from current value
+    const projectedValue = fixedAsset.currentValue * Math.pow(1 + annualRate, yearsRemaining);
+    const projectedProfit = projectedValue - fixedAsset.investedValue;
+    const projectedProfitPercentage = (projectedProfit / fixedAsset.investedValue) * 100;
+    
+    return {
+      projectedValue,
+      projectedProfit,
+      projectedProfitPercentage,
+      daysRemaining,
+      maturityDate: fixedAsset.maturityDate,
+    };
+  };
+
+  const projection = calculateProjectedValue();
+
   const historyData = generateHistoryData(id!);
   const chartData = generateChartData();
 
@@ -194,7 +241,8 @@ export default function InvestmentDetails() {
                 className="bg-finance-profit hover:bg-finance-profit/90"
                 onClick={() => setTransactionType("buy")}
               >
-                <PlusCircle className="mr-2 h-4 w-4" /> Comprar
+                <PlusCircle className="mr-2 h-4 w-4" /> 
+                {isVariable ? "Comprar" : "Aportar"}
               </Button>
             </DialogTrigger>
             <DialogTrigger asChild>
@@ -202,52 +250,85 @@ export default function InvestmentDetails() {
                 variant="destructive"
                 onClick={() => setTransactionType("sell")}
               >
-                <MinusCircle className="mr-2 h-4 w-4" /> Vender
+                <MinusCircle className="mr-2 h-4 w-4" /> 
+                {isVariable ? "Vender" : "Resgatar"}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {transactionType === "buy" ? "Registrar Compra" : "Registrar Venda"}
+                  {transactionType === "buy" 
+                    ? (isVariable ? "Registrar Compra" : "Registrar Aporte")
+                    : (isVariable ? "Registrar Venda" : "Registrar Resgate")
+                  }
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantidade</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    placeholder="Ex: 100"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="price">Preço por unidade</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    step="0.01"
-                    placeholder="Ex: 35.50"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                  />
-                </div>
-                {quantity && price && (
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">Total da operação</p>
-                    <p className="text-xl font-bold">
-                      {formatCurrency(Number(quantity) * Number(price))}
-                    </p>
+                {isVariable ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="quantity">Quantidade</Label>
+                      <Input
+                        id="quantity"
+                        type="number"
+                        placeholder="Ex: 100"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="price">Preço por unidade</Label>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        placeholder="Ex: 35.50"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                      />
+                    </div>
+                    {quantity && price && (
+                      <div className="p-4 bg-muted rounded-lg">
+                        <p className="text-sm text-muted-foreground">Total da operação</p>
+                        <p className="text-xl font-bold">
+                          {formatCurrency(Number(quantity) * Number(price))}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Valor do {transactionType === "buy" ? "Aporte" : "Resgate"}</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      placeholder="Ex: 5000.00"
+                      value={price}
+                      onChange={(e) => setPrice(e.target.value)}
+                    />
+                    {price && (
+                      <div className="p-4 bg-muted rounded-lg mt-4">
+                        <p className="text-sm text-muted-foreground">
+                          {transactionType === "buy" ? "Valor do aporte" : "Valor do resgate"}
+                        </p>
+                        <p className="text-xl font-bold">
+                          {formatCurrency(Number(price))}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
                 <Button 
                   className={`w-full ${transactionType === "buy" ? "bg-finance-profit hover:bg-finance-profit/90" : ""}`}
                   variant={transactionType === "sell" ? "destructive" : "default"}
                   onClick={handleTransaction}
-                  disabled={!quantity || !price}
+                  disabled={isVariable ? (!quantity || !price) : !price}
                 >
-                  {transactionType === "buy" ? "Confirmar Compra" : "Confirmar Venda"}
+                  {transactionType === "buy" 
+                    ? (isVariable ? "Confirmar Compra" : "Confirmar Aporte")
+                    : (isVariable ? "Confirmar Venda" : "Confirmar Resgate")
+                  }
                 </Button>
               </div>
             </DialogContent>
@@ -337,6 +418,87 @@ export default function InvestmentDetails() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Fixed Income Projection Card */}
+      {!isVariable && projection && (
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Target className="h-5 w-5 text-primary" />
+              Projeção no Vencimento
+            </CardTitle>
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {formatDate(projection.maturityDate)}
+            </Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Valor Projetado</p>
+                <p className="text-2xl font-bold text-primary">
+                  {formatCurrency(projection.projectedValue)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Lucro Projetado</p>
+                <p className="text-2xl font-bold text-finance-profit">
+                  {formatCurrency(projection.projectedProfit)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Rentabilidade Total</p>
+                <p className="text-2xl font-bold text-finance-profit">
+                  {formatPercentage(projection.projectedProfitPercentage)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Dias até Vencimento</p>
+                <p className="text-2xl font-bold">
+                  {projection.daysRemaining}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  ~{Math.round(projection.daysRemaining / 30)} meses
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Quick Buy/Aporte Button */}
+      <Card className="border-finance-profit/20 bg-gradient-to-r from-finance-profit/5 to-transparent">
+        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-finance-profit/10">
+              <PlusCircle className="h-6 w-6 text-finance-profit" />
+            </div>
+            <div>
+              <p className="font-medium">
+                {isVariable ? "Aumentar Posição" : "Realizar Aporte"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {isVariable 
+                  ? `Cotação atual: ${formatCurrency(variableAsset?.currentPrice || 0)}`
+                  : `Taxa: ${fixedAsset?.rate} (${fixedAsset?.rateType})`
+                }
+              </p>
+            </div>
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                size="lg"
+                className="bg-finance-profit hover:bg-finance-profit/90 w-full sm:w-auto"
+                onClick={() => setTransactionType("buy")}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> 
+                {isVariable ? "Comprar Agora" : "Aportar Agora"}
+              </Button>
+            </DialogTrigger>
+          </Dialog>
+        </CardContent>
+      </Card>
 
       {/* Tabs: History & Charts */}
       <Tabs defaultValue="history" className="space-y-4">
