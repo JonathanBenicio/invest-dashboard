@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fixedIncomeAssets, formatCurrency, formatDate, type FixedIncomeAsset } from "@/lib/mock-data";
+import { fixedIncomeAssets, mockPortfolios, formatCurrency, formatDate, type FixedIncomeAsset } from "@/lib/mock-data";
 import { useToast } from "@/hooks/use-toast";
 
 export default function FixedIncome() {
@@ -91,6 +91,21 @@ export default function FixedIncome() {
             </DialogHeader>
             <form onSubmit={handleAddAsset}>
               <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="portfolioId">Carteira</Label>
+                  <Select name="portfolioId" defaultValue={mockPortfolios[0]?.id}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a carteira" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mockPortfolios.map((portfolio) => (
+                        <SelectItem key={portfolio.id} value={portfolio.id}>
+                          {portfolio.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">Nome do Ativo</Label>
                   <Input id="name" name="name" placeholder="Ex: CDB Banco Inter" required />
