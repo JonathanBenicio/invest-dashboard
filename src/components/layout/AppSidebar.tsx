@@ -6,7 +6,8 @@ import {
   BarChart3, 
   Settings,
   LogOut,
-  Wallet
+  Wallet,
+  Calculator
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -31,6 +32,7 @@ const menuItems = [
   { title: "Carteiras", url: "/carteiras", icon: Wallet },
   { title: "Renda Fixa", url: "/renda-fixa", icon: Landmark },
   { title: "Renda Variável", url: "/renda-variavel", icon: TrendingUp },
+  { title: "Simulador", url: "/simulador", icon: Calculator },
   { title: "Importar Dados", url: "/importar", icon: Upload },
   { title: "Análise", url: "/analise", icon: BarChart3 },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
