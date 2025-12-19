@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, MoreHorizontal, Eye, Plus, Target, Calendar } from "lucide-react"
+import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, MoreHorizontal, Eye, Plus, Target, Calendar, PlusCircle, MinusCircle } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts"
 import {
@@ -310,12 +310,30 @@ export default function PortfolioDetails() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <Link to={`/investimento/${asset.id}?type=fixed`}>
-                                <DropdownMenuItem>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Ver Detalhes
-                                </DropdownMenuItem>
-                              </Link>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/investimento/${asset.id}?type=fixed`}>
+                                  <div className="flex items-center w-full">
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    <span>Ver Detalhes</span>
+                                  </div>
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/investimento/${asset.id}?type=fixed&action=buy`}>
+                                  <div className="flex items-center w-full">
+                                    <PlusCircle className="mr-2 h-4 w-4 text-success" />
+                                    <span>Aportar</span>
+                                  </div>
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/investimento/${asset.id}?type=fixed&action=sell`}>
+                                  <div className="flex items-center w-full">
+                                    <MinusCircle className="mr-2 h-4 w-4 text-destructive" />
+                                    <span>Resgatar</span>
+                                  </div>
+                                </Link>
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -373,12 +391,30 @@ export default function PortfolioDetails() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <Link to={`/investimento/${asset.id}?type=variable`}>
-                                <DropdownMenuItem>
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  Ver Detalhes
-                                </DropdownMenuItem>
-                              </Link>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/investimento/${asset.id}?type=variable`}>
+                                  <div className="flex items-center w-full">
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    <span>Ver Detalhes</span>
+                                  </div>
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/investimento/${asset.id}?type=variable&action=buy`}>
+                                  <div className="flex items-center w-full">
+                                    <PlusCircle className="mr-2 h-4 w-4 text-success" />
+                                    <span>Comprar</span>
+                                  </div>
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/investimento/${asset.id}?type=variable&action=sell`}>
+                                  <div className="flex items-center w-full">
+                                    <MinusCircle className="mr-2 h-4 w-4 text-destructive" />
+                                    <span>Vender</span>
+                                  </div>
+                                </Link>
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

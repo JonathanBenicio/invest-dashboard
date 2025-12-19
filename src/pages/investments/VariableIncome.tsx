@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, ArrowUpRight, ArrowDownRight, Eye } from "lucide-react"
+import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, ArrowUpRight, ArrowDownRight, Eye, PlusCircle, MinusCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -285,6 +285,14 @@ export default function VariableIncome() {
                                 <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=variable`)}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   Ver Detalhes
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=variable&action=buy`)}>
+                                  <PlusCircle className="h-4 w-4 mr-2 text-success" />
+                                  Comprar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=variable&action=sell`)}>
+                                  <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
+                                  Vender
                                 </DropdownMenuItem>
                                 <DropdownMenuItem>
                                   <Pencil className="h-4 w-4 mr-2" />

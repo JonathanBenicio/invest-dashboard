@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -96,6 +96,15 @@ export default function InvestmentDetails() {
   const [price, setPrice] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [chartType, setChartType] = useState("position")
+
+  // Handle initial action from URL
+  useEffect(() => {
+    const action = searchParams.get("action")
+    if (action === "buy" || action === "sell") {
+      setTransactionType(action)
+      setDialogOpen(true)
+    }
+  }, [searchParams])
 
   // Find asset based on type
   const asset = type === "fixed"
