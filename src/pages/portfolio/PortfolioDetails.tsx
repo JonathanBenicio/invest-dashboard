@@ -139,7 +139,7 @@ export default function PortfolioDetails() {
             </div>
           </div>
         </div>
-        <Button className="bg-success hover:bg-success/90">
+        <Button>
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Investimento
         </Button>

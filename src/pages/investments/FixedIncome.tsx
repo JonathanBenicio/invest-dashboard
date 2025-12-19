@@ -77,7 +77,7 @@ export default function FixedIncome() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-success hover:bg-success/90">
+            <Button>
               <Plus className="h-4 w-4 mr-2" />
               Adicionar Ativo
             </Button>
@@ -181,7 +181,7 @@ export default function FixedIncome() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Adicionar</Button>
+                <Button type="submit" variant="success">Adicionar</Button>
               </DialogFooter>
             </form>
           </DialogContent>

@@ -245,7 +245,7 @@ export default function InvestmentDetails() {
         {/* Transaction Buttons */}
         <div className="flex gap-2">
           <Button
-            className="bg-success hover:bg-success/90"
+            variant="success"
             onClick={() => {
               setTransactionType("buy")
               setDialogOpen(true)
@@ -346,8 +346,8 @@ export default function InvestmentDetails() {
                   </>
                 )}
                 <Button
-                  className={`w-full ${transactionType === "buy" ? "bg-success hover:bg-success/90" : ""}`}
-                  variant={transactionType === "sell" ? "destructive" : "default"}
+                  className="w-full"
+                  variant={transactionType === "buy" ? "success" : (transactionType === "sell" ? "destructive" : "default")}
                   onClick={handleTransaction}
                   disabled={isVariable ? (!quantity || !price) : !price}
                 >
@@ -513,7 +513,8 @@ export default function InvestmentDetails() {
           </div>
           <Button
             size="lg"
-            className="bg-success hover:bg-success/90 w-full sm:w-auto"
+            variant="success"
+            className="w-full sm:w-auto"
             onClick={() => {
               setTransactionType("buy")
               setDialogOpen(true)
