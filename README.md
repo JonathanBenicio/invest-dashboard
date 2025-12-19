@@ -61,14 +61,48 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
+## Docker Usage
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Este projeto está pronto para Docker. Você pode fazer build e rodar localmente usando Docker ou Docker Compose.
 
-## Can I connect a custom domain to my Lovable project?
+> [!NOTE]
+> Por padrão, o Docker build usa o **MSW (Mock Service Worker)** para simular a API em produção. Para conectar a uma API real, configure as variáveis de ambiente apropriadas.
 
-Yes, you can!
+### Usando Docker Compose (Recomendado)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```sh
+# Build e inicia o container com MSW habilitado (padrão)
+docker-compose up -d --build
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+# Para usar API real, edite docker-compose.yml:
+# args:
+#   VITE_USE_MSW: "false"
+#   VITE_API_URL: "https://sua-api.com"
+```
+
+### Build Local Manual
+
+```sh
+# Build com MSW habilitado (para testes/demo)
+docker build -t invest-dashboard .
+
+# Build para produção com API real
+docker build \
+  --build-arg VITE_USE_MSW=false \
+  --build-arg VITE_API_URL=https://sua-api.com \
+  -t invest-dashboard .
+
+# Rodar o container
+docker run -p 8080:80 invest-dashboard
+```
+
+A aplicação estará disponível em `http://localhost:8080`.
+
+## CI/CD com GitHub Actions
+
+O projeto inclui o seguinte workflow:
+
+1.  **Deploy para GitHub Pages**: Realiza o deploy automático do site estático para o GitHub Pages em cada push na branch `main`.
+
+> [!TIP]
+> Para o deploy funcionar corretamente com sua API, adicione o segredo `VITE_API_URL` nas configurações do seu repositório GitHub (Settings > Secrets and variables > Actions).
