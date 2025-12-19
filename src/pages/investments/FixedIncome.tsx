@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "@tanstack/react-router"
 import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, Eye, PlusCircle, MinusCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -300,15 +300,15 @@ export default function FixedIncome() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=fixed`)}>
+                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed' } })}>
                               <Eye className="h-4 w-4 mr-2" />
                               Ver Detalhes
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=fixed&action=buy`)}>
+                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'buy' } })}>
                               <PlusCircle className="h-4 w-4 mr-2 text-success" />
                               Aportar
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=fixed&action=sell`)}>
+                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'sell' } })}>
                               <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
                               Resgatar
                             </DropdownMenuItem>

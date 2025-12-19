@@ -1,16 +1,15 @@
-import { 
-  LayoutDashboard, 
-  Landmark, 
-  TrendingUp, 
-  Upload, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Landmark,
+  TrendingUp,
+  Upload,
+  BarChart3,
   Settings,
   LogOut,
   Wallet,
   Calculator
-} from "lucide-react";
-import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+} from "lucide-react"
+import { NavLink } from "@/components/NavLink"
 import {
   Sidebar,
   SidebarContent,
@@ -23,9 +22,9 @@ import {
   SidebarHeader,
   SidebarFooter,
   useSidebar,
-} from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { currentUser } from "@/lib/mock-data";
+} from "@/components/ui/sidebar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { currentUser } from "@/lib/mock-data"
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -36,12 +35,11 @@ const menuItems = [
   { title: "Importar Dados", url: "/importar", icon: Upload },
   { title: "Análise", url: "/analise", icon: BarChart3 },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
-];
+]
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const location = useLocation();
-  const collapsed = state === "collapsed";
+  const { state } = useSidebar()
+  const collapsed = state === "collapsed"
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -69,8 +67,8 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
-                    <NavLink 
-                      to={item.url} 
+                    <NavLink
+                      to={item.url as any}
                       className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
@@ -106,5 +104,5 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
     </Sidebar>
-  );
+  )
 }

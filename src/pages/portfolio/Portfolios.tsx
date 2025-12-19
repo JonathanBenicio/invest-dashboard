@@ -44,7 +44,7 @@ import {
   TrendingUp,
   Briefcase
 } from "lucide-react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "@tanstack/react-router"
 import { mockBanks, mockPortfolios, mockUsers } from "@/lib/mock-data"
 
 const Portfolios = () => {
@@ -322,7 +322,7 @@ const Portfolios = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate(`/carteira/${portfolio.id}`)}>
+                        <DropdownMenuItem onClick={() => navigate({ to: '/carteira/$id', params: { id: portfolio.id } })}>
                           <Eye className="h-4 w-4 mr-2" />
                           Ver Detalhes
                         </DropdownMenuItem>
@@ -347,7 +347,7 @@ const Portfolios = () => {
       {/* Portfolio Cards Grid (Mobile-friendly alternative view) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:hidden">
         {portfolios.map((portfolio) => (
-          <Card key={portfolio.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate(`/carteira/${portfolio.id}`)}>
+          <Card key={portfolio.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate({ to: '/carteira/$id', params: { id: portfolio.id } })}>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

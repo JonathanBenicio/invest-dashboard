@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "@tanstack/react-router"
 import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, ArrowUpRight, ArrowDownRight, Eye, PlusCircle, MinusCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -282,15 +282,15 @@ export default function VariableIncome() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=variable`)}>
+                                <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable' } })}>
                                   <Eye className="h-4 w-4 mr-2" />
                                   Ver Detalhes
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=variable&action=buy`)}>
+                                <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable', action: 'buy' } })}>
                                   <PlusCircle className="h-4 w-4 mr-2 text-success" />
                                   Comprar
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=variable&action=sell`)}>
+                                <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable', action: 'sell' } })}>
                                   <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
                                   Vender
                                 </DropdownMenuItem>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
-import { useParams, useNavigate, useSearchParams } from "react-router-dom"
+import { useNavigate } from "@tanstack/react-router"
+import { investmentDetailsRoute } from "../../router"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -86,10 +87,10 @@ const generateChartData = () => [
 ]
 
 export default function InvestmentDetails() {
-  const { id } = useParams()
-  const [searchParams] = useSearchParams()
+  const { id } = investmentDetailsRoute.useParams()
+  const search = investmentDetailsRoute.useSearch()
   const navigate = useNavigate()
-  const type = searchParams.get("type") || "variable"
+  const type = search.type || "variable"
 
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [quantity, setQuantity] = useState("")
@@ -99,12 +100,12 @@ export default function InvestmentDetails() {
 
   // Handle initial action from URL
   useEffect(() => {
-    const action = searchParams.get("action")
+    const action = search.action
     if (action === "buy" || action === "sell") {
       setTransactionType(action)
       setDialogOpen(true)
     }
-  }, [searchParams])
+  }, [search.action])
 
   // Find asset based on type
   const asset = type === "fixed"
@@ -115,7 +116,7 @@ export default function InvestmentDetails() {
     return (
       <div className="flex flex-col items-center justify-center h-96">
         <p className="text-muted-foreground">Ativo não encontrado</p>
-        <Button variant="outline" onClick={() => navigate(-1)} className="mt-4">
+        <Button variant="outline" onClick={() => window.history.back()} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
         </Button>
       </div>
@@ -224,7 +225,7 @@ export default function InvestmentDetails() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

@@ -1,8 +1,8 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "./AppSidebar";
-import { Outlet } from "react-router-dom";
-import { Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { AppSidebar } from "./AppSidebar"
+import { Outlet } from "@tanstack/react-router"
+import { Bell } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function AppLayout() {
   return (
@@ -26,5 +26,5 @@ export function AppLayout() {
         </div>
       </div>
     </SidebarProvider>
-  );
+  )
 }

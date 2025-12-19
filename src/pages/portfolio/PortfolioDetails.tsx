@@ -1,4 +1,5 @@
-import { useParams, Link } from "react-router-dom"
+import { Link } from "@tanstack/react-router"
+import { portfolioDetailsRoute } from "../../router"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -44,7 +45,7 @@ const monthlyProfitability = [
 ]
 
 export default function PortfolioDetails() {
-  const { id } = useParams()
+  const { id } = portfolioDetailsRoute.useParams()
   const portfolio = mockPortfolios.find(p => p.id === id)
 
   if (!portfolio) {
@@ -311,7 +312,7 @@ export default function PortfolioDetails() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
-                                <Link to={`/investimento/${asset.id}?type=fixed`}>
+                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'fixed' }}>
                                   <div className="flex items-center w-full">
                                     <Eye className="mr-2 h-4 w-4" />
                                     <span>Ver Detalhes</span>
@@ -319,7 +320,7 @@ export default function PortfolioDetails() {
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link to={`/investimento/${asset.id}?type=fixed&action=buy`}>
+                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'fixed', action: 'buy' }}>
                                   <div className="flex items-center w-full">
                                     <PlusCircle className="mr-2 h-4 w-4 text-success" />
                                     <span>Aportar</span>
@@ -327,7 +328,7 @@ export default function PortfolioDetails() {
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link to={`/investimento/${asset.id}?type=fixed&action=sell`}>
+                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'fixed', action: 'sell' }}>
                                   <div className="flex items-center w-full">
                                     <MinusCircle className="mr-2 h-4 w-4 text-destructive" />
                                     <span>Resgatar</span>
@@ -392,7 +393,7 @@ export default function PortfolioDetails() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem asChild>
-                                <Link to={`/investimento/${asset.id}?type=variable`}>
+                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'variable' }}>
                                   <div className="flex items-center w-full">
                                     <Eye className="mr-2 h-4 w-4" />
                                     <span>Ver Detalhes</span>
@@ -400,7 +401,7 @@ export default function PortfolioDetails() {
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link to={`/investimento/${asset.id}?type=variable&action=buy`}>
+                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'variable', action: 'buy' }}>
                                   <div className="flex items-center w-full">
                                     <PlusCircle className="mr-2 h-4 w-4 text-success" />
                                     <span>Comprar</span>
@@ -408,7 +409,7 @@ export default function PortfolioDetails() {
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link to={`/investimento/${asset.id}?type=variable&action=sell`}>
+                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'variable', action: 'sell' }}>
                                   <div className="flex items-center w-full">
                                     <MinusCircle className="mr-2 h-4 w-4 text-destructive" />
                                     <span>Vender</span>
