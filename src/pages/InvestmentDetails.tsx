@@ -235,25 +235,28 @@ export default function InvestmentDetails() {
 
         {/* Transaction Buttons */}
         <div className="flex gap-2">
+          <Button
+            className="bg-finance-profit hover:bg-finance-profit/90"
+            onClick={() => {
+              setTransactionType("buy");
+              setDialogOpen(true);
+            }}
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            {isVariable ? "Comprar" : "Aportar"}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              setTransactionType("sell");
+              setDialogOpen(true);
+            }}
+          >
+            <MinusCircle className="mr-2 h-4 w-4" />
+            {isVariable ? "Vender" : "Resgatar"}
+          </Button>
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                className="bg-finance-profit hover:bg-finance-profit/90"
-                onClick={() => setTransactionType("buy")}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" /> 
-                {isVariable ? "Comprar" : "Aportar"}
-              </Button>
-            </DialogTrigger>
-            <DialogTrigger asChild>
-              <Button 
-                variant="destructive"
-                onClick={() => setTransactionType("sell")}
-              >
-                <MinusCircle className="mr-2 h-4 w-4" /> 
-                {isVariable ? "Vender" : "Resgatar"}
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
@@ -297,27 +300,41 @@ export default function InvestmentDetails() {
                     )}
                   </>
                 ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Valor do {transactionType === "buy" ? "Aporte" : "Resgate"}</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      placeholder="Ex: 5000.00"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                    />
-                    {price && (
-                      <div className="p-4 bg-muted rounded-lg mt-4">
-                        <p className="text-sm text-muted-foreground">
-                          {transactionType === "buy" ? "Valor do aporte" : "Valor do resgate"}
-                        </p>
-                        <p className="text-xl font-bold">
-                          {formatCurrency(Number(price))}
-                        </p>
+                  <>
+                    {transactionType === "sell" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="fixedQuantity">Quantidade (Opcional)</Label>
+                        <Input
+                          id="fixedQuantity"
+                          type="number"
+                          placeholder="Ex: 1"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                        />
                       </div>
                     )}
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Valor do {transactionType === "buy" ? "Aporte" : "Resgate"}</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        step="0.01"
+                        placeholder="Ex: 5000.00"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                      />
+                      {price && (
+                        <div className="p-4 bg-muted rounded-lg mt-4">
+                          <p className="text-sm text-muted-foreground">
+                            {transactionType === "buy" ? "Valor do aporte" : "Valor do resgate"}
+                          </p>
+                          <p className="text-xl font-bold">
+                            {formatCurrency(Number(price))}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
                 <Button 
                   className={`w-full ${transactionType === "buy" ? "bg-finance-profit hover:bg-finance-profit/90" : ""}`}
@@ -485,18 +502,17 @@ export default function InvestmentDetails() {
               </p>
             </div>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                size="lg"
-                className="bg-finance-profit hover:bg-finance-profit/90 w-full sm:w-auto"
-                onClick={() => setTransactionType("buy")}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" /> 
-                {isVariable ? "Comprar Agora" : "Aportar Agora"}
-              </Button>
-            </DialogTrigger>
-          </Dialog>
+          <Button
+            size="lg"
+            className="bg-finance-profit hover:bg-finance-profit/90 w-full sm:w-auto"
+            onClick={() => {
+              setTransactionType("buy");
+              setDialogOpen(true);
+            }}
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            {isVariable ? "Comprar Agora" : "Aportar Agora"}
+          </Button>
         </CardContent>
       </Card>
 
