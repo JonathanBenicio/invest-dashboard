@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { variableIncomeAssets, dividends, formatCurrency, formatDate, type VariableIncomeAsset } from "@/lib/mock-data";
+import { variableIncomeAssets, mockPortfolios, dividends, formatCurrency, formatDate, type VariableIncomeAsset } from "@/lib/mock-data";
 import { useToast } from "@/hooks/use-toast";
 
 export default function VariableIncome() {
@@ -100,6 +100,21 @@ export default function VariableIncome() {
             </DialogHeader>
             <form onSubmit={handleAddAsset}>
               <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="portfolioId">Carteira</Label>
+                  <Select name="portfolioId" defaultValue={mockPortfolios[0]?.id}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a carteira" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mockPortfolios.map((portfolio) => (
+                        <SelectItem key={portfolio.id} value={portfolio.id}>
+                          {portfolio.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="ticker">Ticker</Label>

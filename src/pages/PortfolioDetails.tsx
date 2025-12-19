@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, MoreHorizontal, Eye, Plus } from "lucide-react";
+import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, MoreHorizontal, Eye, Plus, Target, Calendar } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { 
@@ -14,7 +14,8 @@ import {
   transactions,
   formatCurrency, 
   formatPercentage,
-  formatDate 
+  formatDate,
+  type FixedIncomeAsset
 } from "@/lib/mock-data";
 
 const portfolioEvolution = [
@@ -67,6 +68,53 @@ export default function PortfolioDetails() {
   const portfolioFixedIncome = fixedIncomeAssets.slice(0, 3);
   const portfolioVariableIncome = variableIncomeAssets.slice(0, 4);
   const portfolioTransactions = transactions.slice(0, 5);
+
+  // Calculate projected values for all fixed income assets in the portfolio
+  const calculateTotalProjection = () => {
+    let totalProjectedValue = 0;
+    let totalProjectedProfit = 0;
+
+    portfolioFixedIncome.forEach(asset => {
+      const today = new Date();
+      const maturity = new Date(asset.maturityDate);
+      const purchase = new Date(asset.purchaseDate);
+
+      const daysRemaining = Math.max(0, Math.ceil((maturity.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+      const yearsRemaining = daysRemaining / 365;
+
+      let annualRate = 0;
+      const CDI_RATE = 0.1215; // 12.15% CDI
+      const IPCA_RATE = 0.045; // 4.5% IPCA
+
+      if (asset.rateType === 'CDI') {
+        const cdiPercentage = parseFloat(asset.rate.replace('%', '')) / 100;
+        annualRate = CDI_RATE * cdiPercentage;
+      } else if (asset.rateType === 'IPCA') {
+        const spreadMatch = asset.rate.match(/[\d,]+/g);
+        const spread = spreadMatch ? parseFloat(spreadMatch[spreadMatch.length - 1].replace(',', '.')) / 100 : 0.06;
+        annualRate = IPCA_RATE + spread;
+      } else {
+        annualRate = parseFloat(asset.rate.replace('%', '').replace(',', '.')) / 100;
+      }
+
+      const projectedValue = asset.currentValue * Math.pow(1 + annualRate, yearsRemaining);
+      const projectedProfit = projectedValue - asset.investedValue;
+
+      totalProjectedValue += projectedValue;
+      totalProjectedProfit += projectedProfit;
+    });
+
+    const totalInvested = portfolioFixedIncome.reduce((acc, asset) => acc + asset.investedValue, 0);
+    const totalProjectedProfitPercentage = totalInvested > 0 ? (totalProjectedProfit / totalInvested) * 100 : 0;
+
+    return {
+      totalProjectedValue,
+      totalProjectedProfit,
+      totalProjectedProfitPercentage
+    };
+  };
+
+  const projection = calculateTotalProjection();
 
   return (
     <div className="space-y-6">
@@ -182,6 +230,45 @@ export default function PortfolioDetails() {
 
         {/* Investments Tab */}
         <TabsContent value="investments" className="space-y-4">
+
+          {/* Fixed Income Projection Summary */}
+          {portfolioFixedIncome.length > 0 && (
+            <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Target className="h-5 w-5 text-primary" />
+                  Projeção Consolidada Renda Fixa
+                </CardTitle>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  No Vencimento
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Valor Projetado Total</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(projection.totalProjectedValue)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Lucro Projetado Total</p>
+                    <p className="text-2xl font-bold text-finance-profit">
+                      {formatCurrency(projection.totalProjectedProfit)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Rentabilidade Total</p>
+                    <p className="text-2xl font-bold text-finance-profit">
+                      {formatPercentage(projection.totalProjectedProfitPercentage)}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Fixed Income */}
           <Card>
             <CardHeader>
