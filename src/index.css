@@ -15,7 +15,7 @@ All colors MUST be HSL.
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
     --primary: oklch(0.61 0.11 222);
-    --primary-foreground: oklch(0.98 0.02 201);
+    --primary-foreground: oklch(1 0 0);
     --secondary: oklch(0.967 0.001 286.375);
     --secondary-foreground: oklch(0.21 0.006 285.885);
     --muted: oklch(0.97 0 0);
@@ -23,9 +23,10 @@ All colors MUST be HSL.
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
     --destructive: oklch(0.58 0.22 27);
+    --destructive-foreground: oklch(1 0 0);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+    --ring: oklch(0.61 0.11 222);
     --chart-1: oklch(0.87 0.12 207);
     --chart-2: oklch(0.80 0.13 212);
     --chart-3: oklch(0.71 0.13 215);
@@ -35,20 +36,19 @@ All colors MUST be HSL.
     --sidebar-background: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.61 0.11 222);
-    --sidebar-primary-foreground: oklch(0.98 0.02 201);
+    --sidebar-primary-foreground: oklch(1 0 0);
     --sidebar-accent: oklch(0.97 0 0);
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar-ring: oklch(0.61 0.11 222);
 
     /* Success/Warning/Info colors */
     --success: oklch(0.55 0.18 145);
     --success-foreground: oklch(1 0 0);
-    --destructive-foreground: oklch(1 0 0);
-    --warning: 38 92% 50%;
-    --warning-foreground: 222.2 84% 4.9%;
-    --info: 217 91% 60%;
-    --info-foreground: 210 40% 98%;
+    --warning: oklch(0.75 0.15 85);
+    --warning-foreground: oklch(0.15 0 0);
+    --info: oklch(0.65 0.15 250);
+    --info-foreground: oklch(1 0 0);
   }
 
   .dark {
@@ -59,7 +59,7 @@ All colors MUST be HSL.
     --popover: oklch(0.205 0 0);
     --popover-foreground: oklch(0.985 0 0);
     --primary: oklch(0.71 0.13 215);
-    --primary-foreground: oklch(0.30 0.05 230);
+    --primary-foreground: oklch(1 0 0);
     --secondary: oklch(0.274 0.006 286.033);
     --secondary-foreground: oklch(0.985 0 0);
     --muted: oklch(0.269 0 0);
@@ -67,9 +67,10 @@ All colors MUST be HSL.
     --accent: oklch(0.371 0 0);
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(1 0 0);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+    --ring: oklch(0.71 0.13 215);
     --chart-1: oklch(0.87 0.12 207);
     --chart-2: oklch(0.80 0.13 212);
     --chart-3: oklch(0.71 0.13 215);
@@ -78,16 +79,15 @@ All colors MUST be HSL.
     --sidebar-background: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.80 0.13 212);
-    --sidebar-primary-foreground: oklch(0.30 0.05 230);
+    --sidebar-primary-foreground: oklch(1 0 0);
     --sidebar-accent: oklch(0.269 0 0);
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --sidebar-ring: oklch(0.71 0.13 215);
 
     /* Success colors for dark mode */
     --success: oklch(0.55 0.18 145);
     --success-foreground: oklch(1 0 0);
-    --destructive-foreground: oklch(1 0 0);
   }
 }
 
