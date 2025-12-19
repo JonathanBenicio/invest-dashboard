@@ -1,23 +1,23 @@
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -25,44 +25,44 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/ui/table"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { 
-  Plus, 
-  Wallet, 
-  Building2, 
-  User, 
-  MoreHorizontal, 
-  Eye, 
-  Pencil, 
+} from "@/components/ui/dropdown-menu"
+import {
+  Plus,
+  Wallet,
+  Building2,
+  User,
+  MoreHorizontal,
+  Eye,
+  Pencil,
   Trash2,
   TrendingUp,
   Briefcase
-} from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { mockBanks, mockPortfolios, mockUsers } from "@/lib/mock-data";
+} from "lucide-react"
+import { useNavigate } from "react-router-dom"
+import { mockBanks, mockPortfolios, mockUsers } from "@/lib/mock-data"
 
 const Portfolios = () => {
-  const navigate = useNavigate();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [portfolios, setPortfolios] = useState(mockPortfolios);
+  const navigate = useNavigate()
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [portfolios, setPortfolios] = useState(mockPortfolios)
   const [formData, setFormData] = useState({
     name: "",
     bankId: "",
     userId: "",
     description: "",
-  });
+  })
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const bank = mockBanks.find(b => b.id === formData.bankId);
-    const user = mockUsers.find(u => u.id === formData.userId);
-    
+    e.preventDefault()
+    const bank = mockBanks.find(b => b.id === formData.bankId)
+    const user = mockUsers.find(u => u.id === formData.userId)
+
     const newPortfolio = {
       id: `portfolio-${Date.now()}`,
       name: formData.name,
@@ -78,19 +78,19 @@ const Portfolios = () => {
       profitability: 0,
       assetsCount: 0,
       createdAt: new Date().toISOString(),
-    };
-    
-    setPortfolios([...portfolios, newPortfolio]);
-    setFormData({ name: "", bankId: "", userId: "", description: "" });
-    setIsDialogOpen(false);
-  };
+    }
 
-  const totalPatrimony = portfolios.reduce((acc, p) => acc + p.totalValue, 0);
-  const totalInvested = portfolios.reduce((acc, p) => acc + p.totalInvested, 0);
-  const totalProfit = totalPatrimony - totalInvested;
-  const avgProfitability = portfolios.length > 0 
-    ? portfolios.reduce((acc, p) => acc + p.profitability, 0) / portfolios.length 
-    : 0;
+    setPortfolios([...portfolios, newPortfolio])
+    setFormData({ name: "", bankId: "", userId: "", description: "" })
+    setIsDialogOpen(false)
+  }
+
+  const totalPatrimony = portfolios.reduce((acc, p) => acc + p.totalValue, 0)
+  const totalInvested = portfolios.reduce((acc, p) => acc + p.totalInvested, 0)
+  const totalProfit = totalPatrimony - totalInvested
+  const avgProfitability = portfolios.length > 0
+    ? portfolios.reduce((acc, p) => acc + p.profitability, 0) / portfolios.length
+    : 0
 
   return (
     <div className="space-y-6">
@@ -100,7 +100,7 @@ const Portfolios = () => {
           <h1 className="text-2xl font-bold text-foreground">Carteiras</h1>
           <p className="text-muted-foreground">Gerencie suas carteiras de investimentos</p>
         </div>
-        
+
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -123,7 +123,7 @@ const Portfolios = () => {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="bank">Banco/Corretora</Label>
                 <Select
@@ -146,7 +146,7 @@ const Portfolios = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="user">Titular</Label>
                 <Select
@@ -169,7 +169,7 @@ const Portfolios = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="description">Descrição (opcional)</Label>
                 <Input
@@ -179,7 +179,7 @@ const Portfolios = () => {
                   placeholder="Descrição da carteira"
                 />
               </div>
-              
+
               <div className="flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
@@ -206,7 +206,7 @@ const Portfolios = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -220,30 +220,30 @@ const Portfolios = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Lucro/Prejuízo
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-finance-profit" />
+            <TrendingUp className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${totalProfit >= 0 ? "text-finance-profit" : "text-finance-loss"}`}>
+            <div className={`text-2xl font-bold ${totalProfit >= 0 ? "text-success" : "text-destructive"}`}>
               {totalProfit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
             </div>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Rentabilidade Média
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-finance-profit" />
+            <TrendingUp className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${avgProfitability >= 0 ? "text-finance-profit" : "text-finance-loss"}`}>
+            <div className={`text-2xl font-bold ${avgProfitability >= 0 ? "text-success" : "text-destructive"}`}>
               {avgProfitability.toFixed(2)}%
             </div>
           </CardContent>
@@ -384,7 +384,7 @@ const Portfolios = () => {
         ))}
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default Portfolios;
+export default Portfolios
