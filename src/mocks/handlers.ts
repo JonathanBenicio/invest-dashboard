@@ -16,7 +16,7 @@ import {
   mockPortfolioSummary,
 } from './data'
 
-const BASE_URL = 'http://localhost:5000/api/v1'
+const BASE_URL = API_CONFIG.BASE_URL+API_CONFIG.VERSION
 
 /**
  * Helper to create API response

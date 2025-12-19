@@ -31,6 +31,7 @@ jobs:
           cp dist/index.html dist/404.html
         env:
           GITHUB_PAGES: true
+          VITE_USE_MSW: "true"
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Upload artifact
