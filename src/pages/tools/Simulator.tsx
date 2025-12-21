@@ -21,7 +21,7 @@ export default function Simulator() {
   const [interestRate, setInterestRate] = useState<number>(10);
 
   const simulationData = useMemo(() => {
-    const data = [];
+    const data: { month: number; invested: number; total: number; interest: number }[] = [];
     const monthlyRate = Math.pow(1 + interestRate / 100, 1 / 12) - 1;
     const totalMonths = years * 12;
 
