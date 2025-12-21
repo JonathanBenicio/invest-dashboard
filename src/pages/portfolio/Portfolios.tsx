@@ -45,10 +45,14 @@ import {
   Briefcase
 } from "lucide-react"
 import { useNavigate } from "@tanstack/react-router"
-import { mockBanks, mockPortfolios, mockUsers } from "@/lib/mock-data"
+import { useToast } from "@/hooks/use-toast"
+import { mockBanks, mockPortfolios, mockUsers, type Portfolio } from "@/lib/mock-data"
+import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
+import { EditPortfolioDialog } from "@/components/dialogs/EditPortfolioDialog"
 
 const Portfolios = () => {
   const navigate = useNavigate()
+  const { toast } = useToast()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [portfolios, setPortfolios] = useState(mockPortfolios)
   const [formData, setFormData] = useState({
@@ -57,6 +61,12 @@ const Portfolios = () => {
     userId: "",
     description: "",
   })
+
+  // Edit/Delete state
+  const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [deletingPortfolio, setDeletingPortfolio] = useState<Portfolio | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -83,6 +93,43 @@ const Portfolios = () => {
     setPortfolios([...portfolios, newPortfolio])
     setFormData({ name: "", bankId: "", userId: "", description: "" })
     setIsDialogOpen(false)
+    toast({
+      title: "Carteira criada",
+      description: `A carteira "${formData.name}" foi criada com sucesso.`,
+    })
+  }
+
+  const handleEditPortfolio = (portfolio: Portfolio) => {
+    setEditingPortfolio(portfolio)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleSaveEdit = (updatedPortfolio: Portfolio) => {
+    setPortfolios(portfolios.map(p => 
+      p.id === updatedPortfolio.id ? updatedPortfolio : p
+    ))
+    toast({
+      title: "Carteira atualizada",
+      description: `A carteira "${updatedPortfolio.name}" foi atualizada com sucesso.`,
+    })
+  }
+
+  const handleDeleteClick = (portfolio: Portfolio) => {
+    setDeletingPortfolio(portfolio)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (deletingPortfolio) {
+      setPortfolios(portfolios.filter(p => p.id !== deletingPortfolio.id))
+      toast({
+        title: "Carteira excluída",
+        description: `A carteira "${deletingPortfolio.name}" foi excluída com sucesso.`,
+        variant: "destructive",
+      })
+      setIsDeleteDialogOpen(false)
+      setDeletingPortfolio(null)
+    }
   }
 
   const totalPatrimony = portfolios.reduce((acc, p) => acc + p.totalValue, 0)
@@ -326,11 +373,14 @@ const Portfolios = () => {
                           <Eye className="h-4 w-4 mr-2" />
                           Ver Detalhes
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditPortfolio(portfolio)}>
                           <Pencil className="h-4 w-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => handleDeleteClick(portfolio)}
+                        >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Excluir
                         </DropdownMenuItem>
@@ -383,6 +433,23 @@ const Portfolios = () => {
           </Card>
         ))}
       </div>
+
+      {/* Edit Portfolio Dialog */}
+      <EditPortfolioDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        portfolio={editingPortfolio}
+        onSave={handleSaveEdit}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Excluir Carteira"
+        description={`Tem certeza que deseja excluir a carteira "${deletingPortfolio?.name}"? Esta ação não pode ser desfeita e todos os investimentos associados serão removidos.`}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

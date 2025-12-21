@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { portfolioDetailsRoute } from "../../router"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -5,19 +6,23 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, MoreHorizontal, Eye, Plus, Target, Calendar, PlusCircle, MinusCircle } from "lucide-react"
+import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, MoreHorizontal, Eye, Plus, Target, Calendar, PlusCircle, MinusCircle, Pencil, Trash2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts"
+import { useToast } from "@/hooks/use-toast"
 import {
   mockPortfolios,
-  fixedIncomeAssets,
-  variableIncomeAssets,
+  fixedIncomeAssets as initialFixedAssets,
+  variableIncomeAssets as initialVariableAssets,
   transactions,
   formatCurrency,
   formatPercentage,
   formatDate,
-  type FixedIncomeAsset
+  type FixedIncomeAsset,
+  type VariableIncomeAsset,
 } from "@/lib/mock-data"
+import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
+import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 
 const portfolioEvolution = [
   { month: 'Jul', value: 150000 },
@@ -46,7 +51,19 @@ const monthlyProfitability = [
 
 export default function PortfolioDetails() {
   const { id } = portfolioDetailsRoute.useParams()
+  const { toast } = useToast()
   const portfolio = mockPortfolios.find(p => p.id === id)
+
+  // State for investments
+  const [fixedIncomeAssets, setFixedIncomeAssets] = useState(initialFixedAssets.slice(0, 3))
+  const [variableIncomeAssets, setVariableIncomeAssets] = useState(initialVariableAssets.slice(0, 4))
+
+  // Edit/Delete state
+  const [editingInvestment, setEditingInvestment] = useState<FixedIncomeAsset | VariableIncomeAsset | null>(null)
+  const [editingType, setEditingType] = useState<"fixed" | "variable">("fixed")
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [deletingInvestment, setDeletingInvestment] = useState<{ asset: FixedIncomeAsset | VariableIncomeAsset; type: "fixed" | "variable" } | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   if (!portfolio) {
     return (
@@ -65,10 +82,65 @@ export default function PortfolioDetails() {
   const profit = portfolio.totalValue - portfolio.totalInvested
   const isProfit = profit >= 0
 
-  // Mock investments for this portfolio
-  const portfolioFixedIncome = fixedIncomeAssets.slice(0, 3)
-  const portfolioVariableIncome = variableIncomeAssets.slice(0, 4)
+  const portfolioFixedIncome = fixedIncomeAssets
+  const portfolioVariableIncome = variableIncomeAssets
   const portfolioTransactions = transactions.slice(0, 5)
+
+  // Edit/Delete handlers
+  const handleEditFixed = (asset: FixedIncomeAsset) => {
+    setEditingInvestment(asset)
+    setEditingType("fixed")
+    setIsEditDialogOpen(true)
+  }
+
+  const handleEditVariable = (asset: VariableIncomeAsset) => {
+    setEditingInvestment(asset)
+    setEditingType("variable")
+    setIsEditDialogOpen(true)
+  }
+
+  const handleSaveInvestment = (updated: FixedIncomeAsset | VariableIncomeAsset) => {
+    if (editingType === "fixed") {
+      setFixedIncomeAssets(prev => prev.map(a => a.id === updated.id ? updated as FixedIncomeAsset : a))
+    } else {
+      setVariableIncomeAssets(prev => prev.map(a => a.id === updated.id ? updated as VariableIncomeAsset : a))
+    }
+    toast({
+      title: "Investimento atualizado",
+      description: "O investimento foi atualizado com sucesso.",
+    })
+  }
+
+  const handleDeleteClick = (asset: FixedIncomeAsset | VariableIncomeAsset, type: "fixed" | "variable") => {
+    setDeletingInvestment({ asset, type })
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (!deletingInvestment) return
+
+    if (deletingInvestment.type === "fixed") {
+      setFixedIncomeAssets(prev => prev.filter(a => a.id !== deletingInvestment.asset.id))
+    } else {
+      setVariableIncomeAssets(prev => prev.filter(a => a.id !== deletingInvestment.asset.id))
+    }
+
+    toast({
+      title: "Investimento excluído",
+      description: "O investimento foi excluído com sucesso.",
+      variant: "destructive",
+    })
+    setIsDeleteDialogOpen(false)
+    setDeletingInvestment(null)
+  }
+
+  const getDeleteDescription = () => {
+    if (!deletingInvestment) return ""
+    if (deletingInvestment.type === "fixed") {
+      return `Tem certeza que deseja excluir "${(deletingInvestment.asset as FixedIncomeAsset).name}"?`
+    }
+    return `Tem certeza que deseja excluir "${(deletingInvestment.asset as VariableIncomeAsset).ticker}"?`
+  }
 
   // Calculate projected values for all fixed income assets in the portfolio
   const calculateTotalProjection = () => {
@@ -335,6 +407,17 @@ export default function PortfolioDetails() {
                                   </div>
                                 </Link>
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditFixed(asset)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => handleDeleteClick(asset, "fixed")}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -415,6 +498,17 @@ export default function PortfolioDetails() {
                                     <span>Vender</span>
                                   </div>
                                 </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditVariable(asset)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => handleDeleteClick(asset, "variable")}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -562,6 +656,24 @@ export default function PortfolioDetails() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Investment Dialog */}
+      <EditInvestmentDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        investment={editingInvestment}
+        type={editingType}
+        onSave={handleSaveInvestment}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <DeleteConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Excluir Investimento"
+        description={getDeleteDescription()}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   )
 }

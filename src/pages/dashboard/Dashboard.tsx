@@ -1,8 +1,10 @@
+import { useState, useMemo } from "react"
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Calendar, Wallet, PiggyBank } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { investmentService, queryKeys } from "@/api"
 import { formatCurrency } from "@/lib/utils"
+import { ChartPeriodFilter, type ChartPeriod, generatePeriodData } from "@/components/ChartPeriodFilter"
 import {
   ResponsiveContainer,
   AreaChart,
@@ -17,11 +19,21 @@ import {
 } from "recharts"
 
 export default function Dashboard() {
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('30d')
+
   // Fetch investment summary
   const { data: summaryData, isLoading } = useQuery({
     queryKey: queryKeys.investments.summary(),
     queryFn: () => investmentService.getSummary(),
   })
+
+  const summary = summaryData?.data
+
+  // Generate chart data based on selected period
+  const portfolioHistory = useMemo(() => {
+    if (!summary) return []
+    return generatePeriodData(chartPeriod, summary.currentValue)
+  }, [chartPeriod, summary])
 
   if (isLoading) {
     return (
@@ -31,7 +43,6 @@ export default function Dashboard() {
     )
   }
 
-  const summary = summaryData?.data
   if (!summary) return null
 
   const totalPortfolio = summary.currentValue
@@ -41,16 +52,6 @@ export default function Dashboard() {
   // Find best and worst performers
   const bestPerformer = summary.topPerformers[0]
   const worstPerformer = summary.worstPerformers[0]
-
-  // Mock data for charts (will be replaced with real data later)
-  const portfolioHistory = [
-    { month: 'Jul', value: 280000, benchmark: 275000 },
-    { month: 'Ago', value: 295000, benchmark: 282000 },
-    { month: 'Set', value: 305000, benchmark: 290000 },
-    { month: 'Out', value: 315000, benchmark: 298000 },
-    { month: 'Nov', value: 328000, benchmark: 305000 },
-    { month: 'Dez', value: 342500, benchmark: 312000 },
-  ]
 
   const allocationData = [
     { name: 'Renda Fixa', value: summary.fixedIncomeTotal, color: 'hsl(220, 70%, 50%)' },
@@ -140,9 +141,12 @@ export default function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Portfolio Evolution */}
         <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>Evolução Patrimonial</CardTitle>
-            <CardDescription>Últimos 6 meses vs Benchmark (CDI)</CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0">
+            <div>
+              <CardTitle>Evolução Patrimonial</CardTitle>
+              <CardDescription>Sua Carteira vs Benchmark (CDI)</CardDescription>
+            </div>
+            <ChartPeriodFilter value={chartPeriod} onChange={setChartPeriod} />
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -158,7 +162,7 @@ export default function Dashboard() {
                       <stop offset="95%" stopColor="hsl(145, 65%, 42%)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} className="text-xs" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-xs" />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
