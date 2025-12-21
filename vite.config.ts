@@ -7,11 +7,12 @@ import { componentTagger } from "lovable-tagger"
 export default defineConfig(({ mode }) => ({
   base: process.env.GITHUB_PAGES === "true" ? "/invest-dashboard/" : "/",
   server: {
-    host: "::",
-    port: 8080,
+    host: "0.0.0.0",
+    port: 5000,
     watch: {
       usePolling: true,
     },
+    allowedHosts: true,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

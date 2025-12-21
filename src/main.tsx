@@ -32,6 +32,9 @@ async function enableMocking() {
 
     const result = await worker.start({
       onUnhandledRequest: 'warn',
+      serviceWorker: {
+        url: `${import.meta.env.BASE_URL}mockServiceWorker.js`,
+      },
     })
 
     console.log('[MSW] Worker started successfully!')
