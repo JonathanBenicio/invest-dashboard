@@ -105,7 +105,7 @@ export const handlers = [
 
   http.post(`${BASE_URL}/portfolios`, async ({ request }) => {
     await delay(500)
-    const body = await request.json()
+    const body = await request.json() as Record<string, unknown>
 
     const newPortfolio = {
       id: `portfolio-${Date.now()}`,
@@ -126,7 +126,7 @@ export const handlers = [
   http.patch(`${BASE_URL}/portfolios/:id`, async ({ params, request }) => {
     await delay(400)
     const { id } = params
-    const body = await request.json()
+    const body = await request.json() as Record<string, unknown>
     const portfolio = mockPortfolios.find(p => p.id === id)
 
     if (!portfolio) {
@@ -214,15 +214,18 @@ export const handlers = [
 
   http.post(`${BASE_URL}/investments/fixed-income`, async ({ request }) => {
     await delay(500)
-    const body = await request.json()
+    const body = await request.json() as { averagePrice?: number; quantity?: number; [key: string]: unknown }
+
+    const avgPrice = body.averagePrice ?? 0
+    const qty = body.quantity ?? 0
 
     const newInvestment = {
       id: `fixed-${Date.now()}`,
       type: 'fixed_income' as const,
       ...body,
-      currentPrice: body.averagePrice,
-      totalInvested: body.quantity * body.averagePrice,
-      currentValue: body.quantity * body.averagePrice,
+      currentPrice: avgPrice,
+      totalInvested: qty * avgPrice,
+      currentValue: qty * avgPrice,
       gain: 0,
       gainPercentage: 0,
       currency: 'BRL',
@@ -235,16 +238,19 @@ export const handlers = [
 
   http.post(`${BASE_URL}/investments/variable-income`, async ({ request }) => {
     await delay(500)
-    const body = await request.json()
+    const body = await request.json() as { ticker?: string; averagePrice?: number; quantity?: number; [key: string]: unknown }
+
+    const avgPrice = body.averagePrice ?? 0
+    const qty = body.quantity ?? 0
 
     const newInvestment = {
       id: `var-${Date.now()}`,
       type: 'variable_income' as const,
-      name: body.ticker,
+      name: body.ticker ?? '',
       ...body,
-      currentPrice: body.averagePrice,
-      totalInvested: body.quantity * body.averagePrice,
-      currentValue: body.quantity * body.averagePrice,
+      currentPrice: avgPrice,
+      totalInvested: qty * avgPrice,
+      currentValue: qty * avgPrice,
       gain: 0,
       gainPercentage: 0,
       currency: 'BRL',
@@ -258,7 +264,7 @@ export const handlers = [
   http.patch(`${BASE_URL}/investments/:id`, async ({ params, request }) => {
     await delay(400)
     const { id } = params
-    const body = await request.json()
+    const body = await request.json() as Record<string, unknown>
     const investment = mockAllInvestments.find(inv => inv.id === id)
 
     if (!investment) {
