@@ -13,6 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { variableIncomeAssets, mockPortfolios, dividends, formatCurrency, formatDate, type VariableIncomeAsset } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
+import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
+import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 
 export default function VariableIncome() {
   const navigate = useNavigate()
@@ -20,6 +22,9 @@ export default function VariableIncome() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedAsset, setSelectedAsset] = useState<VariableIncomeAsset | null>(null)
   const { toast } = useToast()
 
   const filteredAssets = assets.filter(asset => {
@@ -59,12 +64,31 @@ export default function VariableIncome() {
     })
   }
 
+  const handleEditAsset = (updatedAsset: VariableIncomeAsset | any) => {
+    setAssets(assets.map(a => a.id === updatedAsset.id ? updatedAsset as VariableIncomeAsset : a))
+    toast({
+      title: "Ativo atualizado",
+      description: `${(updatedAsset as VariableIncomeAsset).ticker} foi atualizado com sucesso.`,
+    })
+  }
+
   const handleDeleteAsset = (id: string) => {
     setAssets(assets.filter(a => a.id !== id))
+    setSelectedAsset(null)
     toast({
       title: "Ativo removido",
       description: "O ativo foi removido da sua carteira.",
     })
+  }
+
+  const openEditDialog = (asset: VariableIncomeAsset) => {
+    setSelectedAsset(asset)
+    setIsEditDialogOpen(true)
+  }
+
+  const openDeleteDialog = (asset: VariableIncomeAsset) => {
+    setSelectedAsset(asset)
+    setIsDeleteDialogOpen(true)
   }
 
   const getTypeColor = (type: string) => {
@@ -294,13 +318,13 @@ export default function VariableIncome() {
                                   <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
                                   Vender
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEditDialog(asset)}>
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Editar
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   className="text-destructive"
-                                  onClick={() => handleDeleteAsset(asset.id)}
+                                  onClick={() => openDeleteDialog(asset)}
                                 >
                                   <Trash2 className="h-4 w-4 mr-2" />
                                   Excluir
@@ -357,6 +381,27 @@ export default function VariableIncome() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <EditInvestmentDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        investment={selectedAsset}
+        type="variable"
+        onSave={handleEditAsset}
+      />
+
+      <DeleteConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Excluir Ativo"
+        description={`Tem certeza que deseja excluir "${selectedAsset?.ticker}"? Esta ação não pode ser desfeita.`}
+        onConfirm={() => {
+          if (selectedAsset) {
+            handleDeleteAsset(selectedAsset.id)
+            setIsDeleteDialogOpen(false)
+          }
+        }}
+      />
     </div>
   )
 }
