@@ -3,7 +3,10 @@ services:
     build:
       context: .
       args:
+        # Enable MSW for mocking API responses (default: true)
         VITE_USE_MSW: "true"
+        # Base URL for the API (default: http://localhost:5000)
+        VITE_API_URL: "http://localhost:5000"
     ports:
       - "8080:80"
     restart: always
