@@ -1,43 +1,43 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { fixedIncomeAssets, formatCurrency, formatDate, type FixedIncomeAsset } from "@/lib/mock-data";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, Eye, PlusCircle, MinusCircle } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { fixedIncomeAssets, mockPortfolios, formatCurrency, formatDate, type FixedIncomeAsset } from "@/lib/mock-data"
+import { useToast } from "@/hooks/use-toast"
 
 export default function FixedIncome() {
-  const navigate = useNavigate();
-  const [assets, setAssets] = useState(fixedIncomeAssets);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { toast } = useToast();
+  const navigate = useNavigate()
+  const [assets, setAssets] = useState(fixedIncomeAssets)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const { toast } = useToast()
 
   const filteredAssets = assets.filter(asset => {
     const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         asset.institution.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || asset.type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+      asset.institution.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesType = typeFilter === "all" || asset.type === typeFilter
+    return matchesSearch && matchesType
+  })
 
-  const totalInvested = assets.reduce((acc, asset) => acc + asset.investedValue, 0);
-  const totalCurrent = assets.reduce((acc, asset) => acc + asset.currentValue, 0);
-  const totalProfit = totalCurrent - totalInvested;
+  const totalInvested = assets.reduce((acc, asset) => acc + asset.investedValue, 0)
+  const totalCurrent = assets.reduce((acc, asset) => acc + asset.currentValue, 0)
+  const totalProfit = totalCurrent - totalInvested
 
-  const assetTypes = ['CDB', 'LCI', 'LCA', 'Tesouro Direto', 'Debênture', 'CRI', 'CRA'];
+  const assetTypes = ['CDB', 'LCI', 'LCA', 'Tesouro Direto', 'Debênture', 'CRI', 'CRA']
 
   const handleAddAsset = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    
+    e.preventDefault()
+    const formData = new FormData(e.currentTarget)
+
     const newAsset: FixedIncomeAsset = {
       id: Date.now().toString(),
       name: formData.get('name') as string,
@@ -50,23 +50,23 @@ export default function FixedIncome() {
       purchaseDate: formData.get('purchaseDate') as string,
       maturityDate: formData.get('maturityDate') as string,
       liquidity: formData.get('liquidity') as FixedIncomeAsset['liquidity'],
-    };
+    }
 
-    setAssets([...assets, newAsset]);
-    setIsDialogOpen(false);
+    setAssets([...assets, newAsset])
+    setIsDialogOpen(false)
     toast({
       title: "Ativo adicionado",
       description: `${newAsset.name} foi adicionado à sua carteira.`,
-    });
-  };
+    })
+  }
 
   const handleDeleteAsset = (id: string) => {
-    setAssets(assets.filter(a => a.id !== id));
+    setAssets(assets.filter(a => a.id !== id))
     toast({
       title: "Ativo removido",
       description: "O ativo foi removido da sua carteira.",
-    });
-  };
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -91,6 +91,21 @@ export default function FixedIncome() {
             </DialogHeader>
             <form onSubmit={handleAddAsset}>
               <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="portfolioId">Carteira</Label>
+                  <Select name="portfolioId" defaultValue={mockPortfolios[0]?.id}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a carteira" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mockPortfolios.map((portfolio) => (
+                        <SelectItem key={portfolio.id} value={portfolio.id}>
+                          {portfolio.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">Nome do Ativo</Label>
                   <Input id="name" name="name" placeholder="Ex: CDB Banco Inter" required />
@@ -166,7 +181,7 @@ export default function FixedIncome() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Adicionar</Button>
+                <Button type="submit" variant="success">Adicionar</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -247,7 +262,7 @@ export default function FixedIncome() {
               </TableHeader>
               <TableBody>
                 {filteredAssets.map((asset) => {
-                  const profit = ((asset.currentValue - asset.investedValue) / asset.investedValue) * 100;
+                  const profit = ((asset.currentValue - asset.investedValue) / asset.investedValue) * 100
                   return (
                     <TableRow key={asset.id}>
                       <TableCell>
@@ -285,15 +300,23 @@ export default function FixedIncome() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate(`/investimento/${asset.id}?type=fixed`)}>
+                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed' } })}>
                               <Eye className="h-4 w-4 mr-2" />
                               Ver Detalhes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'buy' } })}>
+                              <PlusCircle className="h-4 w-4 mr-2 text-success" />
+                              Aportar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'sell' } })}>
+                              <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
+                              Resgatar
                             </DropdownMenuItem>
                             <DropdownMenuItem>
                               <Pencil className="h-4 w-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="text-destructive"
                               onClick={() => handleDeleteAsset(asset.id)}
                             >
@@ -304,7 +327,7 @@ export default function FixedIncome() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  );
+                  )
                 })}
               </TableBody>
             </Table>
@@ -312,5 +335,5 @@ export default function FixedIncome() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

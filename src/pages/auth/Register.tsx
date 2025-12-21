@@ -1,46 +1,46 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Wallet, Mail, Lock, User, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from "react"
+import { useNavigate, Link } from "@tanstack/react-router"
+import { Wallet, Mail, Lock, User, ArrowRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
 
 export default function Register() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const navigate = useNavigate()
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+    e.preventDefault()
+
     if (password !== confirmPassword) {
       toast({
         title: "Erro",
         description: "As senhas não coincidem.",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
-    
-    setIsLoading(true);
-    
+
+    setIsLoading(true)
+
     // Simulate registration
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise(resolve => setTimeout(resolve, 1000))
+
     toast({
       title: "Conta criada com sucesso!",
       description: "Você já pode fazer login.",
-    });
-    
-    navigate("/login");
-    setIsLoading(false);
-  };
+    })
+
+    navigate({ to: "/login" })
+    setIsLoading(false)
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
@@ -141,5 +141,5 @@ export default function Register() {
         </Card>
       </div>
     </div>
-  );
+  )
 }

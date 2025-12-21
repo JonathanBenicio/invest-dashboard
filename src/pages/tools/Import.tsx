@@ -1,73 +1,73 @@
-import { useState } from "react";
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, FileText, Building2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from "react"
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, FileText, Building2 } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 
 interface ImportedRow {
-  ticker: string;
-  quantity: number;
-  price: number;
-  date: string;
-  status: 'success' | 'error' | 'pending';
-  message?: string;
+  ticker: string
+  quantity: number
+  price: number
+  date: string
+  status: 'success' | 'error' | 'pending'
+  message?: string
 }
 
 export default function Import() {
-  const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [importedData, setImportedData] = useState<ImportedRow[]>([]);
-  const { toast } = useToast();
+  const [isDragging, setIsDragging] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [importedData, setImportedData] = useState<ImportedRow[]>([])
+  const { toast } = useToast()
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
+    e.preventDefault()
+    setIsDragging(true)
+  }
 
   const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+    setIsDragging(false)
+  }
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files);
-    handleFiles(files);
-  };
+    e.preventDefault()
+    setIsDragging(false)
+    const files = Array.from(e.dataTransfer.files)
+    handleFiles(files)
+  }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    handleFiles(files);
-  };
+    const files = e.target.files ? Array.from(e.target.files) : []
+    handleFiles(files)
+  }
 
   const handleFiles = async (files: File[]) => {
-    const file = files[0];
-    if (!file) return;
+    const file = files[0]
+    if (!file) return
 
-    const validTypes = ['.csv', '.xlsx', '.xls'];
-    const isValid = validTypes.some(type => file.name.toLowerCase().endsWith(type));
+    const validTypes = ['.csv', '.xlsx', '.xls']
+    const isValid = validTypes.some(type => file.name.toLowerCase().endsWith(type))
 
     if (!isValid) {
       toast({
         title: "Formato inválido",
         description: "Por favor, envie um arquivo CSV ou Excel (.xlsx, .xls)",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
+    setIsUploading(true)
+    setUploadProgress(0)
 
     // Simulate upload and processing
     for (let i = 0; i <= 100; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 200));
-      setUploadProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 200))
+      setUploadProgress(i)
     }
 
     // Simulate imported data
@@ -77,25 +77,25 @@ export default function Import() {
       { ticker: 'ITUB4', quantity: 200, price: 30.25, date: '2024-12-03', status: 'success' },
       { ticker: 'INVALID', quantity: 30, price: 10.00, date: '2024-12-04', status: 'error', message: 'Ticker não encontrado' },
       { ticker: 'BBDC4', quantity: 150, price: 14.80, date: '2024-12-05', status: 'pending' },
-    ];
+    ]
 
-    setImportedData(mockData);
-    setIsUploading(false);
+    setImportedData(mockData)
+    setIsUploading(false)
 
     toast({
       title: "Arquivo processado",
       description: `${mockData.length} registros encontrados. Revise antes de confirmar.`,
-    });
-  };
+    })
+  }
 
   const confirmImport = () => {
-    const successCount = importedData.filter(row => row.status === 'success').length;
+    const successCount = importedData.filter(row => row.status === 'success').length
     toast({
       title: "Importação concluída",
       description: `${successCount} registros importados com sucesso.`,
-    });
-    setImportedData([]);
-  };
+    })
+    setImportedData([])
+  }
 
   const brokers = [
     { name: 'Clear', status: 'Em breve', icon: Building2 },
@@ -104,7 +104,7 @@ export default function Import() {
     { name: 'NuInvest', status: 'Em breve', icon: Building2 },
     { name: 'BTG Pactual', status: 'Em breve', icon: Building2 },
     { name: 'Inter', status: 'Em breve', icon: Building2 },
-  ];
+  ]
 
   return (
     <div className="space-y-6">
@@ -133,11 +133,10 @@ export default function Import() {
             </CardHeader>
             <CardContent>
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  isDragging 
-                    ? 'border-primary bg-primary/5' 
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging
+                    ? 'border-primary bg-primary/5'
                     : 'border-border hover:border-primary/50'
-                }`}
+                  }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -247,7 +246,7 @@ export default function Import() {
                   <Button variant="outline" onClick={() => setImportedData([])}>
                     Cancelar
                   </Button>
-                  <Button onClick={confirmImport}>
+                  <Button variant="success" onClick={confirmImport}>
                     Confirmar Importação
                   </Button>
                 </div>
@@ -294,5 +293,5 @@ export default function Import() {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }

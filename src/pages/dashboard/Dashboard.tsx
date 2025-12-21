@@ -1,53 +1,65 @@
-import { ArrowUpRight, ArrowDownRight, TrendingUp, Calendar, Wallet, PiggyBank } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  calculateTotalPortfolio, 
-  calculateTotalProfit, 
-  calculateProfitPercentage,
-  formatCurrency,
-  portfolioHistory,
-  allocationData,
-  dividends,
-  variableIncomeAssets,
-  fixedIncomeAssets
-} from "@/lib/mock-data";
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  PieChart, 
-  Pie, 
+import { ArrowUpRight, ArrowDownRight, TrendingUp, Calendar, Wallet, PiggyBank } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { investmentService, queryKeys } from "@/api"
+import { formatCurrency } from "@/lib/utils"
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  PieChart,
+  Pie,
   Cell,
   Legend
-} from "recharts";
+} from "recharts"
 
 export default function Dashboard() {
-  const totalPortfolio = calculateTotalPortfolio();
-  const totalProfit = calculateTotalProfit();
-  const profitPercentage = parseFloat(calculateProfitPercentage());
+  // Fetch investment summary
+  const { data: summaryData, isLoading } = useQuery({
+    queryKey: queryKeys.investments.summary(),
+    queryFn: () => investmentService.getSummary(),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-muted-foreground">Carregando...</div>
+      </div>
+    )
+  }
+
+  const summary = summaryData?.data
+  if (!summary) return null
+
+  const totalPortfolio = summary.currentValue
+  const totalProfit = summary.totalGain
+  const profitPercentage = summary.gainPercentage
 
   // Find best and worst performers
-  const sortedAssets = [...variableIncomeAssets].sort((a, b) => {
-    const profitA = ((a.currentPrice - a.averagePrice) / a.averagePrice) * 100;
-    const profitB = ((b.currentPrice - b.averagePrice) / b.averagePrice) * 100;
-    return profitB - profitA;
-  });
-  const bestPerformer = sortedAssets[0];
-  const worstPerformer = sortedAssets[sortedAssets.length - 1];
+  const bestPerformer = summary.topPerformers[0]
+  const worstPerformer = summary.worstPerformers[0]
 
-  // Upcoming maturities
-  const upcomingMaturities = fixedIncomeAssets
-    .filter(asset => new Date(asset.maturityDate) > new Date())
-    .sort((a, b) => new Date(a.maturityDate).getTime() - new Date(b.maturityDate).getTime())
-    .slice(0, 3);
+  // Mock data for charts (will be replaced with real data later)
+  const portfolioHistory = [
+    { month: 'Jul', value: 280000, benchmark: 275000 },
+    { month: 'Ago', value: 295000, benchmark: 282000 },
+    { month: 'Set', value: 305000, benchmark: 290000 },
+    { month: 'Out', value: 315000, benchmark: 298000 },
+    { month: 'Nov', value: 328000, benchmark: 305000 },
+    { month: 'Dez', value: 342500, benchmark: 312000 },
+  ]
 
-  // Upcoming dividends
-  const upcomingDividends = dividends
-    .filter(d => new Date(d.paymentDate) >= new Date())
-    .slice(0, 3);
+  const allocationData = [
+    { name: 'Renda Fixa', value: summary.fixedIncomeTotal, color: 'hsl(220, 70%, 50%)' },
+    { name: 'Renda Variável', value: summary.variableIncomeTotal, color: 'hsl(145, 65%, 42%)' },
+  ]
+
+  // Mock upcoming data (will be replaced with real data later)
+  const upcomingMaturities: any[] = []
+  const upcomingDividends: any[] = []
 
   return (
     <div className="space-y-6">
@@ -86,7 +98,7 @@ export default function Dashboard() {
             </div>
             <div className={`flex items-center text-xs mt-1 ${profitPercentage >= 0 ? 'text-success' : 'text-destructive'}`}>
               {profitPercentage >= 0 ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
-              {profitPercentage >= 0 ? '+' : ''}{profitPercentage}%
+              {profitPercentage >= 0 ? '+' : ''}{profitPercentage.toFixed(2)}%
             </div>
           </CardContent>
         </Card>
@@ -99,10 +111,10 @@ export default function Dashboard() {
             <ArrowUpRight className="h-4 w-4 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bestPerformer.ticker}</div>
+            <div className="text-2xl font-bold">{bestPerformer?.ticker || bestPerformer?.name || '-'}</div>
             <div className="flex items-center text-xs text-success mt-1">
               <ArrowUpRight className="h-3 w-3 mr-1" />
-              +{(((bestPerformer.currentPrice - bestPerformer.averagePrice) / bestPerformer.averagePrice) * 100).toFixed(2)}%
+              +{bestPerformer?.gainPercentage.toFixed(2)}%
             </div>
           </CardContent>
         </Card>
@@ -115,10 +127,10 @@ export default function Dashboard() {
             <ArrowDownRight className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{worstPerformer.ticker}</div>
+            <div className="text-2xl font-bold">{worstPerformer?.ticker || worstPerformer?.name || '-'}</div>
             <div className="flex items-center text-xs text-destructive mt-1">
               <ArrowDownRight className="h-3 w-3 mr-1" />
-              {(((worstPerformer.currentPrice - worstPerformer.averagePrice) / worstPerformer.averagePrice) * 100).toFixed(2)}%
+              {worstPerformer?.gainPercentage.toFixed(2)}%
             </div>
           </CardContent>
         </Card>
@@ -138,43 +150,43 @@ export default function Dashboard() {
                 <AreaChart data={portfolioHistory}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(220, 70%, 50%)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(220, 70%, 50%)" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(220, 70%, 50%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(220, 70%, 50%)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorBenchmark" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(145, 65%, 42%)" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="hsl(145, 65%, 42%)" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="hsl(145, 65%, 42%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(145, 65%, 42%)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="month" axisLine={false} tickLine={false} className="text-xs" />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
                     tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                     className="text-xs"
                   />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
                     labelStyle={{ color: 'hsl(220, 20%, 15%)' }}
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(0, 0%, 100%)', 
+                    contentStyle={{
+                      backgroundColor: 'hsl(0, 0%, 100%)',
                       border: '1px solid hsl(220, 15%, 90%)',
                       borderRadius: '8px'
                     }}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="hsl(220, 70%, 50%)" 
-                    fillOpacity={1} 
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="hsl(220, 70%, 50%)"
+                    fillOpacity={1}
                     fill="url(#colorValue)"
                     name="Sua Carteira"
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="benchmark" 
-                    stroke="hsl(145, 65%, 42%)" 
-                    fillOpacity={1} 
+                  <Area
+                    type="monotone"
+                    dataKey="benchmark"
+                    stroke="hsl(145, 65%, 42%)"
+                    fillOpacity={1}
                     fill="url(#colorBenchmark)"
                     name="CDI"
                   />
@@ -207,17 +219,17 @@ export default function Dashboard() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(0, 0%, 100%)', 
+                    contentStyle={{
+                      backgroundColor: 'hsl(0, 0%, 100%)',
                       border: '1px solid hsl(220, 15%, 90%)',
                       borderRadius: '8px'
                     }}
                   />
-                  <Legend 
-                    layout="vertical" 
-                    align="right" 
+                  <Legend
+                    layout="vertical"
+                    align="right"
                     verticalAlign="middle"
                     formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
                   />
@@ -242,22 +254,26 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {upcomingMaturities.map((asset) => (
-                <div key={asset.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div>
-                    <p className="font-medium text-sm">{asset.name}</p>
-                    <p className="text-xs text-muted-foreground">{asset.type} • {asset.rate} {asset.rateType}</p>
+            {upcomingMaturities.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum vencimento próximo</p>
+            ) : (
+              <div className="space-y-4">
+                {upcomingMaturities.map((asset) => (
+                  <div key={asset.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div>
+                      <p className="font-medium text-sm">{asset.name}</p>
+                      <p className="text-xs text-muted-foreground">{asset.type} • {asset.rate} {asset.rateType}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-sm">{formatCurrency(asset.currentValue)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(asset.maturityDate).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium text-sm">{formatCurrency(asset.currentValue)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(asset.maturityDate).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -273,25 +289,29 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {upcomingDividends.map((dividend) => (
-                <div key={dividend.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                  <div>
-                    <p className="font-medium text-sm">{dividend.ticker}</p>
-                    <p className="text-xs text-muted-foreground">{dividend.type}</p>
+            {upcomingDividends.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum provento próximo</p>
+            ) : (
+              <div className="space-y-4">
+                {upcomingDividends.map((dividend) => (
+                  <div key={dividend.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div>
+                      <p className="font-medium text-sm">{dividend.ticker}</p>
+                      <p className="text-xs text-muted-foreground">{dividend.type}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium text-sm text-success">{formatCurrency(dividend.value)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(dividend.paymentDate).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-medium text-sm text-success">{formatCurrency(dividend.value)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(dividend.paymentDate).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
-  );
+  )
 }

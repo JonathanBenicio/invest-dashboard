@@ -1,25 +1,26 @@
-import { useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState, useEffect } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { investmentDetailsRoute } from "../../router"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -27,7 +28,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/ui/table"
 import {
   ArrowLeft,
   TrendingUp,
@@ -41,7 +42,7 @@ import {
   LineChart,
   Calendar,
   Target,
-} from "lucide-react";
+} from "lucide-react"
 import {
   LineChart as RechartsLineChart,
   Line,
@@ -53,14 +54,14 @@ import {
   Area,
   AreaChart,
   Legend,
-} from "recharts";
+} from "recharts"
 import {
   fixedIncomeAssets,
   variableIncomeAssets,
   formatCurrency,
   formatPercentage,
   formatDate,
-} from "@/lib/mock-data";
+} from "@/lib/mock-data"
 
 // Mock history data for assets
 const generateHistoryData = (assetId: string) => [
@@ -68,7 +69,7 @@ const generateHistoryData = (assetId: string) => [
   { id: "2", date: "2024-11-15", type: "Compra", quantity: 100, price: 33.50, total: 3350 },
   { id: "3", date: "2024-10-20", type: "Venda", quantity: 30, price: 36.80, total: 1104 },
   { id: "4", date: "2024-09-10", type: "Compra", quantity: 80, price: 31.00, total: 2480 },
-];
+]
 
 const generateChartData = () => [
   { date: "01/12", position: 7750, profit: 850, average: 32.50, dailyChange: 1.2 },
@@ -83,99 +84,108 @@ const generateChartData = () => [
   { date: "10/12", position: 8100, profit: 1200, average: 32.50, dailyChange: 1.8 },
   { date: "11/12", position: 8050, profit: 1150, average: 32.50, dailyChange: -0.6 },
   { date: "12/12", position: 8200, profit: 1300, average: 32.50, dailyChange: 1.9 },
-];
+]
 
 export default function InvestmentDetails() {
-  const { id } = useParams();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const type = searchParams.get("type") || "variable";
-  
-  const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy");
-  const [quantity, setQuantity] = useState("");
-  const [price, setPrice] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [chartType, setChartType] = useState("position");
+  const { id } = investmentDetailsRoute.useParams()
+  const search = investmentDetailsRoute.useSearch()
+  const navigate = useNavigate()
+  const type = search.type || "variable"
+
+  const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
+  const [quantity, setQuantity] = useState("")
+  const [price, setPrice] = useState("")
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [chartType, setChartType] = useState("position")
+
+  // Handle initial action from URL
+  useEffect(() => {
+    const action = search.action
+    if (action === "buy" || action === "sell") {
+      setTransactionType(action)
+      setDialogOpen(true)
+    }
+  }, [search.action])
 
   // Find asset based on type
-  const asset = type === "fixed" 
+  const asset = type === "fixed"
     ? fixedIncomeAssets.find(a => a.id === id)
-    : variableIncomeAssets.find(a => a.id === id);
+    : variableIncomeAssets.find(a => a.id === id)
 
   if (!asset) {
     return (
       <div className="flex flex-col items-center justify-center h-96">
         <p className="text-muted-foreground">Ativo não encontrado</p>
-        <Button variant="outline" onClick={() => navigate(-1)} className="mt-4">
+        <Button variant="outline" onClick={() => window.history.back()} className="mt-4">
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
         </Button>
       </div>
-    );
+    )
   }
 
-  const isVariable = type === "variable";
-  const variableAsset = isVariable ? asset as typeof variableIncomeAssets[0] : null;
-  const fixedAsset = !isVariable ? asset as typeof fixedIncomeAssets[0] : null;
+  const isVariable = type === "variable"
+  const variableAsset = isVariable ? asset as typeof variableIncomeAssets[0] : null
+  const fixedAsset = !isVariable ? asset as typeof fixedIncomeAssets[0] : null
 
   // Calculate values for variable income
-  const totalValue = variableAsset 
-    ? variableAsset.currentPrice * variableAsset.quantity 
-    : fixedAsset?.currentValue || 0;
-  
-  const investedValue = variableAsset 
-    ? variableAsset.averagePrice * variableAsset.quantity 
-    : fixedAsset?.investedValue || 0;
-  
-  const profit = totalValue - investedValue;
-  const profitPercentage = (profit / investedValue) * 100;
+  const totalValue = variableAsset
+    ? variableAsset.currentPrice * variableAsset.quantity
+    : fixedAsset?.currentValue || 0
+
+  const investedValue = variableAsset
+    ? variableAsset.averagePrice * variableAsset.quantity
+    : fixedAsset?.investedValue || 0
+
+  const profit = totalValue - investedValue
+  const profitPercentage = (profit / investedValue) * 100
 
   // Calculate projected value at maturity for fixed income
   const calculateProjectedValue = () => {
-    if (!fixedAsset) return null;
-    
-    const today = new Date();
-    const maturity = new Date(fixedAsset.maturityDate);
-    const purchase = new Date(fixedAsset.purchaseDate);
-    
+    if (!fixedAsset) return null
+
+    const today = new Date()
+    const maturity = new Date(fixedAsset.maturityDate)
+    const purchase = new Date(fixedAsset.purchaseDate)
+
     // Days remaining until maturity
-    const daysRemaining = Math.max(0, Math.ceil((maturity.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
-    const totalDays = Math.ceil((maturity.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24));
-    const yearsRemaining = daysRemaining / 365;
-    
+    const daysRemaining = Math.max(0, Math.ceil((maturity.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+    const totalDays = Math.ceil((maturity.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24))
+    const yearsRemaining = daysRemaining / 365
+
     // Parse rate and calculate projection
-    let annualRate = 0;
-    const CDI_RATE = 0.1215; // 12.15% CDI aproximado
-    const IPCA_RATE = 0.045; // 4.5% IPCA aproximado
-    
+    let annualRate = 0
+    const CDI_RATE = 0.1215 // 12.15% CDI aproximado
+    const IPCA_RATE = 0.045 // 4.5% IPCA aproximado
+
     if (fixedAsset.rateType === 'CDI') {
-      const cdiPercentage = parseFloat(fixedAsset.rate.replace('%', '')) / 100;
-      annualRate = CDI_RATE * cdiPercentage;
+      const cdiPercentage = parseFloat(fixedAsset.rate.replace('%', '')) / 100
+      annualRate = CDI_RATE * cdiPercentage
     } else if (fixedAsset.rateType === 'IPCA') {
-      const spreadMatch = fixedAsset.rate.match(/[\d,]+/g);
-      const spread = spreadMatch ? parseFloat(spreadMatch[spreadMatch.length - 1].replace(',', '.')) / 100 : 0.06;
-      annualRate = IPCA_RATE + spread;
+      const spreadMatch = fixedAsset.rate.match(/[\d,]+/g)
+      const spread = spreadMatch ? parseFloat(spreadMatch[spreadMatch.length - 1].replace(',', '.')) / 100 : 0.06
+      annualRate = IPCA_RATE + spread
     } else {
-      annualRate = parseFloat(fixedAsset.rate.replace('%', '').replace(',', '.')) / 100;
+      annualRate = parseFloat(fixedAsset.rate.replace('%', '').replace(',', '.')) / 100
     }
-    
+
     // Compound interest projection from current value
-    const projectedValue = fixedAsset.currentValue * Math.pow(1 + annualRate, yearsRemaining);
-    const projectedProfit = projectedValue - fixedAsset.investedValue;
-    const projectedProfitPercentage = (projectedProfit / fixedAsset.investedValue) * 100;
-    
+    const projectedValue = fixedAsset.currentValue * Math.pow(1 + annualRate, yearsRemaining)
+    const projectedProfit = projectedValue - fixedAsset.investedValue
+    const projectedProfitPercentage = (projectedProfit / fixedAsset.investedValue) * 100
+
     return {
       projectedValue,
       projectedProfit,
       projectedProfitPercentage,
       daysRemaining,
       maturityDate: fixedAsset.maturityDate,
-    };
-  };
+    }
+  }
 
-  const projection = calculateProjectedValue();
+  const projection = calculateProjectedValue()
 
-  const historyData = generateHistoryData(id!);
-  const chartData = generateChartData();
+  const historyData = generateHistoryData(id!)
+  const chartData = generateChartData()
 
   const handleTransaction = () => {
     // Mock transaction handling
@@ -184,38 +194,38 @@ export default function InvestmentDetails() {
       quantity: Number(quantity),
       price: Number(price),
       total: Number(quantity) * Number(price),
-    });
-    setDialogOpen(false);
-    setQuantity("");
-    setPrice("");
-  };
+    })
+    setDialogOpen(false)
+    setQuantity("")
+    setPrice("")
+  }
 
   const getChartDataKey = () => {
     switch (chartType) {
-      case "position": return "position";
-      case "profit": return "profit";
-      case "average": return "average";
-      case "dailyChange": return "dailyChange";
-      default: return "position";
+      case "position": return "position"
+      case "profit": return "profit"
+      case "average": return "average"
+      case "dailyChange": return "dailyChange"
+      default: return "position"
     }
-  };
+  }
 
   const getChartColor = () => {
     switch (chartType) {
-      case "position": return "hsl(var(--primary))";
-      case "profit": return profit >= 0 ? "hsl(var(--finance-profit))" : "hsl(var(--finance-loss))";
-      case "average": return "hsl(var(--chart-3))";
-      case "dailyChange": return "hsl(var(--chart-4))";
-      default: return "hsl(var(--primary))";
+      case "position": return "hsl(var(--primary))"
+      case "profit": return profit >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))"
+      case "average": return "hsl(var(--chart-3))"
+      case "dailyChange": return "hsl(var(--chart-4))"
+      default: return "hsl(var(--primary))"
     }
-  };
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => window.history.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -235,29 +245,32 @@ export default function InvestmentDetails() {
 
         {/* Transaction Buttons */}
         <div className="flex gap-2">
+          <Button
+            variant="success"
+            onClick={() => {
+              setTransactionType("buy")
+              setDialogOpen(true)
+            }}
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            {isVariable ? "Comprar" : "Aportar"}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              setTransactionType("sell")
+              setDialogOpen(true)
+            }}
+          >
+            <MinusCircle className="mr-2 h-4 w-4" />
+            {isVariable ? "Vender" : "Resgatar"}
+          </Button>
+
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                className="bg-finance-profit hover:bg-finance-profit/90"
-                onClick={() => setTransactionType("buy")}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" /> 
-                {isVariable ? "Comprar" : "Aportar"}
-              </Button>
-            </DialogTrigger>
-            <DialogTrigger asChild>
-              <Button 
-                variant="destructive"
-                onClick={() => setTransactionType("sell")}
-              >
-                <MinusCircle className="mr-2 h-4 w-4" /> 
-                {isVariable ? "Vender" : "Resgatar"}
-              </Button>
-            </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {transactionType === "buy" 
+                  {transactionType === "buy"
                     ? (isVariable ? "Registrar Compra" : "Registrar Aporte")
                     : (isVariable ? "Registrar Venda" : "Registrar Resgate")
                   }
@@ -297,35 +310,49 @@ export default function InvestmentDetails() {
                     )}
                   </>
                 ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Valor do {transactionType === "buy" ? "Aporte" : "Resgate"}</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      placeholder="Ex: 5000.00"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                    />
-                    {price && (
-                      <div className="p-4 bg-muted rounded-lg mt-4">
-                        <p className="text-sm text-muted-foreground">
-                          {transactionType === "buy" ? "Valor do aporte" : "Valor do resgate"}
-                        </p>
-                        <p className="text-xl font-bold">
-                          {formatCurrency(Number(price))}
-                        </p>
+                  <>
+                    {transactionType === "sell" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="fixedQuantity">Quantidade (Opcional)</Label>
+                        <Input
+                          id="fixedQuantity"
+                          type="number"
+                          placeholder="Ex: 1"
+                          value={quantity}
+                          onChange={(e) => setQuantity(e.target.value)}
+                        />
                       </div>
                     )}
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Valor do {transactionType === "buy" ? "Aporte" : "Resgate"}</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        step="0.01"
+                        placeholder="Ex: 5000.00"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                      />
+                      {price && (
+                        <div className="p-4 bg-muted rounded-lg mt-4">
+                          <p className="text-sm text-muted-foreground">
+                            {transactionType === "buy" ? "Valor do aporte" : "Valor do resgate"}
+                          </p>
+                          <p className="text-xl font-bold">
+                            {formatCurrency(Number(price))}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
                 )}
-                <Button 
-                  className={`w-full ${transactionType === "buy" ? "bg-finance-profit hover:bg-finance-profit/90" : ""}`}
-                  variant={transactionType === "sell" ? "destructive" : "default"}
+                <Button
+                  className="w-full"
+                  variant={transactionType === "buy" ? "success" : (transactionType === "sell" ? "destructive" : "default")}
                   onClick={handleTransaction}
                   disabled={isVariable ? (!quantity || !price) : !price}
                 >
-                  {transactionType === "buy" 
+                  {transactionType === "buy"
                     ? (isVariable ? "Confirmar Compra" : "Confirmar Aporte")
                     : (isVariable ? "Confirmar Venda" : "Confirmar Resgate")
                   }
@@ -364,7 +391,7 @@ export default function InvestmentDetails() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {isVariable 
+              {isVariable
                 ? formatCurrency(variableAsset?.averagePrice || 0)
                 : formatCurrency(fixedAsset?.investedValue || 0)
               }
@@ -384,7 +411,7 @@ export default function InvestmentDetails() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {isVariable 
+              {isVariable
                 ? formatCurrency(variableAsset?.currentPrice || 0)
                 : fixedAsset?.rate
               }
@@ -403,16 +430,16 @@ export default function InvestmentDetails() {
               Rentabilidade
             </CardTitle>
             {profit >= 0 ? (
-              <TrendingUp className="h-4 w-4 text-finance-profit" />
+              <TrendingUp className="h-4 w-4 text-success" />
             ) : (
-              <TrendingDown className="h-4 w-4 text-finance-loss" />
+              <TrendingDown className="h-4 w-4 text-destructive" />
             )}
           </CardHeader>
           <CardContent>
-            <p className={`text-2xl font-bold ${profit >= 0 ? "text-finance-profit" : "text-finance-loss"}`}>
+            <p className={`text-2xl font-bold ${profit >= 0 ? "text-success" : "text-destructive"}`}>
               {formatPercentage(profitPercentage)}
             </p>
-            <p className={`text-xs ${profit >= 0 ? "text-finance-profit" : "text-finance-loss"}`}>
+            <p className={`text-xs ${profit >= 0 ? "text-success" : "text-destructive"}`}>
               {formatCurrency(profit)}
             </p>
           </CardContent>
@@ -442,13 +469,13 @@ export default function InvestmentDetails() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Lucro Projetado</p>
-                <p className="text-2xl font-bold text-finance-profit">
+                <p className="text-2xl font-bold text-success">
                   {formatCurrency(projection.projectedProfit)}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Rentabilidade Total</p>
-                <p className="text-2xl font-bold text-finance-profit">
+                <p className="text-2xl font-bold text-success">
                   {formatPercentage(projection.projectedProfitPercentage)}
                 </p>
               </div>
@@ -467,36 +494,36 @@ export default function InvestmentDetails() {
       )}
 
       {/* Quick Buy/Aporte Button */}
-      <Card className="border-finance-profit/20 bg-gradient-to-r from-finance-profit/5 to-transparent">
+      <Card className="border-success/20 bg-gradient-to-r from-success/5 to-transparent">
         <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-finance-profit/10">
-              <PlusCircle className="h-6 w-6 text-finance-profit" />
+            <div className="p-2 rounded-full bg-success/10">
+              <PlusCircle className="h-6 w-6 text-success" />
             </div>
             <div>
               <p className="font-medium">
                 {isVariable ? "Aumentar Posição" : "Realizar Aporte"}
               </p>
               <p className="text-sm text-muted-foreground">
-                {isVariable 
+                {isVariable
                   ? `Cotação atual: ${formatCurrency(variableAsset?.currentPrice || 0)}`
                   : `Taxa: ${fixedAsset?.rate} (${fixedAsset?.rateType})`
                 }
               </p>
             </div>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                size="lg"
-                className="bg-finance-profit hover:bg-finance-profit/90 w-full sm:w-auto"
-                onClick={() => setTransactionType("buy")}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" /> 
-                {isVariable ? "Comprar Agora" : "Aportar Agora"}
-              </Button>
-            </DialogTrigger>
-          </Dialog>
+          <Button
+            size="lg"
+            variant="success"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setTransactionType("buy")
+              setDialogOpen(true)
+            }}
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            {isVariable ? "Comprar Agora" : "Aportar Agora"}
+          </Button>
         </CardContent>
       </Card>
 
@@ -528,9 +555,9 @@ export default function InvestmentDetails() {
                     <TableRow key={item.id}>
                       <TableCell>{formatDate(item.date)}</TableCell>
                       <TableCell>
-                        <Badge 
+                        <Badge
                           variant={item.type === "Compra" ? "default" : "destructive"}
-                          className={item.type === "Compra" ? "bg-finance-profit" : ""}
+                          className={item.type === "Compra" ? "bg-success" : ""}
                         >
                           {item.type}
                         </Badge>
@@ -575,34 +602,34 @@ export default function InvestmentDetails() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="date" 
+                    <XAxis
+                      dataKey="date"
                       className="text-xs fill-muted-foreground"
                     />
-                    <YAxis 
+                    <YAxis
                       className="text-xs fill-muted-foreground"
-                      tickFormatter={(value) => 
-                        chartType === "dailyChange" 
-                          ? `${value}%` 
+                      tickFormatter={(value) =>
+                        chartType === "dailyChange"
+                          ? `${value}%`
                           : chartType === "average"
                             ? formatCurrency(value)
                             : formatCurrency(value)
                       }
                     />
-                    <Tooltip 
+                    <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
                       formatter={(value: number) => [
-                        chartType === "dailyChange" 
-                          ? `${value.toFixed(2)}%` 
+                        chartType === "dailyChange"
+                          ? `${value.toFixed(2)}%`
                           : formatCurrency(value),
                         chartType === "position" ? "Posição"
                           : chartType === "profit" ? "Lucro"
-                          : chartType === "average" ? "Preço Médio"
-                          : "Variação"
+                            : chartType === "average" ? "Preço Médio"
+                              : "Variação"
                       ]}
                     />
                     <Area
@@ -620,5 +647,5 @@ export default function InvestmentDetails() {
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }
