@@ -33,7 +33,6 @@ jobs:
 
       - name: Build
         run: |
-          echo ${{ secrets.VITE_API_URL }}
           bunx msw init public
           bun run build
           cp dist/index.html dist/404.html
