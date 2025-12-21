@@ -22,7 +22,10 @@ async function enableMocking() {
   console.log('[MSW] Configuration:', {
     isDev: import.meta.env.DEV,
     VITE_USE_MSW: import.meta.env.VITE_USE_MSW,
+    BASE_URL: import.meta.env.BASE_URL,
+    VITE_API_URL: import.meta.env.VITE_API_URL,
     shouldUseMSW,
+
   })
 
   if (shouldUseMSW) {
