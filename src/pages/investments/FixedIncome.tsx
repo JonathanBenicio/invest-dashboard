@@ -104,24 +104,27 @@ export default function FixedIncome() {
   }
 
   const handleEditAsset = async (updatedAsset: any) => {
-    // Note: The Edit Dialog implementation might need to be checked if it calls an API or just returns data.
-    // Assuming it returns data and we need to call the service.
-    // However, the previous implementation just simulated it.
-    // For now, I'll keep the toast and refetch, assuming the EditDialog *might* handle the API or pass back data.
-    // Given the task scope, fixing the Table was priority, but I'll add the API call if I can see EditDialog props.
-    // Based on `EditInvestmentDialog` usage `onSave={handleEditAsset}`, it likely expects us to handle the save.
+    // Mapping back from FixedIncomeAsset (Dialog) to UpdateInvestmentRequest (API)
+    // The Dialog returns an object with the shape of FixedIncomeAsset
 
-    // Simplification: We will just refetch for now as implementing full Edit mapping is out of scope of "Table Migration",
-    // but the Mock updates allow it to work if EditDialog calls the API.
-    // If EditDialog just returns the object, we should call update.
-
-    // For safety in this task (focus on table), I will assume simulated edit is acceptable or try to call update if I had the ID.
-    // The `updatedAsset` likely has the ID.
+    if (!selectedAsset) return
 
     try {
-       if (updatedAsset.id) {
-           await investmentService.update(updatedAsset.id, updatedAsset)
-       }
+        const updateData: any = {
+          name: updatedAsset.name,
+          subtype: updatedAsset.type,
+          issuer: updatedAsset.institution,
+          // Mapping investedValue back to totalInvested logic implies quantity/price updates,
+          // but for update we just pass what changed if supported.
+          // Since the API expects specific fields, let's map what we can.
+          currentPrice: updatedAsset.investedValue, // Assuming 1:1 for simplicity in this view
+          interestRate: parseFloat(updatedAsset.rate?.replace('%', '') || '0'),
+          indexer: updatedAsset.rateType,
+          maturityDate: updatedAsset.maturityDate
+        }
+
+       await investmentService.update(selectedAsset.id, updateData)
+
        setIsEditDialogOpen(false)
         toast({
         title: "Ativo atualizado",
@@ -157,7 +160,27 @@ export default function FixedIncome() {
   }
 
   const openEditDialog = (asset: FixedIncomeDto) => {
-    setSelectedAsset(asset)
+    // Map FixedIncomeDto to FixedIncomeAsset for the Dialog
+    // The Dialog expects FixedIncomeAsset shape
+    const adaptedAsset: any = {
+      id: asset.id,
+      name: asset.name,
+      type: asset.subtype,
+      institution: asset.issuer,
+      investedValue: asset.totalInvested,
+      currentValue: asset.currentValue,
+      rate: asset.interestRate?.toString() || '0',
+      rateType: asset.indexer || 'CDI',
+      purchaseDate: asset.purchaseDate,
+      maturityDate: asset.maturityDate,
+      liquidity: 'No vencimento' // Default
+    }
+
+    setSelectedAsset(adaptedAsset) // We temporarily set it to the adapted shape or use a separate state
+    // But since selectedAsset is typed as FixedIncomeDto, using 'any' bypasses it.
+    // Ideally we'd have a separate state 'editingAsset' or use a Union type.
+    // For this fix, casting is the pragmatic path to avoid large refactors.
+
     setIsEditDialogOpen(true)
   }
 
@@ -357,7 +380,7 @@ export default function FixedIncome() {
       <EditInvestmentDialog
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
-        investment={selectedAsset}
+        investment={selectedAsset as any} // Cast because we adapted it in openEditDialog
         type="fixed"
         onSave={handleEditAsset}
       />
