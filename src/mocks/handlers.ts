@@ -196,7 +196,9 @@ export const handlers = [
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    }
+    } as any
+
+    mockPortfolios.push(newPortfolio)
 
     return HttpResponse.json(createResponse(newPortfolio, 'Portfolio criado com sucesso'))
   }),
@@ -208,9 +210,9 @@ export const handlers = [
     await delay(400)
     const { id } = params
     const body = await request.json() as Record<string, unknown>
-    const portfolio = mockPortfolios.find(p => p.id === id)
+    const index = mockPortfolios.findIndex(p => p.id === id)
 
-    if (!portfolio) {
+    if (index === -1) {
       return HttpResponse.json(
         { success: false, message: 'Portfolio não encontrado' },
         { status: 404 }
@@ -218,10 +220,12 @@ export const handlers = [
     }
 
     const updated = {
-      ...portfolio,
+      ...mockPortfolios[index],
       ...body,
       updatedAt: new Date().toISOString(),
     }
+
+    mockPortfolios[index] = updated as any
 
     return HttpResponse.json(createResponse(updated, 'Portfolio atualizado com sucesso'))
   }),
@@ -232,14 +236,16 @@ export const handlers = [
 
     await delay(400)
     const { id } = params
-    const portfolio = mockPortfolios.find(p => p.id === id)
+    const index = mockPortfolios.findIndex(p => p.id === id)
 
-    if (!portfolio) {
+    if (index === -1) {
       return HttpResponse.json(
         { success: false, message: 'Portfolio não encontrado' },
         { status: 404 }
       )
     }
+
+    mockPortfolios.splice(index, 1)
 
     return HttpResponse.json(createResponse(null, 'Portfolio deletado com sucesso'))
   }),
@@ -377,9 +383,50 @@ export const handlers = [
     const page = parseInt(url.searchParams.get('page') || '1')
     const pageSize = parseInt(url.searchParams.get('pageSize') || '10')
 
+    // Using the same DTO mapping logic for consistency
     const investments = mockAllInvestments.filter(inv => inv.portfolioId === portfolioId)
 
-    return HttpResponse.json(createPaginatedResponse(investments, page, pageSize))
+    const mappedInvestments = investments.map(inv => {
+      const legacy = inv as any;
+      const isFixed = inv.type === 'CDB' || inv.type === 'LCI' || inv.type === 'LCA' ||
+                      inv.type === 'Tesouro Direto' || inv.type === 'Debênture' ||
+                      inv.type === 'CRI' || inv.type === 'CRA' || inv.type === 'fixed_income';
+
+      const baseDto = {
+        ...inv,
+        portfolioId: legacy.portfolioId || 'portfolio-1',
+        subtype: legacy.subtype || legacy.type,
+        quantity: legacy.quantity || 1,
+        averagePrice: legacy.averagePrice || legacy.investedValue || 0,
+        totalInvested: legacy.totalInvested || (legacy.investedValue || (legacy.quantity * legacy.averagePrice)) || 0,
+        currentValue: legacy.currentValue || (legacy.currentPrice ? legacy.currentPrice * legacy.quantity : 0) || 0,
+      };
+
+      const gain = baseDto.currentValue - baseDto.totalInvested;
+      const gainPercentage = baseDto.totalInvested > 0 ? (gain / baseDto.totalInvested) * 100 : 0;
+
+      if (isFixed) {
+        return {
+          ...baseDto,
+          type: 'fixed_income',
+          issuer: legacy.issuer || legacy.institution || 'Unknown',
+          interestRate: legacy.interestRate || parseFloat(legacy.rate?.replace('%', '') || '0'),
+          indexer: legacy.indexer || legacy.rateType,
+          gain,
+          gainPercentage
+        };
+      } else {
+        return {
+          ...baseDto,
+          type: 'variable_income',
+          ticker: legacy.ticker || legacy.name,
+          gain,
+          gainPercentage
+        };
+      }
+    });
+
+    return HttpResponse.json(createPaginatedResponse(mappedInvestments, page, pageSize))
   }),
 
   // Summary MUST come before :id to avoid path collision
