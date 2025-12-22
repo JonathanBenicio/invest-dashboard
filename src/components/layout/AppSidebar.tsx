@@ -7,7 +7,8 @@ import {
   Settings,
   LogOut,
   Wallet,
-  Calculator
+  Calculator,
+  Percent
 } from "lucide-react"
 import { NavLink } from "@/components/NavLink"
 import {
@@ -34,6 +35,7 @@ const menuItems = [
   { title: "Simulador", url: "/simulador", icon: Calculator },
   { title: "Importar Dados", url: "/importar", icon: Upload },
   { title: "Análise", url: "/analise", icon: BarChart3 },
+  { title: "Taxas e Indicadores", url: "/taxas", icon: Percent },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ]
 
