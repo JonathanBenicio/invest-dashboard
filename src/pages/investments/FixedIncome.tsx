@@ -12,6 +12,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { fixedIncomeAssets, mockPortfolios, formatCurrency, formatDate, type FixedIncomeAsset } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
+import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
+import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
+import { FixedIncomeProjection } from "@/components/projections/FixedIncomeProjection"
 
 export default function FixedIncome() {
   const navigate = useNavigate()
@@ -19,6 +22,9 @@ export default function FixedIncome() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [selectedAsset, setSelectedAsset] = useState<FixedIncomeAsset | null>(null)
   const { toast } = useToast()
 
   const filteredAssets = assets.filter(asset => {
@@ -60,12 +66,31 @@ export default function FixedIncome() {
     })
   }
 
+  const handleEditAsset = (updatedAsset: FixedIncomeAsset | any) => {
+    setAssets(assets.map(a => a.id === updatedAsset.id ? updatedAsset as FixedIncomeAsset : a))
+    toast({
+      title: "Ativo atualizado",
+      description: `${(updatedAsset as FixedIncomeAsset).name} foi atualizado com sucesso.`,
+    })
+  }
+
   const handleDeleteAsset = (id: string) => {
     setAssets(assets.filter(a => a.id !== id))
+    setSelectedAsset(null)
     toast({
       title: "Ativo removido",
       description: "O ativo foi removido da sua carteira.",
     })
+  }
+
+  const openEditDialog = (asset: FixedIncomeAsset) => {
+    setSelectedAsset(asset)
+    setIsEditDialogOpen(true)
+  }
+
+  const openDeleteDialog = (asset: FixedIncomeAsset) => {
+    setSelectedAsset(asset)
+    setIsDeleteDialogOpen(true)
   }
 
   return (
@@ -218,6 +243,9 @@ export default function FixedIncome() {
         </Card>
       </div>
 
+      {/* Fixed Income Projection */}
+      <FixedIncomeProjection assets={assets} />
+
       {/* Filters */}
       <Card>
         <CardHeader>
@@ -312,13 +340,13 @@ export default function FixedIncome() {
                               <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
                               Resgatar
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(asset)}>
                               <Pencil className="h-4 w-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive"
-                              onClick={() => handleDeleteAsset(asset.id)}
+                              onClick={() => openDeleteDialog(asset)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Excluir
@@ -334,6 +362,27 @@ export default function FixedIncome() {
           </div>
         </CardContent>
       </Card>
+
+      <EditInvestmentDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        investment={selectedAsset}
+        type="fixed"
+        onSave={handleEditAsset}
+      />
+
+      <DeleteConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Excluir Ativo"
+        description={`Tem certeza que deseja excluir "${selectedAsset?.name}"? Esta ação não pode ser desfeita.`}
+        onConfirm={() => {
+          if (selectedAsset) {
+            handleDeleteAsset(selectedAsset.id)
+            setIsDeleteDialogOpen(false)
+          }
+        }}
+      />
     </div>
   )
 }
