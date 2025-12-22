@@ -108,6 +108,9 @@ export interface InvestmentFilters extends PaginationParams {
   type?: InvestmentType
   subtype?: FixedIncomeType | VariableIncomeType
   search?: string
+  issuer?: string
+  sortBy?: string
+  sortOrder?: 'asc' | 'desc'
 }
 
 /**

@@ -167,13 +167,64 @@ export const handlers = [
     const page = parseInt(url.searchParams.get('page') || '1')
     const pageSize = parseInt(url.searchParams.get('pageSize') || '10')
     const type = url.searchParams.get('type')
+    const search = url.searchParams.get('search')
+    const sortBy = url.searchParams.get('sortBy')
+    const sortOrder = url.searchParams.get('sortOrder') || 'asc'
+    const subtype = url.searchParams.get('subtype')
+    const issuer = url.searchParams.get('issuer') // Using issuer instead of institution as per DTO
 
     let investments = mockAllInvestments
 
+    // Filter by Type (Fixed/Variable)
     if (type === 'fixed_income') {
       investments = mockFixedIncomeInvestments
     } else if (type === 'variable_income') {
       investments = mockVariableIncomeInvestments
+    }
+
+    // Filter by Subtype (CDB, LCI, etc.)
+    if (subtype) {
+      investments = investments.filter(inv => inv.subtype === subtype)
+    }
+
+    // Filter by Issuer (Institution)
+    if (issuer) {
+      // Assuming 'issuer' field exists on FixedIncomeDto, but it might be 'institution' in mock data
+      // Let's check the mock data structure or cast it safely
+      investments = investments.filter(inv =>
+        ('issuer' in inv && (inv as any).issuer.toLowerCase().includes(issuer.toLowerCase())) ||
+        ('institution' in inv && (inv as any).institution.toLowerCase().includes(issuer.toLowerCase()))
+      )
+    }
+
+    // Global Search (Name or Institution/Issuer)
+    if (search) {
+      const lowerSearch = search.toLowerCase()
+      investments = investments.filter(inv => {
+        const nameMatch = inv.name.toLowerCase().includes(lowerSearch)
+        const institutionMatch = 'institution' in inv ? (inv as any).institution.toLowerCase().includes(lowerSearch) : false
+        const issuerMatch = 'issuer' in inv ? (inv as any).issuer.toLowerCase().includes(lowerSearch) : false
+        const tickerMatch = 'ticker' in inv ? (inv as any).ticker?.toLowerCase().includes(lowerSearch) : false
+
+        return nameMatch || institutionMatch || issuerMatch || tickerMatch
+      })
+    }
+
+    // Sorting
+    if (sortBy) {
+      investments.sort((a, b) => {
+        const aValue = (a as any)[sortBy]
+        const bValue = (b as any)[sortBy]
+
+        if (aValue === bValue) return 0
+
+        // Handle undefined values
+        if (aValue === undefined) return 1
+        if (bValue === undefined) return -1
+
+        const comparison = aValue > bValue ? 1 : -1
+        return sortOrder === 'desc' ? -comparison : comparison
+      })
     }
 
     return HttpResponse.json(createPaginatedResponse(investments, page, pageSize))
@@ -231,7 +282,10 @@ export const handlers = [
       currency: 'BRL',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    }
+    } as any
+
+    mockFixedIncomeInvestments.push(newInvestment)
+    mockAllInvestments.push(newInvestment)
 
     return HttpResponse.json(createResponse(newInvestment, 'Investimento criado com sucesso'))
   }),
@@ -256,7 +310,10 @@ export const handlers = [
       currency: 'BRL',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    }
+    } as any
+
+    mockVariableIncomeInvestments.push(newInvestment)
+    mockAllInvestments.push(newInvestment)
 
     return HttpResponse.json(createResponse(newInvestment, 'Investimento criado com sucesso'))
   }),
@@ -265,9 +322,9 @@ export const handlers = [
     await delay(400)
     const { id } = params
     const body = await request.json() as Record<string, unknown>
-    const investment = mockAllInvestments.find(inv => inv.id === id)
+    const index = mockAllInvestments.findIndex(inv => inv.id === id)
 
-    if (!investment) {
+    if (index === -1) {
       return HttpResponse.json(
         { success: false, message: 'Investimento não encontrado' },
         { status: 404 }
@@ -275,10 +332,20 @@ export const handlers = [
     }
 
     const updated = {
-      ...investment,
+      ...mockAllInvestments[index],
       ...body,
       updatedAt: new Date().toISOString(),
     }
+
+    mockAllInvestments[index] = updated as any
+
+    // Also update in specific lists
+    const fixedIndex = mockFixedIncomeInvestments.findIndex(inv => inv.id === id)
+    if (fixedIndex !== -1) mockFixedIncomeInvestments[fixedIndex] = updated as any
+
+    const variableIndex = mockVariableIncomeInvestments.findIndex(inv => inv.id === id)
+    if (variableIndex !== -1) mockVariableIncomeInvestments[variableIndex] = updated as any
+
 
     return HttpResponse.json(createResponse(updated, 'Investimento atualizado com sucesso'))
   }),
@@ -286,14 +353,23 @@ export const handlers = [
   http.delete(`${BASE_URL}/investments/:id`, async ({ params }) => {
     await delay(400)
     const { id } = params
-    const investment = mockAllInvestments.find(inv => inv.id === id)
+    const index = mockAllInvestments.findIndex(inv => inv.id === id)
 
-    if (!investment) {
+    if (index === -1) {
       return HttpResponse.json(
         { success: false, message: 'Investimento não encontrado' },
         { status: 404 }
       )
     }
+
+    mockAllInvestments.splice(index, 1)
+
+    // Remove from specific lists
+    const fixedIndex = mockFixedIncomeInvestments.findIndex(inv => inv.id === id)
+    if (fixedIndex !== -1) mockFixedIncomeInvestments.splice(fixedIndex, 1)
+
+    const variableIndex = mockVariableIncomeInvestments.findIndex(inv => inv.id === id)
+    if (variableIndex !== -1) mockVariableIncomeInvestments.splice(variableIndex, 1)
 
     return HttpResponse.json(createResponse(null, 'Investimento deletado com sucesso'))
   }),
