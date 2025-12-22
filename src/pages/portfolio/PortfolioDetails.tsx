@@ -1,193 +1,144 @@
-import { useState } from "react"
-import { Link } from "@tanstack/react-router"
+import { useState, useMemo } from "react"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { portfolioDetailsRoute } from "../../router"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, MoreHorizontal, Eye, Plus, Target, Calendar, PlusCircle, MinusCircle, Pencil, Trash2 } from "lucide-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, Plus, Target, Calendar } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts"
 import { useToast } from "@/hooks/use-toast"
-import {
-  mockPortfolios,
-  fixedIncomeAssets as initialFixedAssets,
-  variableIncomeAssets as initialVariableAssets,
-  transactions,
-  formatCurrency,
-  formatPercentage,
-  formatDate,
-  type FixedIncomeAsset,
-  type VariableIncomeAsset,
-} from "@/lib/mock-data"
+import { formatCurrency, formatPercentage } from "@/lib/mock-data"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
-
-const portfolioEvolution = [
-  { month: 'Jul', value: 150000 },
-  { month: 'Ago', value: 158000 },
-  { month: 'Set', value: 162000 },
-  { month: 'Out', value: 168000 },
-  { month: 'Nov', value: 172000 },
-  { month: 'Dez', value: 175800 },
-]
-
-const portfolioAllocation = [
-  { name: 'Renda Fixa', value: 65, color: 'hsl(220, 70%, 50%)' },
-  { name: 'Ações', value: 20, color: 'hsl(145, 65%, 42%)' },
-  { name: 'FIIs', value: 10, color: 'hsl(38, 92%, 50%)' },
-  { name: 'ETFs', value: 5, color: 'hsl(280, 65%, 55%)' },
-]
-
-const monthlyProfitability = [
-  { month: 'Jul', carteira: 1.2, cdi: 0.9 },
-  { month: 'Ago', carteira: 1.5, cdi: 0.95 },
-  { month: 'Set', carteira: 0.8, cdi: 0.85 },
-  { month: 'Out', carteira: 1.8, cdi: 0.92 },
-  { month: 'Nov', carteira: 1.1, cdi: 0.88 },
-  { month: 'Dez', carteira: 1.4, cdi: 0.9 },
-]
+import { usePortfolio, usePortfolioSummary } from "@/hooks/use-portfolios"
+import { useFixedIncomeInvestments } from "@/hooks/use-investments"
+import { useVariableIncomeInvestments } from "@/hooks/use-variable-income"
+import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
+import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
+import { investmentService } from "@/api/services/investment.service"
+import type { FixedIncomeDto, VariableIncomeDto, InvestmentFilters, VariableIncomeType, FixedIncomeType } from "@/api/dtos"
+import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
+import { Badge } from "@/components/ui/badge"
 
 export default function PortfolioDetails() {
   const { id } = portfolioDetailsRoute.useParams()
+  const navigate = useNavigate()
   const { toast } = useToast()
-  const portfolio = mockPortfolios.find(p => p.id === id)
 
-  // State for investments
-  const [fixedIncomeAssets, setFixedIncomeAssets] = useState(initialFixedAssets.slice(0, 3))
-  const [variableIncomeAssets, setVariableIncomeAssets] = useState(initialVariableAssets.slice(0, 4))
+  // Queries
+  const { data: portfolioResponse, isLoading: isLoadingPortfolio } = usePortfolio(id)
+  const { data: summaryResponse } = usePortfolioSummary(id)
 
-  // Edit/Delete state
-  const [editingInvestment, setEditingInvestment] = useState<FixedIncomeAsset | VariableIncomeAsset | null>(null)
+  const portfolio = portfolioResponse?.data
+  const summary = summaryResponse?.data
+
+  // Fixed Income Table State
+  const [fixedPagination, setFixedPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 5 })
+  const [fixedSorting, setFixedSorting] = useState<SortingState>([])
+  const [fixedColumnFilters, setFixedColumnFilters] = useState<ColumnFiltersState>([])
+  const [fixedGlobalFilter, setFixedGlobalFilter] = useState("")
+
+  // Variable Income Table State
+  const [variablePagination, setVariablePagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 5 })
+  const [variableSorting, setVariableSorting] = useState<SortingState>([])
+  const [variableColumnFilters, setVariableColumnFilters] = useState<ColumnFiltersState>([])
+  const [variableGlobalFilter, setVariableGlobalFilter] = useState("")
+
+  // Filters construction
+  const fixedFilters: InvestmentFilters = useMemo(() => {
+    const filters: InvestmentFilters = {
+      portfolioId: id,
+      page: fixedPagination.pageIndex + 1,
+      pageSize: fixedPagination.pageSize,
+      search: fixedGlobalFilter || undefined,
+      sortBy: fixedSorting[0]?.id,
+      sortOrder: fixedSorting[0]?.desc ? 'desc' : 'asc',
+    }
+    const subtype = fixedColumnFilters.find(f => f.id === 'subtype')?.value
+    if (subtype) filters.subtype = subtype as FixedIncomeType
+    const issuer = fixedColumnFilters.find(f => f.id === 'issuer')?.value
+    if (issuer) filters.issuer = issuer as string
+    return filters
+  }, [id, fixedPagination, fixedSorting, fixedColumnFilters, fixedGlobalFilter])
+
+  const variableFilters: InvestmentFilters = useMemo(() => {
+    const filters: InvestmentFilters = {
+      portfolioId: id,
+      page: variablePagination.pageIndex + 1,
+      pageSize: variablePagination.pageSize,
+      search: variableGlobalFilter || undefined,
+      sortBy: variableSorting[0]?.id,
+      sortOrder: variableSorting[0]?.desc ? 'desc' : 'asc',
+    }
+    const subtype = variableColumnFilters.find(f => f.id === 'subtype')?.value
+    if (subtype) filters.subtype = subtype as VariableIncomeType
+    const sector = variableColumnFilters.find(f => f.id === 'sector')?.value
+    if (sector) (filters as any).sector = sector
+    return filters
+  }, [id, variablePagination, variableSorting, variableColumnFilters, variableGlobalFilter])
+
+  // Data fetching
+  const { data: fixedResponse, isLoading: isLoadingFixed, refetch: refetchFixed } = useFixedIncomeInvestments(fixedFilters)
+  const { data: variableResponse, isLoading: isLoadingVariable, refetch: refetchVariable } = useVariableIncomeInvestments(variableFilters)
+
+  const fixedAssets = (fixedResponse?.data || []) as FixedIncomeDto[]
+  const variableAssets = (variableResponse?.data || []) as VariableIncomeDto[]
+
+  // Edit/Delete State
+  const [editingInvestment, setEditingInvestment] = useState<FixedIncomeDto | VariableIncomeDto | null>(null)
   const [editingType, setEditingType] = useState<"fixed" | "variable">("fixed")
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [deletingInvestment, setDeletingInvestment] = useState<{ asset: FixedIncomeAsset | VariableIncomeAsset; type: "fixed" | "variable" } | null>(null)
+  const [deletingInvestment, setDeletingInvestment] = useState<{ asset: FixedIncomeDto | VariableIncomeDto; type: "fixed" | "variable" } | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
-  if (!portfolio) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
-        <p className="text-muted-foreground">Carteira não encontrada</p>
-        <Link to="/carteiras">
-          <Button variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Voltar para Carteiras
-          </Button>
-        </Link>
-      </div>
-    )
-  }
-
-  const profit = portfolio.totalValue - portfolio.totalInvested
-  const isProfit = profit >= 0
-
-  const portfolioFixedIncome = fixedIncomeAssets
-  const portfolioVariableIncome = variableIncomeAssets
-  const portfolioTransactions = transactions.slice(0, 5)
-
-  // Edit/Delete handlers
-  const handleEditFixed = (asset: FixedIncomeAsset) => {
+  // Handlers
+  const handleEditFixed = (asset: FixedIncomeDto) => {
     setEditingInvestment(asset)
     setEditingType("fixed")
     setIsEditDialogOpen(true)
   }
 
-  const handleEditVariable = (asset: VariableIncomeAsset) => {
+  const handleEditVariable = (asset: VariableIncomeDto) => {
     setEditingInvestment(asset)
     setEditingType("variable")
     setIsEditDialogOpen(true)
   }
 
-  const handleSaveInvestment = (updated: FixedIncomeAsset | VariableIncomeAsset) => {
-    if (editingType === "fixed") {
-      setFixedIncomeAssets(prev => prev.map(a => a.id === updated.id ? updated as FixedIncomeAsset : a))
-    } else {
-      setVariableIncomeAssets(prev => prev.map(a => a.id === updated.id ? updated as VariableIncomeAsset : a))
+  const handleSaveInvestment = async (updated: any) => {
+    if (!editingInvestment) return
+    try {
+        await investmentService.update(editingInvestment.id, updated)
+        setIsEditDialogOpen(false)
+        toast({ title: "Investimento atualizado", description: "Sucesso." })
+        if (editingType === "fixed") refetchFixed()
+        else refetchVariable()
+    } catch (e) {
+        toast({ title: "Erro", description: "Falha ao atualizar.", variant: "destructive" })
     }
-    toast({
-      title: "Investimento atualizado",
-      description: "O investimento foi atualizado com sucesso.",
-    })
   }
 
-  const handleDeleteClick = (asset: FixedIncomeAsset | VariableIncomeAsset, type: "fixed" | "variable") => {
+  const handleDeleteClick = (asset: FixedIncomeDto | VariableIncomeDto, type: "fixed" | "variable") => {
     setDeletingInvestment({ asset, type })
     setIsDeleteDialogOpen(true)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deletingInvestment) return
-
-    if (deletingInvestment.type === "fixed") {
-      setFixedIncomeAssets(prev => prev.filter(a => a.id !== deletingInvestment.asset.id))
-    } else {
-      setVariableIncomeAssets(prev => prev.filter(a => a.id !== deletingInvestment.asset.id))
-    }
-
-    toast({
-      title: "Investimento excluído",
-      description: "O investimento foi excluído com sucesso.",
-      variant: "destructive",
-    })
-    setIsDeleteDialogOpen(false)
-    setDeletingInvestment(null)
-  }
-
-  const getDeleteDescription = () => {
-    if (!deletingInvestment) return ""
-    if (deletingInvestment.type === "fixed") {
-      return `Tem certeza que deseja excluir "${(deletingInvestment.asset as FixedIncomeAsset).name}"?`
-    }
-    return `Tem certeza que deseja excluir "${(deletingInvestment.asset as VariableIncomeAsset).ticker}"?`
-  }
-
-  // Calculate projected values for all fixed income assets in the portfolio
-  const calculateTotalProjection = () => {
-    let totalProjectedValue = 0
-    let totalProjectedProfit = 0
-
-    portfolioFixedIncome.forEach(asset => {
-      const today = new Date()
-      const maturity = new Date(asset.maturityDate)
-      const purchase = new Date(asset.purchaseDate)
-
-      const daysRemaining = Math.max(0, Math.ceil((maturity.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
-      const yearsRemaining = daysRemaining / 365
-
-      let annualRate = 0
-      const CDI_RATE = 0.1215 // 12.15% CDI
-      const IPCA_RATE = 0.045 // 4.5% IPCA
-
-      if (asset.rateType === 'CDI') {
-        const cdiPercentage = parseFloat(asset.rate.replace('%', '')) / 100
-        annualRate = CDI_RATE * cdiPercentage
-      } else if (asset.rateType === 'IPCA') {
-        const spreadMatch = asset.rate.match(/[\d,]+/g)
-        const spread = spreadMatch ? parseFloat(spreadMatch[spreadMatch.length - 1].replace(',', '.')) / 100 : 0.06
-        annualRate = IPCA_RATE + spread
-      } else {
-        annualRate = parseFloat(asset.rate.replace('%', '').replace(',', '.')) / 100
-      }
-
-      const projectedValue = asset.currentValue * Math.pow(1 + annualRate, yearsRemaining)
-      const projectedProfit = projectedValue - asset.investedValue
-
-      totalProjectedValue += projectedValue
-      totalProjectedProfit += projectedProfit
-    })
-
-    const totalInvested = portfolioFixedIncome.reduce((acc, asset) => acc + asset.investedValue, 0)
-    const totalProjectedProfitPercentage = totalInvested > 0 ? (totalProjectedProfit / totalInvested) * 100 : 0
-
-    return {
-      totalProjectedValue,
-      totalProjectedProfit,
-      totalProjectedProfitPercentage
+    try {
+        await investmentService.delete(deletingInvestment.asset.id)
+        setIsDeleteDialogOpen(false)
+        toast({ title: "Excluído", description: "Investimento removido." })
+        if (deletingInvestment.type === "fixed") refetchFixed()
+        else refetchVariable()
+    } catch (e) {
+        toast({ title: "Erro", description: "Falha ao excluir.", variant: "destructive" })
     }
   }
 
-  const projection = calculateTotalProjection()
+  if (isLoadingPortfolio) return <div className="p-8 flex justify-center">Carregando carteira...</div>
+  if (!portfolio) return <div className="p-8 flex justify-center">Carteira não encontrada.</div>
+
+  const isProfit = portfolio.totalGain >= 0
 
   return (
     <div className="space-y-6">
@@ -212,7 +163,7 @@ export default function PortfolioDetails() {
             </div>
           </div>
         </div>
-        <Button>
+        <Button onClick={() => navigate({ to: '/investimento/novo' })}>
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Investimento
         </Button>
@@ -263,7 +214,7 @@ export default function PortfolioDetails() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${isProfit ? 'text-success' : 'text-destructive'}`}>
-              {formatCurrency(profit)}
+              {formatCurrency(portfolio.totalGain)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Resultado líquido
@@ -284,7 +235,7 @@ export default function PortfolioDetails() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${isProfit ? 'text-success' : 'text-destructive'}`}>
-              {formatPercentage(portfolio.profitability)}
+              {formatPercentage(portfolio.gainPercentage)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Desde o início
@@ -297,272 +248,57 @@ export default function PortfolioDetails() {
       <Tabs defaultValue="investments" className="space-y-4">
         <TabsList>
           <TabsTrigger value="investments">Investimentos</TabsTrigger>
-          <TabsTrigger value="history">Histórico</TabsTrigger>
           <TabsTrigger value="charts">Gráficos</TabsTrigger>
         </TabsList>
 
         {/* Investments Tab */}
         <TabsContent value="investments" className="space-y-4">
 
-          {/* Fixed Income Projection Summary */}
-          {portfolioFixedIncome.length > 0 && (
-            <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Target className="h-5 w-5 text-primary" />
-                  Projeção Consolidada Renda Fixa
-                </CardTitle>
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  No Vencimento
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Valor Projetado Total</p>
-                    <p className="text-2xl font-bold text-primary">
-                      {formatCurrency(projection.totalProjectedValue)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Lucro Projetado Total</p>
-                    <p className="text-2xl font-bold text-finance-profit">
-                      {formatCurrency(projection.totalProjectedProfit)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Rentabilidade Total</p>
-                    <p className="text-2xl font-bold text-finance-profit">
-                      {formatPercentage(projection.totalProjectedProfitPercentage)}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Fixed Income */}
+          {/* Fixed Income Table */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Renda Fixa</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Taxa</TableHead>
-                    <TableHead className="text-right">Investido</TableHead>
-                    <TableHead className="text-right">Atual</TableHead>
-                    <TableHead className="text-right">Rent.</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {portfolioFixedIncome.map((asset) => {
-                    const profit = ((asset.currentValue - asset.investedValue) / asset.investedValue) * 100
-                    return (
-                      <TableRow key={asset.id}>
-                        <TableCell className="font-medium">{asset.name}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{asset.type}</Badge>
-                        </TableCell>
-                        <TableCell>{asset.rate}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(asset.investedValue)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(asset.currentValue)}</TableCell>
-                        <TableCell className={`text-right ${profit >= 0 ? 'text-finance-profit' : 'text-finance-loss'}`}>
-                          {formatPercentage(profit)}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'fixed' }}>
-                                  <div className="flex items-center w-full">
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    <span>Ver Detalhes</span>
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'fixed', action: 'buy' }}>
-                                  <div className="flex items-center w-full">
-                                    <PlusCircle className="mr-2 h-4 w-4 text-success" />
-                                    <span>Aportar</span>
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'fixed', action: 'sell' }}>
-                                  <div className="flex items-center w-full">
-                                    <MinusCircle className="mr-2 h-4 w-4 text-destructive" />
-                                    <span>Resgatar</span>
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditFixed(asset)}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => handleDeleteClick(asset, "fixed")}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              <FixedIncomeTable
+                data={fixedAssets}
+                pageCount={fixedResponse?.pagination?.totalPages || 0}
+                pagination={fixedPagination}
+                setPagination={setFixedPagination}
+                sorting={fixedSorting}
+                setSorting={setFixedSorting}
+                columnFilters={fixedColumnFilters}
+                setColumnFilters={setFixedColumnFilters}
+                globalFilter={fixedGlobalFilter}
+                setGlobalFilter={setFixedGlobalFilter}
+                isLoading={isLoadingFixed}
+                onEdit={handleEditFixed}
+                onDelete={(asset) => handleDeleteClick(asset, "fixed")}
+              />
             </CardContent>
           </Card>
 
-          {/* Variable Income */}
+          {/* Variable Income Table */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Renda Variável</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ticker</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead className="text-right">Qtd</TableHead>
-                    <TableHead className="text-right">PM</TableHead>
-                    <TableHead className="text-right">Cotação</TableHead>
-                    <TableHead className="text-right">Rent.</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {portfolioVariableIncome.map((asset) => {
-                    const profit = ((asset.currentPrice - asset.averagePrice) / asset.averagePrice) * 100
-                    return (
-                      <TableRow key={asset.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{asset.ticker}</div>
-                            <div className="text-xs text-muted-foreground">{asset.name}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{asset.type}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right">{asset.quantity}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(asset.averagePrice)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(asset.currentPrice)}</TableCell>
-                        <TableCell className={`text-right ${profit >= 0 ? 'text-finance-profit' : 'text-finance-loss'}`}>
-                          {formatPercentage(profit)}
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem asChild>
-                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'variable' }}>
-                                  <div className="flex items-center w-full">
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    <span>Ver Detalhes</span>
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'variable', action: 'buy' }}>
-                                  <div className="flex items-center w-full">
-                                    <PlusCircle className="mr-2 h-4 w-4 text-success" />
-                                    <span>Comprar</span>
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link to="/investimento/$id" params={{ id: asset.id }} search={{ type: 'variable', action: 'sell' }}>
-                                  <div className="flex items-center w-full">
-                                    <MinusCircle className="mr-2 h-4 w-4 text-destructive" />
-                                    <span>Vender</span>
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditVariable(asset)}>
-                                <Pencil className="mr-2 h-4 w-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => handleDeleteClick(asset, "variable")}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* History Tab */}
-        <TabsContent value="history">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Histórico de Transações</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Ativo</TableHead>
-                    <TableHead className="text-right">Quantidade</TableHead>
-                    <TableHead className="text-right">Preço</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {portfolioTransactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell>{formatDate(transaction.date)}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={transaction.type === 'Compra' || transaction.type === 'Aporte' ? 'default' : 'destructive'}
-                        >
-                          {transaction.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{transaction.asset}</TableCell>
-                      <TableCell className="text-right">{transaction.quantity || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        {transaction.price ? formatCurrency(transaction.price) : '-'}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(transaction.total)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                <VariableIncomeTable
+                    data={variableAssets}
+                    pageCount={variableResponse?.pagination?.totalPages || 0}
+                    pagination={variablePagination}
+                    setPagination={setVariablePagination}
+                    sorting={variableSorting}
+                    setSorting={setVariableSorting}
+                    columnFilters={variableColumnFilters}
+                    setColumnFilters={setVariableColumnFilters}
+                    globalFilter={variableGlobalFilter}
+                    setGlobalFilter={setVariableGlobalFilter}
+                    isLoading={isLoadingVariable}
+                    onEdit={handleEditVariable}
+                    onDelete={(asset) => handleDeleteClick(asset, "variable")}
+                />
             </CardContent>
           </Card>
         </TabsContent>
@@ -578,16 +314,16 @@ export default function PortfolioDetails() {
               <CardContent>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={portfolioEvolution}>
+                    <LineChart data={summary?.performanceHistory || []}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="month" className="text-xs" />
+                      <XAxis dataKey="date" className="text-xs" />
                       <YAxis
                         tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                         className="text-xs"
                       />
                       <Tooltip
                         formatter={(value: number) => formatCurrency(value)}
-                        labelFormatter={(label) => `Mês: ${label}`}
+                        labelFormatter={(label) => `Data: ${label}`}
                       />
                       <Line
                         type="monotone"
@@ -613,42 +349,20 @@ export default function PortfolioDetails() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={portfolioAllocation}
+                        data={summary?.assetAllocation || []}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
                         outerRadius={100}
                         dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}%`}
+                        label={({ category, percentage }) => `${category}: ${percentage}%`}
                       >
-                        {portfolioAllocation.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        {(summary?.assetAllocation || []).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color || 'hsl(var(--primary))'} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => `${value}%`} />
+                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
                     </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Profitability Comparison */}
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle className="text-lg">Rentabilidade Mensal vs CDI</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyProfitability}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="month" className="text-xs" />
-                      <YAxis tickFormatter={(value) => `${value}%`} className="text-xs" />
-                      <Tooltip formatter={(value: number) => `${value}%`} />
-                      <Legend />
-                      <Bar dataKey="carteira" name="Carteira" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="cdi" name="CDI" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -671,7 +385,7 @@ export default function PortfolioDetails() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         title="Excluir Investimento"
-        description={getDeleteDescription()}
+        description="Tem certeza?"
         onConfirm={handleConfirmDelete}
       />
     </div>
