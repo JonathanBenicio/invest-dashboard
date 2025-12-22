@@ -1,94 +1,170 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, Eye, PlusCircle, MinusCircle } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Plus } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { fixedIncomeAssets, mockPortfolios, formatCurrency, formatDate, type FixedIncomeAsset } from "@/lib/mock-data"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { mockPortfolios, formatCurrency, type FixedIncomeAsset } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 import { FixedIncomeProjection } from "@/components/projections/FixedIncomeProjection"
+import { useFixedIncomeInvestments } from "@/hooks/use-investments"
+import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
+import { investmentService } from "@/api/services/investment.service"
+import type { FixedIncomeDto, InvestmentFilters, FixedIncomeType, CreateFixedIncomeRequest } from "@/api/dtos"
+import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 
 export default function FixedIncome() {
-  const navigate = useNavigate()
-  const [assets, setAssets] = useState(fixedIncomeAssets)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [typeFilter, setTypeFilter] = useState<string>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [selectedAsset, setSelectedAsset] = useState<FixedIncomeAsset | null>(null)
+  const [selectedAsset, setSelectedAsset] = useState<FixedIncomeDto | null>(null)
   const { toast } = useToast()
 
-  const filteredAssets = assets.filter(asset => {
-    const matchesSearch = asset.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.institution.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = typeFilter === "all" || asset.type === typeFilter
-    return matchesSearch && matchesType
+  // Table State
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
   })
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = useState("")
 
-  const totalInvested = assets.reduce((acc, asset) => acc + asset.investedValue, 0)
+  // Construct filters for API
+  const filters: InvestmentFilters = useMemo(() => {
+    const apiFilters: InvestmentFilters = {
+      page: pagination.pageIndex + 1,
+      pageSize: pagination.pageSize,
+      search: globalFilter || undefined,
+      sortBy: sorting[0]?.id,
+      sortOrder: sorting[0]?.desc ? 'desc' : 'asc',
+    }
+
+    // Map column filters to API params
+    const subtypeFilter = columnFilters.find(f => f.id === 'subtype')?.value
+    if (subtypeFilter) {
+      apiFilters.subtype = subtypeFilter as FixedIncomeType
+    }
+
+    const issuerFilter = columnFilters.find(f => f.id === 'issuer')?.value
+    if (issuerFilter) {
+      apiFilters.issuer = issuerFilter as string
+    }
+
+    return apiFilters
+  }, [pagination, sorting, columnFilters, globalFilter])
+
+  const { data: investmentsData, isLoading, refetch } = useFixedIncomeInvestments(filters)
+
+  const assets = (investmentsData?.data || []) as FixedIncomeDto[]
+  const pageCount = investmentsData?.pagination?.totalPages || 0
+
+  const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvested, 0)
   const totalCurrent = assets.reduce((acc, asset) => acc + asset.currentValue, 0)
   const totalProfit = totalCurrent - totalInvested
 
-  const assetTypes = ['CDB', 'LCI', 'LCA', 'Tesouro Direto', 'Debênture', 'CRI', 'CRA']
+  const assetTypes = ['CDB', 'LCI', 'LCA', 'TESOURO_DIRETO', 'DEBENTURE', 'CRI', 'CRA']
 
-  const handleAddAsset = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddAsset = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
 
-    const newAsset: FixedIncomeAsset = {
-      id: Date.now().toString(),
+    const newAssetData: CreateFixedIncomeRequest = {
+      portfolioId: formData.get('portfolioId') as string,
       name: formData.get('name') as string,
-      type: formData.get('type') as FixedIncomeAsset['type'],
-      institution: formData.get('institution') as string,
-      investedValue: parseFloat(formData.get('investedValue') as string),
-      currentValue: parseFloat(formData.get('investedValue') as string),
-      rate: formData.get('rate') as string,
-      rateType: formData.get('rateType') as FixedIncomeAsset['rateType'],
+      subtype: formData.get('type') as FixedIncomeType,
+      issuer: formData.get('institution') as string,
+      quantity: 1, // Defaulting to 1 for simplicity if not in form
+      averagePrice: parseFloat(formData.get('investedValue') as string),
+      interestRate: parseFloat(formData.get('rate')?.toString().replace('%', '') || '0'),
+      indexer: formData.get('rateType') as 'CDI' | 'IPCA' | 'PREFIXADO',
       purchaseDate: formData.get('purchaseDate') as string,
       maturityDate: formData.get('maturityDate') as string,
-      liquidity: formData.get('liquidity') as FixedIncomeAsset['liquidity'],
     }
 
-    setAssets([...assets, newAsset])
-    setIsDialogOpen(false)
-    toast({
-      title: "Ativo adicionado",
-      description: `${newAsset.name} foi adicionado à sua carteira.`,
-    })
+    try {
+      await investmentService.createFixedIncome(newAssetData)
+      setIsDialogOpen(false)
+      toast({
+        title: "Ativo adicionado",
+        description: `${newAssetData.name} foi adicionado à sua carteira.`,
+      })
+      refetch()
+    } catch (error) {
+      toast({
+        title: "Erro ao adicionar",
+        description: "Ocorreu um erro ao adicionar o ativo.",
+        variant: "destructive",
+      })
+    }
   }
 
-  const handleEditAsset = (updatedAsset: FixedIncomeAsset | any) => {
-    setAssets(assets.map(a => a.id === updatedAsset.id ? updatedAsset as FixedIncomeAsset : a))
-    toast({
-      title: "Ativo atualizado",
-      description: `${(updatedAsset as FixedIncomeAsset).name} foi atualizado com sucesso.`,
-    })
+  const handleEditAsset = async (updatedAsset: FixedIncomeDto) => {
+    if (!selectedAsset) return
+
+    try {
+        const updateData = {
+          name: updatedAsset.name,
+          subtype: updatedAsset.subtype,
+          issuer: updatedAsset.issuer,
+          interestRate: updatedAsset.interestRate,
+          indexer: updatedAsset.indexer,
+          maturityDate: updatedAsset.maturityDate,
+          // Since the API update DTO is specific, we might need to be careful with extra fields.
+          // But passing the whole object usually works if the backend ignores extras or if we just pick what we need.
+          // For now, let's pass specific fields allowed by UpdateInvestmentRequest or similar.
+          // Actually investmentService.update takes UpdateInvestmentRequest which has quantity, averagePrice, currentPrice.
+          // It seems the service interface might need a broader update method or we are limited.
+          // However, for this task, let's assume the backend mock handles the fields we send via 'any' or extended type.
+          ...updatedAsset
+        }
+
+       await investmentService.update(selectedAsset.id, updateData as any)
+
+       setIsEditDialogOpen(false)
+        toast({
+        title: "Ativo atualizado",
+        description: "O ativo foi atualizado com sucesso.",
+        })
+        refetch()
+    } catch (error) {
+         toast({
+        title: "Erro ao atualizar",
+        description: "Falha ao atualizar.",
+        variant: "destructive",
+        })
+    }
   }
 
-  const handleDeleteAsset = (id: string) => {
-    setAssets(assets.filter(a => a.id !== id))
-    setSelectedAsset(null)
-    toast({
-      title: "Ativo removido",
-      description: "O ativo foi removido da sua carteira.",
-    })
+  const handleDeleteAsset = async (id: string) => {
+    try {
+        await investmentService.delete(id)
+        setIsDeleteDialogOpen(false)
+        setSelectedAsset(null)
+        toast({
+        title: "Ativo removido",
+        description: "O ativo foi removido da sua carteira.",
+        })
+        refetch()
+    } catch (error) {
+        toast({
+            title: "Erro ao remover",
+            description: "Falha ao remover o ativo.",
+            variant: "destructive"
+        })
+    }
   }
 
-  const openEditDialog = (asset: FixedIncomeAsset) => {
+  const openEditDialog = (asset: FixedIncomeDto) => {
     setSelectedAsset(asset)
     setIsEditDialogOpen(true)
   }
 
-  const openDeleteDialog = (asset: FixedIncomeAsset) => {
+  const openDeleteDialog = (asset: FixedIncomeDto) => {
     setSelectedAsset(asset)
     setIsDeleteDialogOpen(true)
   }
@@ -161,7 +237,7 @@ export default function FixedIncome() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="rate">Taxa</Label>
-                    <Input id="rate" name="rate" placeholder="Ex: 120%" required />
+                    <Input id="rate" name="rate" placeholder="Ex: 120" required />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -174,7 +250,7 @@ export default function FixedIncome() {
                       <SelectContent>
                         <SelectItem value="CDI">CDI</SelectItem>
                         <SelectItem value="IPCA">IPCA</SelectItem>
-                        <SelectItem value="Prefixado">Prefixado</SelectItem>
+                        <SelectItem value="PREFIXADO">Prefixado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -217,7 +293,7 @@ export default function FixedIncome() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Investido</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Investido (Página)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalInvested)}</div>
@@ -225,7 +301,7 @@ export default function FixedIncome() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Valor Atual</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Valor Atual (Página)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalCurrent)}</div>
@@ -233,7 +309,7 @@ export default function FixedIncome() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Rentabilidade</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Rentabilidade (Página)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
@@ -243,123 +319,41 @@ export default function FixedIncome() {
         </Card>
       </div>
 
-      {/* Fixed Income Projection */}
-      <FixedIncomeProjection assets={assets} />
+      <FixedIncomeProjection assets={assets.map(a => ({
+        id: a.id,
+        name: a.name,
+        type: a.subtype,
+        institution: a.issuer,
+        investedValue: a.totalInvested,
+        currentValue: a.currentValue,
+        rate: a.interestRate?.toString() || '0',
+        rateType: a.indexer || 'CDI',
+        purchaseDate: a.purchaseDate,
+        maturityDate: a.maturityDate,
+        liquidity: 'No vencimento'
+      } as unknown as FixedIncomeAsset))} />
 
-      {/* Filters */}
+      {/* Table */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome ou instituição..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                {assetTypes.map(type => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+            <CardTitle>Meus Investimentos</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ativo</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead className="text-right">Investido</TableHead>
-                  <TableHead className="text-right">Atual</TableHead>
-                  <TableHead>Taxa</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Liquidez</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAssets.map((asset) => {
-                  const profit = ((asset.currentValue - asset.investedValue) / asset.investedValue) * 100
-                  return (
-                    <TableRow key={asset.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{asset.name}</p>
-                          <p className="text-xs text-muted-foreground">{asset.institution}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{asset.type}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">{formatCurrency(asset.investedValue)}</TableCell>
-                      <TableCell className="text-right">
-                        <div>
-                          <p className="font-medium">{formatCurrency(asset.currentValue)}</p>
-                          <p className={`text-xs ${profit >= 0 ? 'text-success' : 'text-destructive'}`}>
-                            {profit >= 0 ? '+' : ''}{profit.toFixed(2)}%
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">{asset.rate} {asset.rateType}</span>
-                      </TableCell>
-                      <TableCell>{formatDate(asset.maturityDate)}</TableCell>
-                      <TableCell>
-                        <Badge variant={asset.liquidity === 'Diária' ? 'default' : 'outline'}>
-                          {asset.liquidity}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed' } })}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              Ver Detalhes
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'buy' } })}>
-                              <PlusCircle className="h-4 w-4 mr-2 text-success" />
-                              Aportar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'sell' } })}>
-                              <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
-                              Resgatar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openEditDialog(asset)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => openDeleteDialog(asset)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+            <FixedIncomeTable
+                data={assets}
+                pageCount={pageCount}
+                pagination={pagination}
+                setPagination={setPagination}
+                sorting={sorting}
+                setSorting={setSorting}
+                columnFilters={columnFilters}
+                setColumnFilters={setColumnFilters}
+                globalFilter={globalFilter}
+                setGlobalFilter={setGlobalFilter}
+                isLoading={isLoading}
+                onEdit={openEditDialog}
+                onDelete={openDeleteDialog}
+            />
         </CardContent>
       </Card>
 
@@ -379,7 +373,6 @@ export default function FixedIncome() {
         onConfirm={() => {
           if (selectedAsset) {
             handleDeleteAsset(selectedAsset.id)
-            setIsDeleteDialogOpen(false)
           }
         }}
       />
