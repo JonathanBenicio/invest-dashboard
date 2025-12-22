@@ -227,7 +227,55 @@ export const handlers = [
       })
     }
 
-    return HttpResponse.json(createPaginatedResponse(investments, page, pageSize))
+    // Map Legacy Data to DTOs
+    // The UI expects InvestmentDto / FixedIncomeDto structure, but mock data has legacy structure.
+    const mappedInvestments = investments.map(inv => {
+      // Check if it's already in DTO format (has totalInvested) or legacy (has investedValue)
+      // Or simply normalize everything.
+
+      const legacy = inv as any;
+      const isFixed = inv.type === 'CDB' || inv.type === 'LCI' || inv.type === 'LCA' ||
+                      inv.type === 'Tesouro Direto' || inv.type === 'Debênture' ||
+                      inv.type === 'CRI' || inv.type === 'CRA' || inv.type === 'fixed_income';
+
+      // Default mapping for Base InvestmentDto fields from legacy
+      const baseDto = {
+        ...inv,
+        portfolioId: legacy.portfolioId || 'portfolio-1', // Default if missing
+        subtype: legacy.subtype || legacy.type, // Map legacy type to subtype
+        quantity: legacy.quantity || 1,
+        averagePrice: legacy.averagePrice || legacy.investedValue || 0,
+        totalInvested: legacy.totalInvested || (legacy.investedValue || (legacy.quantity * legacy.averagePrice)) || 0,
+        currentValue: legacy.currentValue || (legacy.currentPrice ? legacy.currentPrice * legacy.quantity : 0) || 0,
+        // Calculate gain/percentage
+      };
+
+      const gain = baseDto.currentValue - baseDto.totalInvested;
+      const gainPercentage = baseDto.totalInvested > 0 ? (gain / baseDto.totalInvested) * 100 : 0;
+
+      if (isFixed) {
+        return {
+          ...baseDto,
+          type: 'fixed_income', // Ensure correct high-level type
+          issuer: legacy.issuer || legacy.institution || 'Unknown',
+          interestRate: legacy.interestRate || parseFloat(legacy.rate?.replace('%', '') || '0'),
+          indexer: legacy.indexer || legacy.rateType,
+          gain,
+          gainPercentage
+        };
+      } else {
+        // Variable Income
+        return {
+          ...baseDto,
+          type: 'variable_income',
+          ticker: legacy.ticker || legacy.name, // Use name as ticker if missing for generic
+          gain,
+          gainPercentage
+        };
+      }
+    });
+
+    return HttpResponse.json(createPaginatedResponse(mappedInvestments, page, pageSize))
   }),
 
   http.get(`${BASE_URL}/portfolios/:portfolioId/investments`, async ({ params, request }) => {

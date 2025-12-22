@@ -15,14 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { FixedIncomeAsset, VariableIncomeAsset } from "@/lib/mock-data"
+import type { FixedIncomeDto, VariableIncomeDto, FixedIncomeType, VariableIncomeType } from "@/api/dtos"
 
 interface EditInvestmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  investment: FixedIncomeAsset | VariableIncomeAsset | null
+  investment: FixedIncomeDto | VariableIncomeDto | null
   type: "fixed" | "variable"
-  onSave: (investment: FixedIncomeAsset | VariableIncomeAsset) => void
+  onSave: (data: any) => void
 }
 
 export function EditInvestmentDialog({
@@ -34,19 +34,18 @@ export function EditInvestmentDialog({
 }: EditInvestmentDialogProps) {
   const [fixedFormData, setFixedFormData] = useState({
     name: "",
-    type: "CDB" as FixedIncomeAsset["type"],
-    institution: "",
-    investedValue: "",
-    rate: "",
-    rateType: "CDI" as FixedIncomeAsset["rateType"],
+    subtype: "CDB" as FixedIncomeType,
+    issuer: "",
+    totalInvested: "",
+    interestRate: "",
+    indexer: "CDI" as 'CDI' | 'IPCA' | 'PREFIXADO',
     maturityDate: "",
-    liquidity: "Diária" as FixedIncomeAsset["liquidity"],
   })
 
   const [variableFormData, setVariableFormData] = useState({
     ticker: "",
     name: "",
-    type: "Ação" as VariableIncomeAsset["type"],
+    subtype: "ACAO" as VariableIncomeType,
     sector: "",
     quantity: "",
     averagePrice: "",
@@ -56,24 +55,23 @@ export function EditInvestmentDialog({
     if (!investment) return
 
     if (type === "fixed") {
-      const fixed = investment as FixedIncomeAsset
+      const fixed = investment as FixedIncomeDto
       setFixedFormData({
         name: fixed.name,
-        type: fixed.type,
-        institution: fixed.institution,
-        investedValue: fixed.investedValue.toString(),
-        rate: fixed.rate,
-        rateType: fixed.rateType,
-        maturityDate: fixed.maturityDate,
-        liquidity: fixed.liquidity,
+        subtype: fixed.subtype,
+        issuer: fixed.issuer,
+        totalInvested: fixed.totalInvested.toString(),
+        interestRate: fixed.interestRate.toString(),
+        indexer: fixed.indexer || 'CDI',
+        maturityDate: fixed.maturityDate ? fixed.maturityDate.split('T')[0] : '',
       })
     } else {
-      const variable = investment as VariableIncomeAsset
+      const variable = investment as VariableIncomeDto
       setVariableFormData({
-        ticker: variable.ticker,
+        ticker: variable.ticker || "",
         name: variable.name,
-        type: variable.type,
-        sector: variable.sector,
+        subtype: variable.subtype,
+        sector: variable.sector || "",
         quantity: variable.quantity.toString(),
         averagePrice: variable.averagePrice.toString(),
       })
@@ -85,26 +83,24 @@ export function EditInvestmentDialog({
     if (!investment) return
 
     if (type === "fixed") {
-      const fixed = investment as FixedIncomeAsset
-      const updated: FixedIncomeAsset = {
-        ...fixed,
+      // Return updated fields
+      const updated = {
+        ...investment,
         name: fixedFormData.name,
-        type: fixedFormData.type,
-        institution: fixedFormData.institution,
-        investedValue: Number(fixedFormData.investedValue),
-        rate: fixedFormData.rate,
-        rateType: fixedFormData.rateType,
+        subtype: fixedFormData.subtype,
+        issuer: fixedFormData.issuer,
+        totalInvested: Number(fixedFormData.totalInvested),
+        interestRate: Number(fixedFormData.interestRate),
+        indexer: fixedFormData.indexer,
         maturityDate: fixedFormData.maturityDate,
-        liquidity: fixedFormData.liquidity,
       }
       onSave(updated)
     } else {
-      const variable = investment as VariableIncomeAsset
-      const updated: VariableIncomeAsset = {
-        ...variable,
+      const updated = {
+        ...investment,
         ticker: variableFormData.ticker,
         name: variableFormData.name,
-        type: variableFormData.type,
+        subtype: variableFormData.subtype,
         sector: variableFormData.sector,
         quantity: Number(variableFormData.quantity),
         averagePrice: Number(variableFormData.averagePrice),
@@ -140,11 +136,11 @@ export function EditInvestmentDialog({
                 <div className="space-y-2">
                   <Label>Tipo</Label>
                   <Select
-                    value={fixedFormData.type}
+                    value={fixedFormData.subtype}
                     onValueChange={(value) =>
                       setFixedFormData({
                         ...fixedFormData,
-                        type: value as FixedIncomeAsset["type"],
+                        subtype: value as FixedIncomeType,
                       })
                     }
                   >
@@ -155,8 +151,8 @@ export function EditInvestmentDialog({
                       <SelectItem value="CDB">CDB</SelectItem>
                       <SelectItem value="LCI">LCI</SelectItem>
                       <SelectItem value="LCA">LCA</SelectItem>
-                      <SelectItem value="Tesouro Direto">Tesouro Direto</SelectItem>
-                      <SelectItem value="Debênture">Debênture</SelectItem>
+                      <SelectItem value="TESOURO_DIRETO">Tesouro Direto</SelectItem>
+                      <SelectItem value="DEBENTURE">Debênture</SelectItem>
                       <SelectItem value="CRI">CRI</SelectItem>
                       <SelectItem value="CRA">CRA</SelectItem>
                     </SelectContent>
@@ -166,9 +162,9 @@ export function EditInvestmentDialog({
                 <div className="space-y-2">
                   <Label>Instituição</Label>
                   <Input
-                    value={fixedFormData.institution}
+                    value={fixedFormData.issuer}
                     onChange={(e) =>
-                      setFixedFormData({ ...fixedFormData, institution: e.target.value })
+                      setFixedFormData({ ...fixedFormData, issuer: e.target.value })
                     }
                     required
                   />
@@ -180,9 +176,9 @@ export function EditInvestmentDialog({
                   <Label>Valor Investido</Label>
                   <Input
                     type="number"
-                    value={fixedFormData.investedValue}
+                    value={fixedFormData.totalInvested}
                     onChange={(e) =>
-                      setFixedFormData({ ...fixedFormData, investedValue: e.target.value })
+                      setFixedFormData({ ...fixedFormData, totalInvested: e.target.value })
                     }
                     required
                   />
@@ -191,25 +187,26 @@ export function EditInvestmentDialog({
                 <div className="space-y-2">
                   <Label>Taxa</Label>
                   <Input
-                    value={fixedFormData.rate}
+                    value={fixedFormData.interestRate}
                     onChange={(e) =>
-                      setFixedFormData({ ...fixedFormData, rate: e.target.value })
+                      setFixedFormData({ ...fixedFormData, interestRate: e.target.value })
                     }
-                    placeholder="Ex: 120% ou IPCA + 6%"
+                    placeholder="Ex: 120"
                     required
+                    type="number"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Tipo de Taxa</Label>
+                  <Label>Indexador</Label>
                   <Select
-                    value={fixedFormData.rateType}
+                    value={fixedFormData.indexer}
                     onValueChange={(value) =>
                       setFixedFormData({
                         ...fixedFormData,
-                        rateType: value as FixedIncomeAsset["rateType"],
+                        indexer: value as 'CDI' | 'IPCA' | 'PREFIXADO',
                       })
                     }
                   >
@@ -219,43 +216,22 @@ export function EditInvestmentDialog({
                     <SelectContent>
                       <SelectItem value="CDI">CDI</SelectItem>
                       <SelectItem value="IPCA">IPCA</SelectItem>
-                      <SelectItem value="Prefixado">Prefixado</SelectItem>
+                      <SelectItem value="PREFIXADO">Prefixado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Liquidez</Label>
-                  <Select
-                    value={fixedFormData.liquidity}
-                    onValueChange={(value) =>
-                      setFixedFormData({
-                        ...fixedFormData,
-                        liquidity: value as FixedIncomeAsset["liquidity"],
-                      })
+                  <Label>Data de Vencimento</Label>
+                  <Input
+                    type="date"
+                    value={fixedFormData.maturityDate}
+                    onChange={(e) =>
+                      setFixedFormData({ ...fixedFormData, maturityDate: e.target.value })
                     }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Diária">Diária</SelectItem>
-                      <SelectItem value="No vencimento">No vencimento</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    required
+                  />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Data de Vencimento</Label>
-                <Input
-                  type="date"
-                  value={fixedFormData.maturityDate}
-                  onChange={(e) =>
-                    setFixedFormData({ ...fixedFormData, maturityDate: e.target.value })
-                  }
-                  required
-                />
               </div>
             </>
           ) : (
@@ -275,11 +251,11 @@ export function EditInvestmentDialog({
                 <div className="space-y-2">
                   <Label>Tipo</Label>
                   <Select
-                    value={variableFormData.type}
+                    value={variableFormData.subtype}
                     onValueChange={(value) =>
                       setVariableFormData({
                         ...variableFormData,
-                        type: value as VariableIncomeAsset["type"],
+                        subtype: value as VariableIncomeType,
                       })
                     }
                   >
@@ -287,7 +263,7 @@ export function EditInvestmentDialog({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Ação">Ação</SelectItem>
+                      <SelectItem value="ACAO">Ação</SelectItem>
                       <SelectItem value="FII">FII</SelectItem>
                       <SelectItem value="ETF">ETF</SelectItem>
                       <SelectItem value="BDR">BDR</SelectItem>
