@@ -1,111 +1,167 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useNavigate } from "@tanstack/react-router"
-import { Plus, Filter, Search, MoreHorizontal, Pencil, Trash2, ArrowUpRight, ArrowDownRight, Eye, PlusCircle, MinusCircle } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Plus, ArrowUpRight, ArrowDownRight } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { variableIncomeAssets, mockPortfolios, dividends, formatCurrency, formatDate, type VariableIncomeAsset } from "@/lib/mock-data"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { mockPortfolios, formatCurrency, formatDate } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
+import { useVariableIncomeInvestments, useDividends } from "@/hooks/use-variable-income"
+import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
+import { investmentService } from "@/api/services/investment.service"
+import type { VariableIncomeDto, InvestmentFilters, VariableIncomeType, CreateVariableIncomeRequest } from "@/api/dtos"
+import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 
 export default function VariableIncome() {
-  const navigate = useNavigate()
-  const [assets, setAssets] = useState(variableIncomeAssets)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [typeFilter, setTypeFilter] = useState<string>("all")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [selectedAsset, setSelectedAsset] = useState<VariableIncomeAsset | null>(null)
+  const [selectedAsset, setSelectedAsset] = useState<VariableIncomeDto | null>(null)
   const { toast } = useToast()
 
-  const filteredAssets = assets.filter(asset => {
-    const matchesSearch = asset.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      asset.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = typeFilter === "all" || asset.type === typeFilter
-    return matchesSearch && matchesType
+  // Table State
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
   })
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = useState("")
 
-  const totalInvested = assets.reduce((acc, asset) => acc + (asset.averagePrice * asset.quantity), 0)
-  const totalCurrent = assets.reduce((acc, asset) => acc + (asset.currentPrice * asset.quantity), 0)
+  // Construct filters for API
+  const filters: InvestmentFilters = useMemo(() => {
+    const apiFilters: InvestmentFilters = {
+      page: pagination.pageIndex + 1,
+      pageSize: pagination.pageSize,
+      search: globalFilter || undefined,
+      sortBy: sorting[0]?.id,
+      sortOrder: sorting[0]?.desc ? 'desc' : 'asc',
+    }
+
+    const subtypeFilter = columnFilters.find(f => f.id === 'subtype')?.value
+    if (subtypeFilter) {
+      apiFilters.subtype = subtypeFilter as VariableIncomeType
+    }
+
+    // Add sector filter logic if DTO supported it explicitly or reuse generic filters
+    // Our service mock supports 'sector' query param via loose casting in service or if we add it to DTO.
+    // For now, let's assume we can pass it.
+    const sectorFilter = columnFilters.find(f => f.id === 'sector')?.value
+    if (sectorFilter) {
+        (apiFilters as any).sector = sectorFilter
+    }
+
+    return apiFilters
+  }, [pagination, sorting, columnFilters, globalFilter])
+
+  const { data: investmentsData, isLoading, refetch } = useVariableIncomeInvestments(filters)
+  const { data: dividendsData } = useDividends()
+
+  const assets = (investmentsData?.data || []) as VariableIncomeDto[]
+  const pageCount = investmentsData?.pagination?.totalPages || 0
+
+  const dividends = dividendsData?.data || []
+
+  const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvested, 0)
+  const totalCurrent = assets.reduce((acc, asset) => acc + asset.currentValue, 0)
   const totalProfit = totalCurrent - totalInvested
 
-  const assetTypes = ['Ação', 'FII', 'ETF', 'BDR']
+  const assetTypes = ['ACAO', 'FII', 'ETF', 'BDR']
 
-  const handleAddAsset = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddAsset = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
 
-    const newAsset: VariableIncomeAsset = {
-      id: Date.now().toString(),
+    const newAssetData: CreateVariableIncomeRequest = {
+      portfolioId: formData.get('portfolioId') as string,
       ticker: (formData.get('ticker') as string).toUpperCase(),
-      name: formData.get('name') as string,
-      type: formData.get('type') as VariableIncomeAsset['type'],
-      sector: formData.get('sector') as string,
+      subtype: formData.get('type') as VariableIncomeType,
       quantity: parseInt(formData.get('quantity') as string),
       averagePrice: parseFloat(formData.get('averagePrice') as string),
-      currentPrice: parseFloat(formData.get('averagePrice') as string),
-      lastUpdate: new Date().toISOString().split('T')[0],
+      purchaseDate: new Date().toISOString(), // Default now
+      // API request might need name and sector if we want to be complete, but DTO CreateVariableIncomeRequest
+      // only requires minimal fields. However, Mock Handler creates based on body.
+      // Let's pass extra fields for the mock to be happy.
+      ...({
+        name: formData.get('name') as string,
+        sector: formData.get('sector') as string,
+      } as any)
     }
 
-    setAssets([...assets, newAsset])
-    setIsDialogOpen(false)
-    toast({
-      title: "Ativo adicionado",
-      description: `${newAsset.ticker} foi adicionado à sua carteira.`,
-    })
-  }
-
-  const handleEditAsset = (updatedAsset: VariableIncomeAsset | any) => {
-    setAssets(assets.map(a => a.id === updatedAsset.id ? updatedAsset as VariableIncomeAsset : a))
-    toast({
-      title: "Ativo atualizado",
-      description: `${(updatedAsset as VariableIncomeAsset).ticker} foi atualizado com sucesso.`,
-    })
-  }
-
-  const handleDeleteAsset = (id: string) => {
-    setAssets(assets.filter(a => a.id !== id))
-    setSelectedAsset(null)
-    toast({
-      title: "Ativo removido",
-      description: "O ativo foi removido da sua carteira.",
-    })
-  }
-
-  const openEditDialog = (asset: VariableIncomeAsset) => {
-    // Adapter to match the new EditInvestmentDialog which expects VariableIncomeDto
-    // We cast to any or map explicitly to avoid type errors since this page is not fully migrated to DTOs yet
-    const adapter: any = {
-      ...asset,
-      subtype: asset.type, // Map type to subtype
-      // Add other missing fields if necessary, or let them be undefined if optional
+    try {
+      await investmentService.createVariableIncome(newAssetData)
+      setIsDialogOpen(false)
+      toast({
+        title: "Ativo adicionado",
+        description: `${newAssetData.ticker} foi adicionado à sua carteira.`,
+      })
+      refetch()
+    } catch (error) {
+      toast({
+        title: "Erro ao adicionar",
+        description: "Ocorreu um erro ao adicionar o ativo.",
+        variant: "destructive",
+      })
     }
-    setSelectedAsset(adapter)
+  }
+
+  const handleEditAsset = async (updatedAsset: VariableIncomeDto) => {
+    if (!selectedAsset) return
+
+    try {
+       // Since API expects UpdateInvestmentRequest but mock allows any, we pass what we have
+       await investmentService.update(selectedAsset.id, updatedAsset as any)
+
+       setIsEditDialogOpen(false)
+        toast({
+        title: "Ativo atualizado",
+        description: `${updatedAsset.ticker} foi atualizado com sucesso.`,
+        })
+        refetch()
+    } catch (error) {
+         toast({
+        title: "Erro ao atualizar",
+        description: "Falha ao atualizar.",
+        variant: "destructive",
+        })
+    }
+  }
+
+  const handleDeleteAsset = async (id: string) => {
+    try {
+        await investmentService.delete(id)
+        setIsDeleteDialogOpen(false)
+        setSelectedAsset(null)
+        toast({
+        title: "Ativo removido",
+        description: "O ativo foi removido da sua carteira.",
+        })
+        refetch()
+    } catch (error) {
+        toast({
+            title: "Erro ao remover",
+            description: "Falha ao remover o ativo.",
+            variant: "destructive"
+        })
+    }
+  }
+
+  const openEditDialog = (asset: VariableIncomeDto) => {
+    setSelectedAsset(asset)
     setIsEditDialogOpen(true)
   }
 
-  const openDeleteDialog = (asset: VariableIncomeAsset) => {
+  const openDeleteDialog = (asset: VariableIncomeDto) => {
     setSelectedAsset(asset)
     setIsDeleteDialogOpen(true)
-  }
-
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Ação': return 'bg-primary/10 text-primary'
-      case 'FII': return 'bg-warning/10 text-warning'
-      case 'ETF': return 'bg-success/10 text-success'
-      case 'BDR': return 'bg-info/10 text-info'
-      default: return 'bg-secondary text-secondary-foreground'
-    }
   }
 
   return (
@@ -153,7 +209,7 @@ export default function VariableIncome() {
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="type">Tipo</Label>
-                    <Select name="type" defaultValue="Ação">
+                    <Select name="type" defaultValue="ACAO">
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -199,7 +255,7 @@ export default function VariableIncome() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Investido</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Investido (Página)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalInvested)}</div>
@@ -207,7 +263,7 @@ export default function VariableIncome() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Valor Atual</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Valor Atual (Página)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalCurrent)}</div>
@@ -215,7 +271,7 @@ export default function VariableIncome() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Resultado</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Resultado (Página)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold flex items-center gap-2 ${totalProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
@@ -235,116 +291,22 @@ export default function VariableIncome() {
 
         <TabsContent value="assets">
           <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por ticker ou nome..."
-                    className="pl-10"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                </div>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os tipos</SelectItem>
-                    {assetTypes.map(type => (
-                      <SelectItem key={type} value={type}>{type}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ativo</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead className="text-right">Qtd</TableHead>
-                      <TableHead className="text-right">PM</TableHead>
-                      <TableHead className="text-right">Atual</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Resultado</TableHead>
-                      <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAssets.map((asset) => {
-                      const total = asset.currentPrice * asset.quantity
-                      const invested = asset.averagePrice * asset.quantity
-                      const profit = total - invested
-                      const profitPercent = ((profit / invested) * 100)
-
-                      return (
-                        <TableRow key={asset.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{asset.ticker}</p>
-                              <p className="text-xs text-muted-foreground">{asset.name}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={getTypeColor(asset.type)} variant="secondary">
-                              {asset.type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">{asset.quantity}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(asset.averagePrice)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(asset.currentPrice)}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(total)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className={`flex items-center justify-end gap-1 ${profit >= 0 ? 'text-success' : 'text-destructive'}`}>
-                              {profit >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-                              <span className="font-medium">{profitPercent >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable' } })}>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Ver Detalhes
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable', action: 'buy' } })}>
-                                  <PlusCircle className="h-4 w-4 mr-2 text-success" />
-                                  Comprar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable', action: 'sell' } })}>
-                                  <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
-                                  Vender
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => openEditDialog(asset)}>
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => openDeleteDialog(asset)}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Excluir
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+            <CardContent className="pt-6">
+                <VariableIncomeTable
+                    data={assets}
+                    pageCount={pageCount}
+                    pagination={pagination}
+                    setPagination={setPagination}
+                    sorting={sorting}
+                    setSorting={setSorting}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    globalFilter={globalFilter}
+                    setGlobalFilter={setGlobalFilter}
+                    isLoading={isLoading}
+                    onEdit={openEditDialog}
+                    onDelete={openDeleteDialog}
+                />
             </CardContent>
           </Card>
         </TabsContent>
@@ -368,7 +330,7 @@ export default function VariableIncome() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dividends.map((dividend) => (
+                    {dividends.map((dividend: any) => (
                       <TableRow key={dividend.id}>
                         <TableCell className="font-medium">{dividend.ticker}</TableCell>
                         <TableCell>
@@ -392,7 +354,7 @@ export default function VariableIncome() {
       <EditInvestmentDialog
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
-        investment={selectedAsset as any}
+        investment={selectedAsset}
         type="variable"
         onSave={handleEditAsset}
       />
