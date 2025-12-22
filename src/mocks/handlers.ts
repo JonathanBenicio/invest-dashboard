@@ -3,9 +3,9 @@
  * Mock API endpoints for development
  */
 
-import { http, HttpResponse, delay } from 'msw'
+import { http, HttpResponse, delay, cookie } from 'msw'
 import { API_CONFIG } from '@/api/env'
-import type { ApiResponse, PaginatedResponse } from '@/api/dtos'
+import type { ApiResponse, PaginatedResponse, UserDto } from '@/api/dtos'
 import {
   mockCurrentUser,
   mockPortfolios,
@@ -14,6 +14,7 @@ import {
   mockVariableIncomeInvestments,
   mockInvestmentSummary,
   mockPortfolioSummary,
+  mockUsers,
 } from './data'
 
 const BASE_URL = API_CONFIG.BASE_URL+API_CONFIG.VERSION
@@ -57,15 +58,89 @@ function createPaginatedResponse<T>(
   }
 }
 
+/**
+ * Middleware to check authentication and permissions
+ */
+function checkPermission(request: Request, requiredRole?: 'edit' | 'admin') {
+  const cookies = request.headers.get('cookie') || ''
+  const token = cookies.split(';').find(c => c.trim().startsWith('auth_token='))
+
+  if (!token) {
+    return { authorized: false, status: 401, message: 'Não autenticado' }
+  }
+
+  // Simulate JWT decoding (token is just userId in our mock)
+  const userId = token.split('=')[1]
+  const user = mockUsers.find(u => u.id === userId)
+
+  if (!user) {
+    return { authorized: false, status: 401, message: 'Usuário inválido' }
+  }
+
+  // Check role
+  if (requiredRole) {
+    const role = user.role as string
+    if (requiredRole === 'admin' && role !== 'admin') {
+       return { authorized: false, status: 403, message: 'Acesso negado: Requer privilégios de Admin' }
+    }
+    if (requiredRole === 'edit' && role === 'view') {
+       return { authorized: false, status: 403, message: 'Acesso negado: Apenas leitura' }
+    }
+  }
+
+  return { authorized: true, user }
+}
+
 export const handlers = [
   // Auth endpoints
-  http.get(`${BASE_URL}/auth/me`, async () => {
+  http.post(`${BASE_URL}/auth/login`, async ({ request }) => {
+    const body = await request.json() as { email?: string; password?: string }
+    await delay(500)
+
+    const user = mockUsers.find(u => u.email === body.email)
+
+    // Simple password check (In real app, hash check)
+    // For mock: password is 'password' for all, or match specific rules if needed.
+    // We'll just check if user exists for now or simple "password" string.
+    if (!user || body.password !== 'password') {
+       return HttpResponse.json(
+        { success: false, message: 'Credenciais inválidas' },
+        { status: 401 }
+      )
+    }
+
+    // Set cookie
+    return HttpResponse.json(createResponse(user), {
+      headers: {
+        'Set-Cookie': `auth_token=${user.id}; HttpOnly; Path=/; SameSite=Strict`,
+      }
+    })
+  }),
+
+  http.post(`${BASE_URL}/auth/logout`, async () => {
+    return HttpResponse.json(createResponse(null), {
+      headers: {
+        'Set-Cookie': 'auth_token=; HttpOnly; Path=/; Max-Age=0',
+      }
+    })
+  }),
+
+  http.get(`${BASE_URL}/auth/me`, async ({ request }) => {
     await delay(300)
-    return HttpResponse.json(createResponse(mockCurrentUser))
+    const check = checkPermission(request)
+    if (!check.authorized) {
+       return HttpResponse.json(
+        { success: false, message: check.message },
+        { status: check.status }
+      )
+    }
+    return HttpResponse.json(createResponse(check.user))
   }),
 
   // Portfolio endpoints
   http.get(`${BASE_URL}/portfolios`, async ({ request }) => {
+    const check = checkPermission(request)
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
     await delay(400)
     const url = new URL(request.url)
     const page = parseInt(url.searchParams.get('page') || '1')
@@ -104,6 +179,9 @@ export const handlers = [
   }),
 
   http.post(`${BASE_URL}/portfolios`, async ({ request }) => {
+    const check = checkPermission(request, 'edit')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
     await delay(500)
     const body = await request.json() as Record<string, unknown>
 
@@ -124,6 +202,9 @@ export const handlers = [
   }),
 
   http.patch(`${BASE_URL}/portfolios/:id`, async ({ params, request }) => {
+    const check = checkPermission(request, 'edit')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
     await delay(400)
     const { id } = params
     const body = await request.json() as Record<string, unknown>
@@ -145,7 +226,10 @@ export const handlers = [
     return HttpResponse.json(createResponse(updated, 'Portfolio atualizado com sucesso'))
   }),
 
-  http.delete(`${BASE_URL}/portfolios/:id`, async ({ params }) => {
+  http.delete(`${BASE_URL}/portfolios/:id`, async ({ params, request }) => {
+    const check = checkPermission(request, 'edit')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
     await delay(400)
     const { id } = params
     const portfolio = mockPortfolios.find(p => p.id === id)
@@ -356,6 +440,9 @@ export const handlers = [
   }),
 
   http.post(`${BASE_URL}/investments/fixed-income`, async ({ request }) => {
+    const check = checkPermission(request, 'edit')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
     await delay(500)
     const body = await request.json() as { averagePrice?: number; quantity?: number; [key: string]: unknown }
 
@@ -383,6 +470,9 @@ export const handlers = [
   }),
 
   http.post(`${BASE_URL}/investments/variable-income`, async ({ request }) => {
+    const check = checkPermission(request, 'edit')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
     await delay(500)
     const body = await request.json() as { ticker?: string; averagePrice?: number; quantity?: number; [key: string]: unknown }
 
@@ -411,6 +501,9 @@ export const handlers = [
   }),
 
   http.patch(`${BASE_URL}/investments/:id`, async ({ params, request }) => {
+    const check = checkPermission(request, 'edit')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
     await delay(400)
     const { id } = params
     const body = await request.json() as Record<string, unknown>
@@ -442,7 +535,10 @@ export const handlers = [
     return HttpResponse.json(createResponse(updated, 'Investimento atualizado com sucesso'))
   }),
 
-  http.delete(`${BASE_URL}/investments/:id`, async ({ params }) => {
+  http.delete(`${BASE_URL}/investments/:id`, async ({ params, request }) => {
+    const check = checkPermission(request, 'edit')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
     await delay(400)
     const { id } = params
     const index = mockAllInvestments.findIndex(inv => inv.id === id)
