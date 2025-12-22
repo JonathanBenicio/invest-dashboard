@@ -46,11 +46,15 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
 // Auth Initializer Component
 const AuthInitializer = () => {
-  const checkAuth = useAuthStore(state => state.checkAuth)
+  const { checkAuth, isLoading } = useAuthStore()
 
   useEffect(() => {
     checkAuth()
   }, [checkAuth])
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando InvestPro...</div>
+  }
 
   return <Outlet />
 }

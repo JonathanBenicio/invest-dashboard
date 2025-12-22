@@ -50,7 +50,11 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
       case 400:
         throw new ValidationError(message, errorData.errors)
       case 401:
-        useAuthStore.getState().logout()
+        // Don't trigger logout for auth check or login requests
+        // This prevents infinite loops or unnecessary API calls during initialization
+        if (!response.url.endsWith('/auth/me') && !response.url.endsWith('/auth/login')) {
+          useAuthStore.getState().logout()
+        }
         throw new UnauthorizedError(message)
       case 403:
          throw new ApiError(message || 'Access Forbidden', 403, 'FORBIDDEN')

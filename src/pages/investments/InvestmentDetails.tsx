@@ -12,7 +12,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -30,10 +38,14 @@ import {
   PlusCircle,
   MinusCircle,
   Wallet,
-  Target,
+  Percent,
+  LineChart,
   Calendar,
+  Target,
 } from "lucide-react"
 import {
+  LineChart as RechartsLineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -41,17 +53,24 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
+  Legend,
 } from "recharts"
 import {
+  fixedIncomeAssets,
+  variableIncomeAssets,
   formatCurrency,
   formatPercentage,
   formatDate,
 } from "@/lib/mock-data"
-import { useInvestment, useInvestmentTransactions } from "@/hooks/use-investment-details"
-import { FixedIncomeDto, VariableIncomeDto } from "@/api/dtos"
 
-// Using mock generator for chart data as it's typically complex to fetch historical series in a simple mock setup
-// In a real app, this would come from a historical data endpoint.
+// Mock history data for assets
+const generateHistoryData = (assetId: string) => [
+  { id: "1", date: "2024-12-01", type: "Compra", quantity: 50, price: 35.20, total: 1760 },
+  { id: "2", date: "2024-11-15", type: "Compra", quantity: 100, price: 33.50, total: 3350 },
+  { id: "3", date: "2024-10-20", type: "Venda", quantity: 30, price: 36.80, total: 1104 },
+  { id: "4", date: "2024-09-10", type: "Compra", quantity: 80, price: 31.00, total: 2480 },
+]
+
 const generateChartData = () => [
   { date: "01/12", position: 7750, profit: 850, average: 32.50, dailyChange: 1.2 },
   { date: "02/12", position: 7820, profit: 920, average: 32.50, dailyChange: 0.9 },
@@ -73,12 +92,6 @@ export default function InvestmentDetails() {
   const navigate = useNavigate()
   const type = search.type || "variable"
 
-  const { data: investmentResponse, isLoading } = useInvestment(id)
-  const { data: transactionsResponse } = useInvestmentTransactions(id)
-
-  const asset = investmentResponse?.data
-  const transactions = transactionsResponse?.data || []
-
   const [transactionType, setTransactionType] = useState<"buy" | "sell">("buy")
   const [quantity, setQuantity] = useState("")
   const [price, setPrice] = useState("")
@@ -94,9 +107,10 @@ export default function InvestmentDetails() {
     }
   }, [search.action])
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-96">Carregando detalhes...</div>
-  }
+  // Find asset based on type
+  const asset = type === "fixed"
+    ? fixedIncomeAssets.find(a => a.id === id)
+    : variableIncomeAssets.find(a => a.id === id)
 
   if (!asset) {
     return (
@@ -109,29 +123,27 @@ export default function InvestmentDetails() {
     )
   }
 
-  const isVariable = asset.type === "variable_income"
-  const variableAsset = isVariable ? asset as VariableIncomeDto : null
-  const fixedAsset = !isVariable ? asset as FixedIncomeDto : null
+  const isVariable = type === "variable"
+  const variableAsset = isVariable ? asset as typeof variableIncomeAssets[0] : null
+  const fixedAsset = !isVariable ? asset as typeof fixedIncomeAssets[0] : null
 
-  // Helper to get display name
-  const displayName = isVariable ? variableAsset?.ticker : fixedAsset?.name
-  const displayType = asset.subtype
-  const displayInstitution = isVariable ? variableAsset?.name : fixedAsset?.issuer
+  // Calculate values for variable income
+  const totalValue = variableAsset
+    ? variableAsset.currentPrice * variableAsset.quantity
+    : fixedAsset?.currentValue || 0
 
-  // Values
-  const totalValue = asset.currentValue
-  const investedValue = asset.totalInvested
-  const profit = asset.gain
-  const profitPercentage = asset.gainPercentage
+  const investedValue = variableAsset
+    ? variableAsset.averagePrice * variableAsset.quantity
+    : fixedAsset?.investedValue || 0
+
+  const profit = totalValue - investedValue
+  const profitPercentage = (profit / investedValue) * 100
 
   // Calculate projected value at maturity for fixed income
   const calculateProjectedValue = () => {
     if (!fixedAsset) return null
 
     const today = new Date()
-    // Handle date strings properly
-    if (!fixedAsset.maturityDate || !fixedAsset.purchaseDate) return null
-
     const maturity = new Date(fixedAsset.maturityDate)
     const purchase = new Date(fixedAsset.purchaseDate)
 
@@ -145,22 +157,21 @@ export default function InvestmentDetails() {
     const CDI_RATE = 0.1215 // 12.15% CDI aproximado
     const IPCA_RATE = 0.045 // 4.5% IPCA aproximado
 
-    const rateStr = fixedAsset.interestRate?.toString() || '0'
-
-    if (fixedAsset.indexer === 'CDI') {
-      const cdiPercentage = parseFloat(rateStr) / 100
+    if (fixedAsset.rateType === 'CDI') {
+      const cdiPercentage = parseFloat(fixedAsset.rate.replace('%', '')) / 100
       annualRate = CDI_RATE * cdiPercentage
-    } else if (fixedAsset.indexer === 'IPCA') {
-      // Simplification for mock
-      annualRate = IPCA_RATE + (parseFloat(rateStr) / 100)
+    } else if (fixedAsset.rateType === 'IPCA') {
+      const spreadMatch = fixedAsset.rate.match(/[\d,]+/g)
+      const spread = spreadMatch ? parseFloat(spreadMatch[spreadMatch.length - 1].replace(',', '.')) / 100 : 0.06
+      annualRate = IPCA_RATE + spread
     } else {
-      annualRate = parseFloat(rateStr) / 100
+      annualRate = parseFloat(fixedAsset.rate.replace('%', '').replace(',', '.')) / 100
     }
 
     // Compound interest projection from current value
     const projectedValue = fixedAsset.currentValue * Math.pow(1 + annualRate, yearsRemaining)
-    const projectedProfit = projectedValue - fixedAsset.totalInvested
-    const projectedProfitPercentage = (projectedProfit / fixedAsset.totalInvested) * 100
+    const projectedProfit = projectedValue - fixedAsset.investedValue
+    const projectedProfitPercentage = (projectedProfit / fixedAsset.investedValue) * 100
 
     return {
       projectedValue,
@@ -172,10 +183,12 @@ export default function InvestmentDetails() {
   }
 
   const projection = calculateProjectedValue()
-  const chartData = generateChartData() // Using static mock for chart
+
+  const historyData = generateHistoryData(id!)
+  const chartData = generateChartData()
 
   const handleTransaction = () => {
-    // Implement API call for transaction
+    // Mock transaction handling
     console.log({
       type: transactionType,
       quantity: Number(quantity),
@@ -218,14 +231,14 @@ export default function InvestmentDetails() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold">
-                {displayName}
+                {isVariable ? variableAsset?.ticker : fixedAsset?.name}
               </h1>
               <Badge variant={isVariable ? "default" : "secondary"}>
-                {displayType}
+                {isVariable ? variableAsset?.type : fixedAsset?.type}
               </Badge>
             </div>
             <p className="text-muted-foreground">
-              {displayInstitution}
+              {isVariable ? variableAsset?.name : fixedAsset?.institution}
             </p>
           </div>
         </div>
@@ -363,7 +376,7 @@ export default function InvestmentDetails() {
             <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
             {isVariable && (
               <p className="text-xs text-muted-foreground">
-                {asset.quantity} unidades
+                {variableAsset?.quantity} unidades
               </p>
             )}
           </CardContent>
@@ -379,8 +392,8 @@ export default function InvestmentDetails() {
           <CardContent>
             <p className="text-2xl font-bold">
               {isVariable
-                ? formatCurrency(asset.averagePrice)
-                : formatCurrency(asset.totalInvested)
+                ? formatCurrency(variableAsset?.averagePrice || 0)
+                : formatCurrency(fixedAsset?.investedValue || 0)
               }
             </p>
             {isVariable && (
@@ -399,13 +412,13 @@ export default function InvestmentDetails() {
           <CardContent>
             <p className="text-2xl font-bold">
               {isVariable
-                ? formatCurrency(asset.currentPrice)
-                : `${fixedAsset?.interestRate}%` // Simplification
+                ? formatCurrency(variableAsset?.currentPrice || 0)
+                : fixedAsset?.rate
               }
             </p>
             {!isVariable && (
               <p className="text-xs text-muted-foreground">
-                {fixedAsset?.indexer}
+                {fixedAsset?.rateType}
               </p>
             )}
           </CardContent>
@@ -480,6 +493,40 @@ export default function InvestmentDetails() {
         </Card>
       )}
 
+      {/* Quick Buy/Aporte Button */}
+      <Card className="border-success/20 bg-gradient-to-r from-success/5 to-transparent">
+        <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-success/10">
+              <PlusCircle className="h-6 w-6 text-success" />
+            </div>
+            <div>
+              <p className="font-medium">
+                {isVariable ? "Aumentar Posição" : "Realizar Aporte"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {isVariable
+                  ? `Cotação atual: ${formatCurrency(variableAsset?.currentPrice || 0)}`
+                  : `Taxa: ${fixedAsset?.rate} (${fixedAsset?.rateType})`
+                }
+              </p>
+            </div>
+          </div>
+          <Button
+            size="lg"
+            variant="success"
+            className="w-full sm:w-auto"
+            onClick={() => {
+              setTransactionType("buy")
+              setDialogOpen(true)
+            }}
+          >
+            <PlusCircle className="mr-2 h-4 w-4" />
+            {isVariable ? "Comprar Agora" : "Aportar Agora"}
+          </Button>
+        </CardContent>
+      </Card>
+
       {/* Tabs: History & Charts */}
       <Tabs defaultValue="history" className="space-y-4">
         <TabsList>
@@ -504,28 +551,24 @@ export default function InvestmentDetails() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.length > 0 ? transactions.map((item: any) => (
+                  {historyData.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>{formatDate(item.date)}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={item.type === "Compra" || item.type === "Aporte" ? "default" : "destructive"}
-                          className={item.type === "Compra" || item.type === "Aporte" ? "bg-success" : ""}
+                          variant={item.type === "Compra" ? "default" : "destructive"}
+                          className={item.type === "Compra" ? "bg-success" : ""}
                         >
                           {item.type}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">{item.quantity || '-'}</TableCell>
-                      <TableCell className="text-right">{item.price ? formatCurrency(item.price) : '-'}</TableCell>
+                      <TableCell className="text-right">{item.quantity}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.price)}</TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(item.total)}
                       </TableCell>
                     </TableRow>
-                  )) : (
-                    <TableRow>
-                        <TableCell colSpan={5} className="text-center py-4">Nenhuma transação encontrada</TableCell>
-                    </TableRow>
-                  )}
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
@@ -533,31 +576,69 @@ export default function InvestmentDetails() {
         </TabsContent>
 
         <TabsContent value="charts" className="space-y-4">
-          {/* Charts content logic is complex to migrate fully without dedicated endpoint for historical data series.
-              Keeping mock chart data logic for now as 'generateChartData' is local function in this file.
-              The task is to migrate pages to API. The chart data usually comes from a dedicated endpoint.
-              For now, the page loads but chart is static mock. This is acceptable for this level of migration unless specific historical endpoint is available.
-           */}
           <Card>
             <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle className="text-lg">Evolução do Ativo</CardTitle>
+              <Select value={chartType} onValueChange={setChartType}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Selecione o gráfico" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="position">Posição</SelectItem>
+                  <SelectItem value="profit">Lucro/Prejuízo</SelectItem>
+                  <SelectItem value="average">Preço Médio</SelectItem>
+                  <SelectItem value="dailyChange">Variação Diária (%)</SelectItem>
+                </SelectContent>
+              </Select>
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
-                    {/* ... keeping existing chart config ... */}
-                     <defs>
+                    <defs>
                       <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor={getChartColor()} stopOpacity={0.3} />
                         <stop offset="95%" stopColor={getChartColor()} stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" className="text-xs fill-muted-foreground" />
-                    <YAxis className="text-xs fill-muted-foreground" />
-                    <Tooltip />
-                    <Area type="monotone" dataKey={getChartDataKey()} stroke={getChartColor()} strokeWidth={2} fill="url(#chartGradient)" />
+                    <XAxis
+                      dataKey="date"
+                      className="text-xs fill-muted-foreground"
+                    />
+                    <YAxis
+                      className="text-xs fill-muted-foreground"
+                      tickFormatter={(value) =>
+                        chartType === "dailyChange"
+                          ? `${value}%`
+                          : chartType === "average"
+                            ? formatCurrency(value)
+                            : formatCurrency(value)
+                      }
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "8px",
+                      }}
+                      formatter={(value: number) => [
+                        chartType === "dailyChange"
+                          ? `${value.toFixed(2)}%`
+                          : formatCurrency(value),
+                        chartType === "position" ? "Posição"
+                          : chartType === "profit" ? "Lucro"
+                            : chartType === "average" ? "Preço Médio"
+                              : "Variação"
+                      ]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey={getChartDataKey()}
+                      stroke={getChartColor()}
+                      strokeWidth={2}
+                      fill="url(#chartGradient)"
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

@@ -46,17 +46,26 @@ import {
 } from "lucide-react"
 import { useNavigate } from "@tanstack/react-router"
 import { useToast } from "@/hooks/use-toast"
-import { mockBanks, mockPortfolios, mockUsers, type Portfolio } from "@/lib/mock-data"
+import { mockBanks, mockUsers, type Portfolio } from "@/lib/mock-data"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 import { EditPortfolioDialog } from "@/components/dialogs/EditPortfolioDialog"
 import { useAuthStore } from "@/store/authStore"
+import { portfolioService } from "@/api/services/portfolio.service"
+import { useQuery } from "@tanstack/react-query"
 
 const Portfolios = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { hasPermission } = useAuthStore()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [portfolios, setPortfolios] = useState(mockPortfolios)
+
+  const { data: portfoliosData, isLoading, refetch } = useQuery({
+    queryKey: ['portfolios'],
+    queryFn: () => portfolioService.getAll({ page: 1, pageSize: 100 }), // Fetch all for now
+  })
+
+  const portfolios = (portfoliosData?.data || []) as Portfolio[]
+
   const [formData, setFormData] = useState({
     name: "",
     bankId: "",
@@ -70,35 +79,32 @@ const Portfolios = () => {
   const [deletingPortfolio, setDeletingPortfolio] = useState<Portfolio | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const bank = mockBanks.find(b => b.id === formData.bankId)
     const user = mockUsers.find(u => u.id === formData.userId)
 
-    const newPortfolio = {
-      id: `portfolio-${Date.now()}`,
-      name: formData.name,
-      bankId: formData.bankId,
-      bankName: bank?.name || "",
-      bankLogo: bank?.logo || "",
-      userId: formData.userId,
-      userName: user?.name || "",
-      userEmail: user?.email || "",
-      description: formData.description,
-      totalValue: 0,
-      totalInvested: 0,
-      profitability: 0,
-      assetsCount: 0,
-      createdAt: new Date().toISOString(),
-    }
+    try {
+      await portfolioService.create({
+        name: formData.name,
+        description: formData.description,
+        // In real app, we would send bankId/userId if API supports it
+      })
 
-    setPortfolios([...portfolios, newPortfolio])
-    setFormData({ name: "", bankId: "", userId: "", description: "" })
-    setIsDialogOpen(false)
-    toast({
-      title: "Carteira criada",
-      description: `A carteira "${formData.name}" foi criada com sucesso.`,
-    })
+      setFormData({ name: "", bankId: "", userId: "", description: "" })
+      setIsDialogOpen(false)
+      toast({
+        title: "Carteira criada",
+        description: `A carteira "${formData.name}" foi criada com sucesso.`,
+      })
+      refetch()
+    } catch (error) {
+       toast({
+        title: "Erro ao criar carteira",
+        description: "Tente novamente mais tarde.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleEditPortfolio = (portfolio: Portfolio) => {
@@ -106,14 +112,23 @@ const Portfolios = () => {
     setIsEditDialogOpen(true)
   }
 
-  const handleSaveEdit = (updatedPortfolio: Portfolio) => {
-    setPortfolios(portfolios.map(p => 
-      p.id === updatedPortfolio.id ? updatedPortfolio : p
-    ))
-    toast({
-      title: "Carteira atualizada",
-      description: `A carteira "${updatedPortfolio.name}" foi atualizada com sucesso.`,
-    })
+  const handleSaveEdit = async (updatedPortfolio: Portfolio) => {
+    try {
+      await portfolioService.update(updatedPortfolio.id, {
+        name: updatedPortfolio.name,
+        description: updatedPortfolio.description
+      })
+      toast({
+        title: "Carteira atualizada",
+        description: `A carteira "${updatedPortfolio.name}" foi atualizada com sucesso.`,
+      })
+      refetch()
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        variant: "destructive"
+      })
+    }
   }
 
   const handleDeleteClick = (portfolio: Portfolio) => {
@@ -121,16 +136,24 @@ const Portfolios = () => {
     setIsDeleteDialogOpen(true)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (deletingPortfolio) {
-      setPortfolios(portfolios.filter(p => p.id !== deletingPortfolio.id))
-      toast({
-        title: "Carteira excluída",
-        description: `A carteira "${deletingPortfolio.name}" foi excluída com sucesso.`,
-        variant: "destructive",
-      })
-      setIsDeleteDialogOpen(false)
-      setDeletingPortfolio(null)
+      try {
+        await portfolioService.delete(deletingPortfolio.id)
+        toast({
+          title: "Carteira excluída",
+          description: `A carteira "${deletingPortfolio.name}" foi excluída com sucesso.`,
+          variant: "destructive",
+        })
+        setIsDeleteDialogOpen(false)
+        setDeletingPortfolio(null)
+        refetch()
+      } catch (error) {
+        toast({
+          title: "Erro ao excluir",
+          variant: "destructive"
+        })
+      }
     }
   }
 
