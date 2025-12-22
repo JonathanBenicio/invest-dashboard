@@ -82,7 +82,14 @@ export default function VariableIncome() {
   }
 
   const openEditDialog = (asset: VariableIncomeAsset) => {
-    setSelectedAsset(asset)
+    // Adapter to match the new EditInvestmentDialog which expects VariableIncomeDto
+    // We cast to any or map explicitly to avoid type errors since this page is not fully migrated to DTOs yet
+    const adapter: any = {
+      ...asset,
+      subtype: asset.type, // Map type to subtype
+      // Add other missing fields if necessary, or let them be undefined if optional
+    }
+    setSelectedAsset(adapter)
     setIsEditDialogOpen(true)
   }
 
@@ -385,7 +392,7 @@ export default function VariableIncome() {
       <EditInvestmentDialog
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
-        investment={selectedAsset}
+        investment={selectedAsset as any}
         type="variable"
         onSave={handleEditAsset}
       />
