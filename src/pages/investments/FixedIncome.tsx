@@ -14,7 +14,7 @@ import { fixedIncomeAssets, mockPortfolios, formatCurrency, formatDate, type Fix
 import { useToast } from "@/hooks/use-toast"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
-import { FixedIncomeProjection } from "@/components/Projections/FixedIncomeProjection"
+import { FixedIncomeProjection } from "@/components/projections/FixedIncomeProjection"
 
 export default function FixedIncome() {
   const navigate = useNavigate()

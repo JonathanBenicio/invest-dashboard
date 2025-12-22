@@ -139,51 +139,7 @@ export function FixedIncomeProjection({ assets }: FixedIncomeProjectionProps) {
             </p>
           </div>
         </div>
-
-        {/* Chart */}
-        <div className="rounded-lg border bg-card p-4">
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={projectionData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted))" />
-              <XAxis 
-                dataKey="month" 
-                stroke="hsl(var(--muted-foreground))"
-                style={{ fontSize: '0.875rem' }}
-              />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))"
-                style={{ fontSize: '0.875rem' }}
-                tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-              />
-              <Tooltip 
-                formatter={(value) => formatCurrency(value as number)}
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '0.5rem'
-                }}
-              />
-              <Legend />
-              <Line
-                type="monotone"
-                dataKey="invested"
-                stroke="hsl(var(--muted-foreground))"
-                strokeWidth={2}
-                dot={false}
-                name="Valor Investido"
-              />
-              <Line
-                type="monotone"
-                dataKey="projection"
-                stroke="hsl(var(--success))"
-                strokeWidth={2}
-                dot={false}
-                name="Projeção"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
+        </CardContent>
     </Card>
   )
 }
