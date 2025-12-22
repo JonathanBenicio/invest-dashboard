@@ -6,28 +6,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/context/AuthContext"
 
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const { login, isLoading } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
 
-    // Simulate login
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    toast({
-      title: "Login realizado com sucesso!",
-      description: "Bem-vindo de volta ao InvestPro.",
-    })
-
-    navigate({ to: "/dashboard" })
-    setIsLoading(false)
+    try {
+      await login({ email, password })
+    } catch (error) {
+      // Error handling is done in context
+    }
   }
 
   return (

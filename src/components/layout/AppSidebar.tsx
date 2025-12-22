@@ -24,7 +24,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { currentUser } from "@/lib/mock-data"
+import { useAuth } from "@/context/AuthContext"
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -40,6 +40,7 @@ const menuItems = [
 export function AppSidebar() {
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
+  const { user, logout } = useAuth()
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -87,19 +88,19 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary/10 text-primary text-sm">
-              {currentUser.name.split(' ').map(n => n[0]).join('')}
+              {user?.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex flex-1 flex-col">
-              <span className="text-sm font-medium text-sidebar-foreground">{currentUser.name}</span>
-              <span className="text-xs text-muted-foreground">{currentUser.email}</span>
+              <span className="text-sm font-medium text-sidebar-foreground">{user?.name}</span>
+              <span className="text-xs text-muted-foreground">{user?.email}</span>
             </div>
           )}
           {!collapsed && (
-            <NavLink to="/login" className="text-muted-foreground hover:text-destructive transition-colors">
+            <button onClick={() => logout()} className="text-muted-foreground hover:text-destructive transition-colors">
               <LogOut className="h-4 w-4" />
-            </NavLink>
+            </button>
           )}
         </div>
       </SidebarFooter>

@@ -4,8 +4,10 @@ import {
   createRouter,
   Outlet,
   Navigate,
+  useRouter,
 } from "@tanstack/react-router"
 import { AppLayout } from "@/components/layout/AppLayout"
+import { AuthProvider, useAuth } from "@/context/AuthContext"
 import Login from "./pages/auth/Login"
 import Register from "./pages/auth/Register"
 import Dashboard from "./pages/dashboard/Dashboard"
@@ -26,12 +28,27 @@ const investmentSearchSchema = z.object({
   action: z.enum(["buy", "sell"]).optional(),
 })
 
+// Auth Guard Component
+const AuthGuard = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />
+  }
+
+  return <>{children}</>
+}
+
 // Root Route
 export const rootRoute = createRootRoute({
   component: () => (
-    <>
+    <AuthProvider>
       <Outlet />
-    </>
+    </AuthProvider>
   ),
 })
 
@@ -59,7 +76,11 @@ export const registerRoute = createRoute({
 export const layoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "layout",
-  component: AppLayout,
+  component: () => (
+    <AuthGuard>
+      <AppLayout />
+    </AuthGuard>
+  ),
 })
 
 // Dashboard and other tools
