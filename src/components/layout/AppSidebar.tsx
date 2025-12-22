@@ -24,7 +24,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useAuth } from "@/context/AuthContext"
+import { useAuthStore } from "@/store/authStore"
+import { useNavigate } from "@tanstack/react-router"
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -40,7 +41,13 @@ const menuItems = [
 export function AppSidebar() {
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
-  const { user, logout } = useAuth()
+  const { user, logout } = useAuthStore()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate({ to: '/login' })
+  }
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -98,7 +105,7 @@ export function AppSidebar() {
             </div>
           )}
           {!collapsed && (
-            <button onClick={() => logout()} className="text-muted-foreground hover:text-destructive transition-colors">
+            <button onClick={handleLogout} className="text-muted-foreground hover:text-destructive transition-colors">
               <LogOut className="h-4 w-4" />
             </button>
           )}

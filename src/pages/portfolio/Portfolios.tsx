@@ -49,12 +49,12 @@ import { useToast } from "@/hooks/use-toast"
 import { mockBanks, mockPortfolios, mockUsers, type Portfolio } from "@/lib/mock-data"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 import { EditPortfolioDialog } from "@/components/dialogs/EditPortfolioDialog"
-import { useAuth } from "@/context/AuthContext"
+import { useAuthStore } from "@/store/authStore"
 
 const Portfolios = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { hasPermission } = useAuth()
+  const { hasPermission } = useAuthStore()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [portfolios, setPortfolios] = useState(mockPortfolios)
   const [formData, setFormData] = useState({

@@ -1,5 +1,6 @@
 import { API_CONFIG, getApiUrl } from './env'
 import { ApiError, UnauthorizedError, ValidationError, NotFoundError } from './errors'
+import { useAuthStore } from '@/store/authStore'
 import type { ApiResponse } from './dtos'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -49,6 +50,7 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
       case 400:
         throw new ValidationError(message, errorData.errors)
       case 401:
+        useAuthStore.getState().logout()
         throw new UnauthorizedError(message)
       case 403:
          throw new ApiError(message || 'Access Forbidden', 403, 'FORBIDDEN')

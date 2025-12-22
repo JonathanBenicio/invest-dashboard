@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { useAuth } from "@/context/AuthContext"
+import { useAuthStore } from "@/store/authStore"
 
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const { login, isLoading } = useAuth()
+  const { login, isLoading } = useAuthStore()
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -20,8 +20,17 @@ export default function Login() {
 
     try {
       await login({ email, password })
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Bem-vindo de volta ao InvestPro.",
+      })
+      navigate({ to: "/dashboard" })
     } catch (error) {
-      // Error handling is done in context
+       toast({
+        title: "Erro no login",
+        description: "Credenciais inválidas. Tente novamente.",
+        variant: "destructive"
+      })
     }
   }
 

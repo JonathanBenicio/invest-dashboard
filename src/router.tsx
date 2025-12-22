@@ -7,9 +7,10 @@ import {
   useRouter,
 } from "@tanstack/react-router"
 import { AppLayout } from "@/components/layout/AppLayout"
-import { AuthProvider, useAuth } from "@/context/AuthContext"
+import { useAuthStore } from "@/store/authStore"
 import Login from "./pages/auth/Login"
 import Register from "./pages/auth/Register"
+import { useEffect } from "react"
 import Dashboard from "./pages/dashboard/Dashboard"
 import Portfolios from "./pages/portfolio/Portfolios"
 import PortfolioDetails from "./pages/portfolio/PortfolioDetails"
@@ -30,7 +31,7 @@ const investmentSearchSchema = z.object({
 
 // Auth Guard Component
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading } = useAuthStore()
 
   if (isLoading) {
     return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
@@ -43,13 +44,20 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
+// Auth Initializer Component
+const AuthInitializer = () => {
+  const checkAuth = useAuthStore(state => state.checkAuth)
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
+
+  return <Outlet />
+}
+
 // Root Route
 export const rootRoute = createRootRoute({
-  component: () => (
-    <AuthProvider>
-      <Outlet />
-    </AuthProvider>
-  ),
+  component: AuthInitializer,
 })
 
 // Index Route (Redirect to dashboard)
