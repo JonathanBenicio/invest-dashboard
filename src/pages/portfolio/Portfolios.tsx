@@ -51,10 +51,12 @@ import { EditPortfolioDialog } from "@/components/dialogs/EditPortfolioDialog"
 import { usePortfolios } from "@/hooks/use-portfolios"
 import { portfolioService } from "@/api/services/portfolio.service"
 import type { PortfolioDto } from "@/api/dtos"
+import { useAuthStore } from "@/store/authStore"
 
 const Portfolios = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
+  const { hasPermission } = useAuthStore()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -180,12 +182,14 @@ const Portfolios = () => {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nova Carteira
-            </Button>
-          </DialogTrigger>
+          {hasPermission('edit') && (
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nova Carteira
+              </Button>
+            </DialogTrigger>
+          )}
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Criar Nova Carteira</DialogTitle>
@@ -404,17 +408,21 @@ const Portfolios = () => {
                           <Eye className="h-4 w-4 mr-2" />
                           Ver Detalhes
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEditPortfolio(portfolio)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => handleDeleteClick(portfolio)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Excluir
-                        </DropdownMenuItem>
+                        {hasPermission('edit') && (
+                          <>
+                            <DropdownMenuItem onClick={() => handleEditPortfolio(portfolio)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => handleDeleteClick(portfolio)}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
