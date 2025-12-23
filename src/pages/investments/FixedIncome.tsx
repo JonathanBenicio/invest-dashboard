@@ -107,23 +107,7 @@ export default function FixedIncome() {
     if (!selectedAsset) return
 
     try {
-        const updateData = {
-          name: updatedAsset.name,
-          subtype: updatedAsset.subtype,
-          issuer: updatedAsset.issuer,
-          interestRate: updatedAsset.interestRate,
-          indexer: updatedAsset.indexer,
-          maturityDate: updatedAsset.maturityDate,
-          // Since the API update DTO is specific, we might need to be careful with extra fields.
-          // But passing the whole object usually works if the backend ignores extras or if we just pick what we need.
-          // For now, let's pass specific fields allowed by UpdateInvestmentRequest or similar.
-          // Actually investmentService.update takes UpdateInvestmentRequest which has quantity, averagePrice, currentPrice.
-          // It seems the service interface might need a broader update method or we are limited.
-          // However, for this task, let's assume the backend mock handles the fields we send via 'any' or extended type.
-          ...updatedAsset
-        }
-
-       await investmentService.update(selectedAsset.id, updateData as any)
+       await investmentService.update(selectedAsset.id, updatedAsset as any)
 
        setIsEditDialogOpen(false)
         toast({
@@ -139,6 +123,7 @@ export default function FixedIncome() {
         })
     }
   }
+
 
   const handleDeleteAsset = async (id: string) => {
     try {

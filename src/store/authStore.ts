@@ -53,12 +53,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { user } = get()
     if (!user) return false
 
+    const role = user.role as string
+
     // Admin has all permissions
-    if (user.role === 'admin') return true
+    if (role === 'admin') return true
 
     // Edit has edit and view permissions
-    if (requiredRole === 'edit' && user.role === 'edit') return true
-    if (requiredRole === 'view' && (user.role === 'edit' || user.role === 'view')) return true
+    if (requiredRole === 'edit' && role === 'edit') return true
+    if (requiredRole === 'view' && (role === 'edit' || role === 'view' || role === 'user')) return true
 
     return false
   },
