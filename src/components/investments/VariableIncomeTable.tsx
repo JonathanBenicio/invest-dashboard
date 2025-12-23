@@ -16,6 +16,7 @@ import {
 import { ArrowUpDown, ChevronDown, MoreHorizontal, Eye, PlusCircle, MinusCircle, Pencil, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -277,14 +278,77 @@ export function VariableIncomeTable({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="rounded-md border">
+      {/* Mobile Card View */}
+      <div className="space-y-4 md:hidden">
+        {table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => {
+            const asset = row.original
+            const profit = asset.gain
+            const profitPercent = asset.gainPercentage
+
+            return (
+              <Card key={row.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable' } })}>
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                  <div className="space-y-1">
+                    <CardTitle className="text-base font-medium line-clamp-1">
+                      {asset.ticker}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground line-clamp-1">
+                      {asset.name}
+                    </p>
+                  </div>
+                  <Badge className={getTypeColor(asset.subtype)} variant="secondary">
+                    {asset.subtype}
+                  </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Preço Atual</p>
+                      <p className="font-semibold">{formatCurrency(asset.currentPrice)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Resultado</p>
+                      <div className={`font-semibold flex items-center gap-1 ${profit >= 0 ? 'text-success' : 'text-destructive'}`}>
+                        {profit >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                        {profitPercent >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Total</p>
+                      <p className="font-semibold">{formatCurrency(asset.currentValue)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Qtd</p>
+                      <p className="font-medium">{asset.quantity}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })
+        ) : (
+           <div className="text-center py-8 text-muted-foreground">
+            {isLoading ? "Carregando..." : "Nenhum resultado encontrado."}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
+                  // Hide columns on tablet
+                  const isHiddenOnTablet = ['sector', 'quantity', 'averagePrice'].includes(header.column.id)
+
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      className={isHiddenOnTablet ? "hidden lg:table-cell" : ""}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -304,14 +368,21 @@ export function VariableIncomeTable({
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                     const isHiddenOnTablet = ['sector', 'quantity', 'averagePrice'].includes(cell.column.id)
+
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={isHiddenOnTablet ? "hidden lg:table-cell" : ""}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             ) : (
