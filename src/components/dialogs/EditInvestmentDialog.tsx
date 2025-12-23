@@ -38,7 +38,7 @@ export function EditInvestmentDialog({
     issuer: "",
     totalInvested: "",
     interestRate: "",
-    indexer: "CDI" as 'CDI' | 'IPCA' | 'PREFIXADO',
+    indexer: "CDI" as 'CDI' | 'IPCA' | 'SELIC' | 'PREFIXADO',
     maturityDate: "",
   })
 
@@ -62,7 +62,7 @@ export function EditInvestmentDialog({
         issuer: fixed.issuer,
         totalInvested: fixed.totalInvested.toString(),
         interestRate: fixed.interestRate.toString(),
-        indexer: fixed.indexer || 'CDI',
+        indexer: (fixed.indexer || 'CDI') as 'CDI' | 'IPCA' | 'SELIC' | 'PREFIXADO',
         maturityDate: fixed.maturityDate ? fixed.maturityDate.split('T')[0] : '',
       })
     } else {
@@ -206,7 +206,7 @@ export function EditInvestmentDialog({
                     onValueChange={(value) =>
                       setFixedFormData({
                         ...fixedFormData,
-                        indexer: value as 'CDI' | 'IPCA' | 'PREFIXADO',
+                        indexer: value as 'CDI' | 'IPCA' | 'SELIC' | 'PREFIXADO',
                       })
                     }
                   >
@@ -216,6 +216,7 @@ export function EditInvestmentDialog({
                     <SelectContent>
                       <SelectItem value="CDI">CDI</SelectItem>
                       <SelectItem value="IPCA">IPCA</SelectItem>
+                      <SelectItem value="SELIC">SELIC</SelectItem>
                       <SelectItem value="PREFIXADO">Prefixado</SelectItem>
                     </SelectContent>
                   </Select>

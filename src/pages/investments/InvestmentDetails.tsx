@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { investmentDetailsRoute } from "../../router"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,6 +41,12 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
+  BarChart,
+  Bar,
+  ComposedChart,
+  Line,
+  Legend,
+  ReferenceLine,
 } from "recharts"
 import {
   formatCurrency,
@@ -49,23 +55,70 @@ import {
 } from "@/lib/mock-data"
 import { useInvestment, useInvestmentTransactions } from "@/hooks/use-investment-details"
 import { FixedIncomeDto, VariableIncomeDto } from "@/api/dtos"
+import { ChartPeriodFilter, ChartPeriod, generatePeriodData } from "@/components/ChartPeriodFilter"
 
-// Using mock generator for chart data as it's typically complex to fetch historical series in a simple mock setup
-// In a real app, this would come from a historical data endpoint.
-const generateChartData = () => [
-  { date: "01/12", position: 7750, profit: 850, average: 32.50, dailyChange: 1.2 },
-  { date: "02/12", position: 7820, profit: 920, average: 32.50, dailyChange: 0.9 },
-  { date: "03/12", position: 7680, profit: 780, average: 32.50, dailyChange: -1.8 },
-  { date: "04/12", position: 7890, profit: 990, average: 32.50, dailyChange: 2.7 },
-  { date: "05/12", position: 7950, profit: 1050, average: 32.50, dailyChange: 0.8 },
-  { date: "06/12", position: 7720, profit: 820, average: 32.50, dailyChange: -2.9 },
-  { date: "07/12", position: 7800, profit: 900, average: 32.50, dailyChange: 1.0 },
-  { date: "08/12", position: 7880, profit: 980, average: 32.50, dailyChange: 1.0 },
-  { date: "09/12", position: 7960, profit: 1060, average: 32.50, dailyChange: 1.0 },
-  { date: "10/12", position: 8100, profit: 1200, average: 32.50, dailyChange: 1.8 },
-  { date: "11/12", position: 8050, profit: 1150, average: 32.50, dailyChange: -0.6 },
-  { date: "12/12", position: 8200, profit: 1300, average: 32.50, dailyChange: 1.9 },
-]
+// Generate monthly profitability data
+const generateMonthlyProfitability = () => {
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  return months.map((month) => ({
+    month,
+    profitability: (Math.random() - 0.3) * 8, // -2.4% to 5.6%
+  }))
+}
+
+// Generate contributions vs value data
+const generateContributionsVsValue = (): { month: string; invested: number; value: number }[] => {
+  const data: { month: string; invested: number; value: number }[] = []
+  let invested = 0
+  let value = 0
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  
+  for (let i = 0; i < 12; i++) {
+    const contribution = Math.random() > 0.3 ? Math.floor(Math.random() * 5000) + 1000 : 0
+    invested += contribution
+    const growth = 1 + (Math.random() - 0.3) * 0.05
+    value = (value + contribution) * growth
+    
+    data.push({
+      month: months[i],
+      invested: Math.round(invested),
+      value: Math.round(value),
+    })
+  }
+  return data
+}
+
+// Generate dividend history data
+const generateDividendHistory = (): { month: string; dividends: number }[] => {
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+  return months.map((month) => ({
+    month,
+    dividends: Math.floor(Math.random() * 500) + 50,
+  }))
+}
+
+// Generate projection data for fixed income
+const generateProjectionData = (currentValue: number, maturityDate: string, annualRate: number): { date: string; value: number }[] => {
+  const data: { date: string; value: number }[] = []
+  const now = new Date()
+  const maturity = new Date(maturityDate)
+  const monthsRemaining = Math.max(1, Math.ceil((maturity.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30)))
+  const monthlyRate = Math.pow(1 + annualRate, 1/12) - 1
+  
+  let projectedValue = currentValue
+  for (let i = 0; i <= Math.min(monthsRemaining, 24); i++) {
+    const date = new Date(now)
+    date.setMonth(date.getMonth() + i)
+    
+    data.push({
+      date: date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }),
+      value: Math.round(projectedValue),
+    })
+    
+    projectedValue *= (1 + monthlyRate)
+  }
+  return data
+}
 
 export default function InvestmentDetails() {
   const { id } = investmentDetailsRoute.useParams()
@@ -83,7 +136,7 @@ export default function InvestmentDetails() {
   const [quantity, setQuantity] = useState("")
   const [price, setPrice] = useState("")
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [chartType, setChartType] = useState("position")
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('30d')
 
   // Handle initial action from URL
   useEffect(() => {
@@ -93,6 +146,16 @@ export default function InvestmentDetails() {
       setDialogOpen(true)
     }
   }, [search.action])
+
+  // Memoized chart data
+  const evolutionData = useMemo(() => {
+    if (!asset) return []
+    return generatePeriodData(chartPeriod, asset.currentValue)
+  }, [chartPeriod, asset?.currentValue])
+
+  const monthlyProfitability = useMemo(() => generateMonthlyProfitability(), [])
+  const contributionsVsValue = useMemo(() => generateContributionsVsValue(), [])
+  const dividendHistory = useMemo(() => generateDividendHistory(), [])
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-96">Carregando detalhes...</div>
@@ -120,7 +183,6 @@ export default function InvestmentDetails() {
 
   // Values
   const totalValue = asset.currentValue
-  const investedValue = asset.totalInvested
   const profit = asset.gain
   const profitPercentage = asset.gainPercentage
 
@@ -129,21 +191,17 @@ export default function InvestmentDetails() {
     if (!fixedAsset) return null
 
     const today = new Date()
-    // Handle date strings properly
     if (!fixedAsset.maturityDate || !fixedAsset.purchaseDate) return null
 
     const maturity = new Date(fixedAsset.maturityDate)
     const purchase = new Date(fixedAsset.purchaseDate)
 
-    // Days remaining until maturity
     const daysRemaining = Math.max(0, Math.ceil((maturity.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
-    const totalDays = Math.ceil((maturity.getTime() - purchase.getTime()) / (1000 * 60 * 60 * 24))
     const yearsRemaining = daysRemaining / 365
 
-    // Parse rate and calculate projection
     let annualRate = 0
-    const CDI_RATE = 0.1215 // 12.15% CDI aproximado
-    const IPCA_RATE = 0.045 // 4.5% IPCA aproximado
+    const CDI_RATE = 0.1215
+    const IPCA_RATE = 0.045
 
     const rateStr = fixedAsset.interestRate?.toString() || '0'
 
@@ -151,13 +209,11 @@ export default function InvestmentDetails() {
       const cdiPercentage = parseFloat(rateStr) / 100
       annualRate = CDI_RATE * cdiPercentage
     } else if (fixedAsset.indexer === 'IPCA') {
-      // Simplification for mock
       annualRate = IPCA_RATE + (parseFloat(rateStr) / 100)
     } else {
       annualRate = parseFloat(rateStr) / 100
     }
 
-    // Compound interest projection from current value
     const projectedValue = fixedAsset.currentValue * Math.pow(1 + annualRate, yearsRemaining)
     const projectedProfit = projectedValue - fixedAsset.totalInvested
     const projectedProfitPercentage = (projectedProfit / fixedAsset.totalInvested) * 100
@@ -168,14 +224,16 @@ export default function InvestmentDetails() {
       projectedProfitPercentage,
       daysRemaining,
       maturityDate: fixedAsset.maturityDate,
+      annualRate,
     }
   }
 
   const projection = calculateProjectedValue()
-  const chartData = generateChartData() // Using static mock for chart
+  const projectionChartData = projection && fixedAsset 
+    ? generateProjectionData(fixedAsset.currentValue, fixedAsset.maturityDate, projection.annualRate)
+    : []
 
   const handleTransaction = () => {
-    // Implement API call for transaction
     console.log({
       type: transactionType,
       quantity: Number(quantity),
@@ -185,26 +243,6 @@ export default function InvestmentDetails() {
     setDialogOpen(false)
     setQuantity("")
     setPrice("")
-  }
-
-  const getChartDataKey = () => {
-    switch (chartType) {
-      case "position": return "position"
-      case "profit": return "profit"
-      case "average": return "average"
-      case "dailyChange": return "dailyChange"
-      default: return "position"
-    }
-  }
-
-  const getChartColor = () => {
-    switch (chartType) {
-      case "position": return "hsl(var(--primary))"
-      case "profit": return profit >= 0 ? "hsl(var(--success))" : "hsl(var(--destructive))"
-      case "average": return "hsl(var(--chart-3))"
-      case "dailyChange": return "hsl(var(--chart-4))"
-      default: return "hsl(var(--primary))"
-    }
   }
 
   return (
@@ -400,7 +438,7 @@ export default function InvestmentDetails() {
             <p className="text-2xl font-bold">
               {isVariable
                 ? formatCurrency(asset.currentPrice)
-                : `${fixedAsset?.interestRate}%` // Simplification
+                : `${fixedAsset?.interestRate}%`
               }
             </p>
             {!isVariable && (
@@ -481,11 +519,242 @@ export default function InvestmentDetails() {
       )}
 
       {/* Tabs: History & Charts */}
-      <Tabs defaultValue="history" className="space-y-4">
+      <Tabs defaultValue="charts" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="history">Histórico</TabsTrigger>
           <TabsTrigger value="charts">Gráficos</TabsTrigger>
+          <TabsTrigger value="history">Histórico</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="charts" className="space-y-4">
+          {/* Main Chart - Asset Evolution with Period Filter */}
+          <Card>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <CardTitle className="text-lg">Evolução do Ativo</CardTitle>
+              <ChartPeriodFilter value={chartPeriod} onChange={setChartPeriod} />
+            </CardHeader>
+            <CardContent>
+              <div className="h-[350px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={evolutionData}>
+                    <defs>
+                      <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorBenchmark" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" className="text-xs fill-muted-foreground" />
+                    <YAxis 
+                      className="text-xs fill-muted-foreground" 
+                      tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [
+                        formatCurrency(value), 
+                        name === 'value' ? 'Valor' : (isVariable ? 'Ibovespa' : 'CDI')
+                      ]}
+                    />
+                    <Legend />
+                    <Area 
+                      type="monotone" 
+                      dataKey="value" 
+                      name="Valor" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2} 
+                      fill="url(#colorValue)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="benchmark" 
+                      name={isVariable ? "Ibovespa" : "CDI"}
+                      stroke="hsl(var(--muted-foreground))" 
+                      strokeWidth={1} 
+                      strokeDasharray="5 5"
+                      fill="url(#colorBenchmark)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Secondary Charts Grid */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Monthly Profitability Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Rentabilidade Mensal</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyProfitability}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="month" className="text-xs fill-muted-foreground" />
+                      <YAxis 
+                        className="text-xs fill-muted-foreground" 
+                        tickFormatter={(v) => `${v.toFixed(1)}%`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number) => [`${value.toFixed(2)}%`, 'Rentabilidade']}
+                      />
+                      <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" />
+                      <Bar 
+                        dataKey="profitability" 
+                        name="Rentabilidade"
+                        fill="hsl(var(--primary))"
+                        radius={[4, 4, 0, 0]}
+                      >
+                        {monthlyProfitability.map((entry, index) => (
+                          <Bar 
+                            key={`bar-${index}`}
+                            dataKey="profitability"
+                            fill={entry.profitability >= 0 ? 'hsl(var(--success))' : 'hsl(var(--destructive))'}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Contributions vs Value Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Aportes vs Valor Atual</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={contributionsVsValue}>
+                      <defs>
+                        <linearGradient id="colorValueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--success))" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="hsl(var(--success))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="month" className="text-xs fill-muted-foreground" />
+                      <YAxis 
+                        className="text-xs fill-muted-foreground" 
+                        tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip 
+                        formatter={(value: number, name: string) => [
+                          formatCurrency(value), 
+                          name === 'invested' ? 'Investido' : 'Valor Atual'
+                        ]}
+                      />
+                      <Legend />
+                      <Area 
+                        type="monotone" 
+                        dataKey="value" 
+                        name="Valor Atual"
+                        stroke="hsl(var(--success))" 
+                        fill="url(#colorValueGradient)" 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="invested" 
+                        name="Investido"
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Type-specific charts */}
+          {isVariable ? (
+            /* Dividends Chart for Variable Income */
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Dividendos Recebidos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dividendHistory}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="month" className="text-xs fill-muted-foreground" />
+                      <YAxis 
+                        className="text-xs fill-muted-foreground" 
+                        tickFormatter={(v) => formatCurrency(v)}
+                      />
+                      <Tooltip formatter={(value: number) => [formatCurrency(value), 'Dividendos']} />
+                      <Bar 
+                        dataKey="dividends" 
+                        name="Dividendos"
+                        fill="hsl(var(--chart-4))"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-4 flex justify-between text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Total no período</p>
+                    <p className="text-lg font-bold text-success">
+                      {formatCurrency(dividendHistory.reduce((sum, d) => sum + d.dividends, 0))}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground">Média mensal</p>
+                    <p className="text-lg font-bold">
+                      {formatCurrency(dividendHistory.reduce((sum, d) => sum + d.dividends, 0) / 12)}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : projection && (
+            /* Projection Chart for Fixed Income */
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Projeção até o Vencimento</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={projectionChartData}>
+                      <defs>
+                        <linearGradient id="projectionGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="date" className="text-xs fill-muted-foreground" />
+                      <YAxis 
+                        className="text-xs fill-muted-foreground" 
+                        tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                      />
+                      <Tooltip formatter={(value: number) => [formatCurrency(value), 'Valor Projetado']} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="value" 
+                        name="Projeção"
+                        stroke="hsl(var(--primary))" 
+                        strokeWidth={2}
+                        fill="url(#projectionGradient)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
           <Card>
@@ -528,39 +797,6 @@ export default function InvestmentDetails() {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="charts" className="space-y-4">
-          {/* Charts content logic is complex to migrate fully without dedicated endpoint for historical data series.
-              Keeping mock chart data logic for now as 'generateChartData' is local function in this file.
-              The task is to migrate pages to API. The chart data usually comes from a dedicated endpoint.
-              For now, the page loads but chart is static mock. This is acceptable for this level of migration unless specific historical endpoint is available.
-           */}
-          <Card>
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <CardTitle className="text-lg">Evolução do Ativo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    {/* ... keeping existing chart config ... */}
-                     <defs>
-                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={getChartColor()} stopOpacity={0.3} />
-                        <stop offset="95%" stopColor={getChartColor()} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" className="text-xs fill-muted-foreground" />
-                    <YAxis className="text-xs fill-muted-foreground" />
-                    <Tooltip />
-                    <Area type="monotone" dataKey={getChartDataKey()} stroke={getChartColor()} strokeWidth={2} fill="url(#chartGradient)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
