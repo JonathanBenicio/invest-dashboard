@@ -139,8 +139,6 @@ export const handlers = [
 
   // Portfolio endpoints
   http.get(`${BASE_URL}/portfolios`, async ({ request }) => {
-    const check = checkPermission(request)
-    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
     await delay(400)
     const url = new URL(request.url)
     const page = parseInt(url.searchParams.get('page') || '1')
