@@ -606,4 +606,14 @@ export const handlers = [
 
     return HttpResponse.json(createResponse(null, 'Investimento deletado com sucesso'))
   }),
+
+  // Chat Endpoint
+  http.post(`${BASE_URL}/chat`, async ({ request }) => {
+    await delay(1000)
+    const body = await request.json() as { message: string, userId: string }
+
+    return HttpResponse.json({
+      message: `Olá! Recebi sua mensagem: "${body.message}". Como sou uma IA simulada, não posso processar solicitações reais ainda, mas estou aqui para ajudar!`
+    })
+  }),
 ]
