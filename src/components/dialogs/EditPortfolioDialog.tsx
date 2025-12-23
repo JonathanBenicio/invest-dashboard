@@ -15,13 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { mockBanks, mockUsers, type Portfolio } from "@/lib/mock-data"
+import { mockBanks, mockUsers } from "@/lib/mock-data"
+import type { PortfolioDto } from "@/api/dtos"
 
 interface EditPortfolioDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  portfolio: Portfolio | null
-  onSave: (portfolio: Portfolio) => void
+  portfolio: PortfolioDto | null
+  onSave: (portfolio: PortfolioDto) => void
 }
 
 export function EditPortfolioDialog({
@@ -41,8 +42,8 @@ export function EditPortfolioDialog({
     if (portfolio) {
       setFormData({
         name: portfolio.name,
-        bankId: portfolio.bankId,
-        userId: portfolio.userId,
+        bankId: portfolio.bankId || "",
+        userId: portfolio.userId || "",
         description: portfolio.description || "",
       })
     }
@@ -55,7 +56,7 @@ export function EditPortfolioDialog({
     const bank = mockBanks.find((b) => b.id === formData.bankId)
     const user = mockUsers.find((u) => u.id === formData.userId)
 
-    const updatedPortfolio: Portfolio = {
+    const updatedPortfolio: PortfolioDto = {
       ...portfolio,
       name: formData.name,
       bankId: formData.bankId,

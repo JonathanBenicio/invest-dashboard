@@ -1,18 +1,12 @@
 import { API_CONFIG, getApiUrl } from './env'
 import { ApiError, UnauthorizedError, ValidationError, NotFoundError } from './errors'
+import { useAuthStore } from '@/store/authStore'
 import type { ApiResponse } from './dtos'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
   params?: Record<string, string | number | boolean | undefined>
-}
-
-/**
- * Get authorization token from storage
- */
-const getAuthToken = (): string | null => {
-  return localStorage.getItem('auth_token')
 }
 
 /**
@@ -41,11 +35,6 @@ const getDefaultHeaders = (): HeadersInit => {
     'Accept': 'application/json',
   }
 
-  const token = getAuthToken()
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
   return headers
 }
 
@@ -61,9 +50,10 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
       case 400:
         throw new ValidationError(message, errorData.errors)
       case 401:
-        // Clear token on unauthorized
-        localStorage.removeItem('auth_token')
+        useAuthStore.getState().logout()
         throw new UnauthorizedError(message)
+      case 403:
+         throw new ApiError(message || 'Access Forbidden', 403, 'FORBIDDEN')
       case 404:
         throw new NotFoundError(message)
       default:
@@ -101,6 +91,7 @@ const request = async <T>(
         ...getDefaultHeaders(),
         ...fetchOptions.headers,
       },
+      credentials: 'include',
       body: data ? JSON.stringify(data) : undefined,
       signal: controller.signal,
       ...fetchOptions,
