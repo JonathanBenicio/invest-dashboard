@@ -21,6 +21,7 @@ import Import from "./pages/tools/Import"
 import Analysis from "./pages/tools/Analysis"
 import Simulator from "./pages/tools/Simulator"
 import Settings from "./pages/tools/Settings"
+import Users from "./pages/admin/Users"
 import NotFound from "./pages/errors/NotFound"
 import { z } from "zod"
 
@@ -153,6 +154,12 @@ export const settingsRoute = createRoute({
   component: Settings,
 })
 
+export const usersRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/admin/usuarios",
+  component: Users,
+})
+
 // 404 Route
 export const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -176,6 +183,7 @@ const routeTree = rootRoute.addChildren([
     analysisRoute,
     simulatorRoute,
     settingsRoute,
+    usersRoute,
   ]),
   notFoundRoute,
 ])
