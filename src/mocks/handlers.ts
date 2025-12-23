@@ -137,10 +137,119 @@ export const handlers = [
     return HttpResponse.json(createResponse(check.user))
   }),
 
+  // User Management endpoints (Admin only)
+  http.get(`${BASE_URL}/users`, async ({ request }) => {
+    const check = checkPermission(request, 'admin')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
+    await delay(400)
+    const url = new URL(request.url)
+    const page = parseInt(url.searchParams.get('page') || '1')
+    const pageSize = parseInt(url.searchParams.get('pageSize') || '10')
+    const search = url.searchParams.get('search')
+
+    let users = [...mockUsers]
+
+    if (search) {
+      const lowerSearch = search.toLowerCase()
+      users = users.filter(u =>
+        u.name.toLowerCase().includes(lowerSearch) ||
+        u.email.toLowerCase().includes(lowerSearch)
+      )
+    }
+
+    return HttpResponse.json(createPaginatedResponse(users, page, pageSize))
+  }),
+
+  http.post(`${BASE_URL}/users`, async ({ request }) => {
+    const check = checkPermission(request, 'admin')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
+    await delay(500)
+    const body = await request.json() as Partial<UserDto>
+
+    // Check if email already exists
+    if (mockUsers.some(u => u.email === body.email)) {
+      return HttpResponse.json(
+        { success: false, message: 'E-mail já cadastrado' },
+        { status: 400 }
+      )
+    }
+
+    const newUser: UserDto = {
+      id: `${Date.now()}`,
+      name: body.name || '',
+      email: body.email || '',
+      role: body.role || 'view',
+      isActive: body.isActive ?? true,
+      isEmailVerified: true, // Auto-verify for admin created users
+      parentesco: body.parentesco,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    mockUsers.push(newUser)
+
+    return HttpResponse.json(createResponse(newUser, 'Usuário criado com sucesso'))
+  }),
+
+  http.patch(`${BASE_URL}/users/:id`, async ({ params, request }) => {
+    const check = checkPermission(request, 'admin')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
+    await delay(400)
+    const { id } = params
+    const body = await request.json() as Partial<UserDto>
+    const index = mockUsers.findIndex(u => u.id === id)
+
+    if (index === -1) {
+      return HttpResponse.json(
+        { success: false, message: 'Usuário não encontrado' },
+        { status: 404 }
+      )
+    }
+
+    const updated = {
+      ...mockUsers[index],
+      ...body,
+      updatedAt: new Date().toISOString(),
+    }
+
+    mockUsers[index] = updated
+
+    return HttpResponse.json(createResponse(updated, 'Usuário atualizado com sucesso'))
+  }),
+
+  http.delete(`${BASE_URL}/users/:id`, async ({ params, request }) => {
+    const check = checkPermission(request, 'admin')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
+    await delay(400)
+    const { id } = params
+    const index = mockUsers.findIndex(u => u.id === id)
+
+    if (index === -1) {
+      return HttpResponse.json(
+        { success: false, message: 'Usuário não encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Prevent deleting yourself
+    if (check.user?.id === id) {
+       return HttpResponse.json(
+        { success: false, message: 'Não é possível excluir o próprio usuário' },
+        { status: 400 }
+      )
+    }
+
+    mockUsers.splice(index, 1)
+
+    return HttpResponse.json(createResponse(null, 'Usuário excluído com sucesso'))
+  }),
+
   // Portfolio endpoints
   http.get(`${BASE_URL}/portfolios`, async ({ request }) => {
-    const check = checkPermission(request)
-    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
     await delay(400)
     const url = new URL(request.url)
     const page = parseInt(url.searchParams.get('page') || '1')
@@ -609,5 +718,15 @@ export const handlers = [
     if (variableIndex !== -1) mockVariableIncomeInvestments.splice(variableIndex, 1)
 
     return HttpResponse.json(createResponse(null, 'Investimento deletado com sucesso'))
+  }),
+
+  // Chat Endpoint
+  http.post(`${BASE_URL}/chat`, async ({ request }) => {
+    await delay(1000)
+    const body = await request.json() as { message: string, userId: string }
+
+    return HttpResponse.json({
+      message: `Olá! Recebi sua mensagem: "${body.message}". Como sou uma IA simulada, não posso processar solicitações reais ainda, mas estou aqui para ajudar!`
+    })
   }),
 ]
