@@ -31,8 +31,10 @@ export interface UserDto extends BaseEntity {
   name: string
   email: string
   avatar?: string
-  role: 'user' | 'admin'
+  role: 'user' | 'admin' | 'edit' | 'view'
   isEmailVerified: boolean
+  isActive: boolean
+  parentesco?: string
 }
 
 /**

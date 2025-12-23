@@ -21,6 +21,7 @@ import Import from "./pages/tools/Import"
 import Analysis from "./pages/tools/Analysis"
 import Simulator from "./pages/tools/Simulator"
 import Settings from "./pages/tools/Settings"
+import Users from "./pages/admin/Users"
 import Taxas from "./pages/tools/Taxas"
 import Chat from "./pages/tools/Chat"
 import NotFound from "./pages/errors/NotFound"
@@ -155,6 +156,12 @@ export const settingsRoute = createRoute({
   component: Settings,
 })
 
+export const usersRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/admin/usuarios",
+  component: Users,
+}
+
 export const taxasRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/taxas",
@@ -191,6 +198,7 @@ const routeTree = rootRoute.addChildren([
     simulatorRoute,
     taxasRoute,
     settingsRoute,
+    usersRoute,
     chatRoute,
   ]),
   notFoundRoute,

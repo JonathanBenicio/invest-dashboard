@@ -8,6 +8,7 @@ import {
   LogOut,
   Wallet,
   Calculator,
+  Users,
   Percent,
   MessageSquare
 } from "lucide-react"
@@ -40,6 +41,10 @@ const menuItems = [
   { title: "Chat IA", url: "/chat", icon: MessageSquare },
   { title: "Taxas e Indicadores", url: "/taxas", icon: Percent },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
+]
+
+const adminItems = [
+  { title: "Usuários", url: "/admin/usuarios", icon: Users },
 ]
 
 export function AppSidebar() {
@@ -93,6 +98,32 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {user?.role === 'admin' && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="px-2 text-xs font-medium text-muted-foreground">
+              Administração
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild tooltip={item.title}>
+                      <NavLink
+                        to={item.url as any}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
