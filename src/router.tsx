@@ -160,7 +160,7 @@ export const usersRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/admin/usuarios",
   component: Users,
-}
+})
 
 export const taxasRoute = createRoute({
   getParentRoute: () => layoutRoute,
