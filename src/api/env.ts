@@ -13,7 +13,7 @@ export const API_CONFIG = {
    * MSW intercepts relative requests on the same origin automatically.
    */
   BASE_URL: (import.meta.env.VITE_USE_MSW === 'true')
-    ? ''
+    ? (import.meta.env.VITE_API_URL || '')
     : (import.meta.env.VITE_API_URL || 'http://localhost:5000'),
 
   /**
