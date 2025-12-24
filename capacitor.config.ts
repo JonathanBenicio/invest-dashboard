@@ -22,6 +22,9 @@ const config: CapacitorConfig = {
       style: 'dark',
       backgroundColor: '#0f172a',
     }
+  },
+  ios: {
+    allowsBackForwardNavigationGestures: true,
   }
 }
 
