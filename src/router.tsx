@@ -28,6 +28,8 @@ import Chat from "./pages/tools/Chat"
 import Examples from "./pages/tools/Examples"
 import TraderChart from "./pages/tools/TraderChart"
 import ChartJSExamples from "./pages/tools/ChartJSExamples"
+import LightningChartTrader from "./pages/tools/LightningChartTrader"
+import TradingViewPro from "./pages/tools/TradingViewPro"
 import NotFound from "./pages/errors/NotFound"
 import { z } from "zod"
 
@@ -196,6 +198,18 @@ export const chartJSExamplesRoute = createRoute({
   component: ChartJSExamples,
 })
 
+export const lightningTraderRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/lightning-trader",
+  component: LightningChartTrader,
+})
+
+export const tradingViewProRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/tradingview-pro",
+  component: TradingViewPro,
+})
+
 // 404 Route
 export const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -225,6 +239,8 @@ const routeTree = rootRoute.addChildren([
     examplesRoute,
     traderRoute,
     chartJSExamplesRoute,
+    lightningTraderRoute,
+    tradingViewProRoute,
   ]),
   notFoundRoute,
 ])
