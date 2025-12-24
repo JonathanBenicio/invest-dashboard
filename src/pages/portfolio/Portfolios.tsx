@@ -333,7 +333,7 @@ const Portfolios = () => {
       </div>
 
       {/* Portfolios Table */}
-      <Card>
+      <Card className="hidden lg:block">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5" />
