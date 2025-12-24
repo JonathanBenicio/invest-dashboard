@@ -74,7 +74,10 @@ function checkPermission(request: Request, requiredRole?: 'edit' | 'admin') {
   }
 
   if (!userId) {
-    return { authorized: false, status: 401, message: 'Não autenticado' }
+    // FALLBACK FOR DEVELOPMENT: If no token is found, act as the first mock user (Admin)
+    // to prevent annoying 401s when the user just wants to test the UI.
+    console.warn('MSW: No auth_token found, falling back to mock admin user.')
+    return { authorized: true, user: mockUsers[0] }
   }
 
   const user = mockUsers.find(u => u.id === userId)
@@ -473,11 +476,11 @@ export const handlers = [
       // Check if it's already in DTO format (has totalInvested) or legacy (has investedValue)
       // Or simply normalize everything.
 
-      const legacy = inv as any;
-      const typeStr = inv.type as string;
+      const legacy = inv as any
+      const typeStr = inv.type as string
       const isFixed = typeStr === 'CDB' || typeStr === 'LCI' || typeStr === 'LCA' ||
-                      typeStr === 'Tesouro Direto' || typeStr === 'Debênture' ||
-                      typeStr === 'CRI' || typeStr === 'CRA' || typeStr === 'fixed_income';
+        typeStr === 'Tesouro Direto' || typeStr === 'Debênture' ||
+        typeStr === 'CRI' || typeStr === 'CRA' || typeStr === 'fixed_income'
 
       // Default mapping for Base InvestmentDto fields from legacy
       const baseDto = {
@@ -531,11 +534,11 @@ export const handlers = [
 
     const mappedInvestments = investments.map(inv => {
 
-      const legacy = inv as any;
-      const typeStr2 = inv.type as string;
+      const legacy = inv as any
+      const typeStr2 = inv.type as string
       const isFixed = typeStr2 === 'CDB' || typeStr2 === 'LCI' || typeStr2 === 'LCA' ||
-                      typeStr2 === 'Tesouro Direto' || typeStr2 === 'Debênture' ||
-                      typeStr2 === 'CRI' || typeStr2 === 'CRA' || typeStr2 === 'fixed_income';
+        typeStr2 === 'Tesouro Direto' || typeStr2 === 'Debênture' ||
+        typeStr2 === 'CRI' || typeStr2 === 'CRA' || typeStr2 === 'fixed_income'
 
       const baseDto = {
         ...inv,

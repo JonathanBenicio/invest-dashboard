@@ -13,8 +13,9 @@ import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 import { useVariableIncomeInvestments, useDividends } from "@/hooks/use-variable-income"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
+import { StockSearch } from "@/components/investments/StockSearch"
 import { investmentService } from "@/api/services/investment.service"
-import type { VariableIncomeDto, InvestmentFilters, VariableIncomeType, CreateVariableIncomeRequest } from "@/api/dtos"
+import type { VariableIncomeDto, InvestmentFilters, VariableIncomeType, CreateVariableIncomeRequest, BrapiQuote } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -25,6 +26,10 @@ export default function VariableIncome() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedAsset, setSelectedAsset] = useState<VariableIncomeDto | null>(null)
+  const [selectedQuote, setSelectedQuote] = useState<BrapiQuote | null>(null)
+  const [ticker, setTicker] = useState("")
+  const [name, setName] = useState("")
+  const [sector, setSector] = useState("")
   const { toast } = useToast()
 
   // Table State
@@ -56,7 +61,7 @@ export default function VariableIncome() {
     // For now, let's assume we can pass it.
     const sectorFilter = columnFilters.find(f => f.id === 'sector')?.value
     if (sectorFilter) {
-        (apiFilters as any).sector = sectorFilter
+      (apiFilters as any).sector = sectorFilter
     }
 
     return apiFilters
@@ -82,17 +87,14 @@ export default function VariableIncome() {
 
     const newAssetData: CreateVariableIncomeRequest = {
       portfolioId: formData.get('portfolioId') as string,
-      ticker: (formData.get('ticker') as string).toUpperCase(),
+      ticker: ticker.toUpperCase(),
       subtype: formData.get('type') as VariableIncomeType,
       quantity: parseInt(formData.get('quantity') as string),
       averagePrice: parseFloat(formData.get('averagePrice') as string),
-      purchaseDate: new Date().toISOString(), // Default now
-      // API request might need name and sector if we want to be complete, but DTO CreateVariableIncomeRequest
-      // only requires minimal fields. However, Mock Handler creates based on body.
-      // Let's pass extra fields for the mock to be happy.
+      purchaseDate: new Date().toISOString(),
       ...({
-        name: formData.get('name') as string,
-        sector: formData.get('sector') as string,
+        name: name,
+        sector: sector,
       } as any)
     }
 
@@ -113,44 +115,52 @@ export default function VariableIncome() {
     }
   }
 
+  const handleStockSelect = (quote: BrapiQuote) => {
+    setSelectedQuote(quote)
+    setTicker(quote.symbol)
+    setName(quote.shortName || quote.longName)
+    // Brapi doesn't always provide sector in the quote, but let's try to infer or leave it
+    // In a real app we might want to fetch more details if needed
+  }
+
   const handleEditAsset = async (updatedAsset: VariableIncomeDto) => {
     if (!selectedAsset) return
 
     try {
-       // Since API expects UpdateInvestmentRequest but mock allows any, we pass what we have
-       await investmentService.update(selectedAsset.id, updatedAsset as any)
+      // Since API expects UpdateInvestmentRequest but mock allows any, we pass what we have
+      await investmentService.update(selectedAsset.id, updatedAsset as any)
 
-       setIsEditDialogOpen(false)
-        toast({
+      setIsEditDialogOpen(false)
+      toast({
         title: "Ativo atualizado",
         description: `${updatedAsset.ticker} foi atualizado com sucesso.`,
-        })
-        refetch()
+      })
+      refetch()
     } catch (error) {
-         toast({
+      toast({
         title: "Erro ao atualizar",
         description: "Falha ao atualizar.",
         variant: "destructive",
-        })
+      })
     }
   }
 
   const handleDeleteAsset = async (id: string) => {
     try {
-        await investmentService.delete(id)
-        setIsDeleteDialogOpen(false)
-        setSelectedAsset(null)
-        toast({
+      await investmentService.delete(id)
+      setIsDeleteDialogOpen(false)
+      setSelectedAsset(null)
+      toast({
         title: "Ativo removido",
         description: "O ativo foi removido da sua carteira.",
-        })
-        refetch()
+      })
+      refetch()
     } catch (error) {
-        toast({
-            title: "Erro ao remover",
-            description: "Falha ao remover o ativo.",
-            variant: "destructive"
-        })
+      toast({
+        title: "Erro ao remover",
+        description: "Falha ao remover o ativo.",
+        variant: "destructive"
+      })
     }
   }
 
@@ -202,10 +212,21 @@ export default function VariableIncome() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="grid gap-2">
+                  <Label>Pesquisar Ativo (Brapi)</Label>
+                  <StockSearch onSelect={handleStockSelect} />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="ticker">Ticker</Label>
-                    <Input id="ticker" name="ticker" placeholder="Ex: PETR4" required />
+                    <Input
+                      id="ticker"
+                      name="ticker"
+                      placeholder="Ex: PETR4"
+                      value={ticker}
+                      onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                      required
+                    />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="type">Tipo</Label>
@@ -223,11 +244,25 @@ export default function VariableIncome() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">Nome da Empresa</Label>
-                  <Input id="name" name="name" placeholder="Ex: Petrobras PN" required />
+                  <Input
+                    id="name"
+                    name="name"
+                    placeholder="Ex: Petrobras PN"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="sector">Setor</Label>
-                  <Input id="sector" name="sector" placeholder="Ex: Petróleo e Gás" required />
+                  <Input
+                    id="sector"
+                    name="sector"
+                    placeholder="Ex: Petróleo e Gás"
+                    value={sector}
+                    onChange={(e) => setSector(e.target.value)}
+                    required
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
@@ -252,7 +287,7 @@ export default function VariableIncome() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      < div className="grid gap-4 md:grid-cols-3" >
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Investido (Página)</CardTitle>
@@ -280,10 +315,10 @@ export default function VariableIncome() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </div >
 
       {/* Tabs */}
-      <Tabs defaultValue="assets" className="space-y-4">
+      < Tabs defaultValue="assets" className="space-y-4" >
         <TabsList>
           <TabsTrigger value="assets">Ativos</TabsTrigger>
           <TabsTrigger value="dividends">Proventos</TabsTrigger>
@@ -292,21 +327,21 @@ export default function VariableIncome() {
         <TabsContent value="assets">
           <Card>
             <CardContent className="pt-6">
-                <VariableIncomeTable
-                    data={assets}
-                    pageCount={pageCount}
-                    pagination={pagination}
-                    setPagination={setPagination}
-                    sorting={sorting}
-                    setSorting={setSorting}
-                    columnFilters={columnFilters}
-                    setColumnFilters={setColumnFilters}
-                    globalFilter={globalFilter}
-                    setGlobalFilter={setGlobalFilter}
-                    isLoading={isLoading}
-                    onEdit={openEditDialog}
-                    onDelete={openDeleteDialog}
-                />
+              <VariableIncomeTable
+                data={assets}
+                pageCount={pageCount}
+                pagination={pagination}
+                setPagination={setPagination}
+                sorting={sorting}
+                setSorting={setSorting}
+                columnFilters={columnFilters}
+                setColumnFilters={setColumnFilters}
+                globalFilter={globalFilter}
+                setGlobalFilter={setGlobalFilter}
+                isLoading={isLoading}
+                onEdit={openEditDialog}
+                onDelete={openDeleteDialog}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -349,7 +384,7 @@ export default function VariableIncome() {
             </CardContent>
           </Card>
         </TabsContent>
-      </Tabs>
+      </Tabs >
 
       <EditInvestmentDialog
         open={isEditDialogOpen}
@@ -371,6 +406,6 @@ export default function VariableIncome() {
           }
         }}
       />
-    </div>
+    </div >
   )
 }

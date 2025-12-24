@@ -43,3 +43,12 @@ export type {
   InvestmentFilters,
   InvestmentSummaryDto,
 } from './investment.dto'
+
+// Brapi DTOs
+export type {
+  BrapiQuote,
+  BrapiQuoteResponse,
+  BrapiAvailableResponse,
+  BrapiHistoricalData,
+  BrapiHistoricalResponse,
+} from './brapi.dto'

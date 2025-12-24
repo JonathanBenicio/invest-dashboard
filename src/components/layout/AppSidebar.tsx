@@ -39,6 +39,9 @@ const menuItems = [
   { title: "Importar Dados", url: "/importar", icon: Upload },
   { title: "Análise", url: "/analise", icon: BarChart3 },
   { title: "Chat IA", url: "/chat", icon: MessageSquare },
+  { title: "Gráfico Trader", url: "/trader", icon: TrendingUp },
+  { title: "Exemplos UI", url: "/exemplos", icon: LayoutDashboard },
+  { title: "Chart.js Exemplos", url: "/chart-js-exemplos", icon: BarChart3 },
   { title: "Taxas e Indicadores", url: "/taxas", icon: Percent },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ]

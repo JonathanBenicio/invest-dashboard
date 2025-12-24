@@ -27,6 +27,19 @@ export const API_CONFIG = {
   VERSION: '/api/v1',
 } as const
 
+export const BRAPI_CONFIG = {
+  /**
+   * Base URL for Brapi API
+   */
+  BASE_URL: 'https://brapi.dev/api',
+
+  /**
+   * API Token for Brapi
+   * Get yours at https://brapi.dev
+   */
+  TOKEN: import.meta.env.VITE_BRAPI_TOKEN || '',
+} as const
+
 /**
  * Get the full API URL with version prefix
  */
