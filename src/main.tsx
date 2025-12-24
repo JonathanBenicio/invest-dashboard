@@ -6,6 +6,7 @@ import "./index.css"
 import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import { SplashScreen } from '@capacitor/splash-screen'
+import { defineCustomElements } from '@ionic/pwa-elements/loader'
 
 // Create QueryClient instance
 const queryClient = new QueryClient({
@@ -20,6 +21,11 @@ const queryClient = new QueryClient({
 
 // Initialize Capacitor plugins
 async function initCapacitor() {
+  // Initialize PWA elements for camera support on web
+  if (!Capacitor.isNativePlatform()) {
+    defineCustomElements(window);
+  }
+
   if (Capacitor.isNativePlatform()) {
     try {
       await StatusBar.setStyle({ style: Style.Dark })

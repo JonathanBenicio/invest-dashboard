@@ -143,6 +143,33 @@ export const handlers = [
     return HttpResponse.json(createResponse(check.user))
   }),
 
+  http.patch(`${BASE_URL}/auth/me`, async ({ request }) => {
+    await delay(500)
+    const check = checkPermission(request)
+    if (!check.authorized || !check.user) {
+      return HttpResponse.json(
+        { success: false, message: check.message || 'Não autorizado' },
+        { status: check.status || 401 }
+      )
+    }
+
+    const body = await request.json() as Partial<UserDto>
+    const user = check.user
+
+    // Update fields
+    if (body.name) user.name = body.name
+    if (body.email) user.email = body.email
+    if (body.avatar) user.avatar = body.avatar
+
+    // Update in mockUsers array (reference is already there but to be safe)
+    const index = mockUsers.findIndex(u => u.id === user.id)
+    if (index !== -1) {
+      mockUsers[index] = { ...mockUsers[index], ...body }
+    }
+
+    return HttpResponse.json(createResponse(user, 'Perfil atualizado com sucesso'))
+  }),
+
   // User Management endpoints (Admin only)
   http.get(`${BASE_URL}/users`, async ({ request }) => {
     // const check = checkPermission(request, 'admin')

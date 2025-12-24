@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { User, Bell, Target, Download, Palette, Shield } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Bell, Target, Download, Palette, Shield, Camera as CameraIcon, Image as ImageIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,34 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import { currentUser, formatCurrency } from "@/lib/mock-data";
+import { formatCurrency } from "@/lib/mock-data";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthStore } from "@/store/authStore";
+import { authService } from "@/api/services/auth.service";
+import { Camera, CameraResultType, CameraSource } from "@capacitor/camera";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Settings() {
-  const [name, setName] = useState(currentUser.name);
-  const [email, setEmail] = useState(currentUser.email);
+  const { user, checkAuth } = useAuthStore();
+  const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
+  const [avatar, setAvatar] = useState(user?.avatar || "");
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name);
+      setEmail(user.email);
+      setAvatar(user.avatar || "");
+    }
+  }, [user]);
 
   const allocationGoals = [
     { name: 'Renda Fixa', current: 55, target: 50 },
@@ -26,11 +45,60 @@ export default function Settings() {
     { name: 'BDRs', current: 2, target: 2 },
   ];
 
-  const handleSaveProfile = () => {
-    toast({
-      title: "Perfil atualizado",
-      description: "Suas informações foram salvas com sucesso.",
-    });
+  const handleSaveProfile = async () => {
+    try {
+      await authService.updateProfile({ name, email });
+      await checkAuth(); // Refresh user data in store
+      toast({
+        title: "Perfil atualizado",
+        description: "Suas informações foram salvas com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível salvar suas informações.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handlePhotoChange = async (source: CameraSource) => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: true,
+        resultType: CameraResultType.Base64,
+        source: source,
+      });
+
+      if (image.base64String) {
+        const base64Data = `data:image/${image.format};base64,${image.base64String}`;
+
+        // Update local state for immediate feedback
+        setAvatar(base64Data);
+
+        // Send to API
+        await authService.updateProfile({ avatar: base64Data });
+
+        // Refresh auth store
+        await checkAuth();
+
+        toast({
+          title: "Foto atualizada",
+          description: "Sua nova foto de perfil foi salva.",
+        });
+      }
+    } catch (error) {
+      console.error("Error capturing photo:", error);
+      // Don't show error toast if user just cancelled
+      if (typeof error === 'object' && error !== null && 'message' in error && (error as any).message !== 'User cancelled photos app') {
+         toast({
+          title: "Erro",
+          description: "Não foi possível atualizar a foto.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const handleExport = (format: string) => {
@@ -77,12 +145,27 @@ export default function Settings() {
               <CardContent className="space-y-6">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-20 w-20">
+                    <AvatarImage src={avatar} alt={name} />
                     <AvatarFallback className="text-xl bg-primary/10 text-primary">
                       {name.split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <Button variant="outline" size="sm">Alterar foto</Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">Alterar foto</Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuItem onClick={() => handlePhotoChange(CameraSource.Camera)}>
+                          <CameraIcon className="mr-2 h-4 w-4" />
+                          Tirar foto
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePhotoChange(CameraSource.Photos)}>
+                          <ImageIcon className="mr-2 h-4 w-4" />
+                          Escolher da galeria
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <p className="text-xs text-muted-foreground mt-1">JPG, PNG. Máx 2MB.</p>
                   </div>
                 </div>
