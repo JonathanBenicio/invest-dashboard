@@ -17,22 +17,18 @@ export const userService = {
     if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString())
     if (filters?.search) params.append('search', filters.search)
 
-    const response = await api.get<PaginatedResponse<UserDto>>(`/users?${params.toString()}`)
-    return response.data
+    return api.get<PaginatedResponse<UserDto>>(`/users?${params.toString()}`)
   },
 
   createUser: async (data: CreateUserDto) => {
-    const response = await api.post<ApiResponse<UserDto>>('/users', data)
-    return response.data
+    return api.post<ApiResponse<UserDto>>('/users', data)
   },
 
   updateUser: async (id: string, data: UpdateUserDto) => {
-    const response = await api.patch<ApiResponse<UserDto>>(`/users/${id}`, data)
-    return response.data
+    return api.patch<ApiResponse<UserDto>>(`/users/${id}`, data)
   },
 
   deleteUser: async (id: string) => {
-    const response = await api.delete<ApiResponse<null>>(`/users/${id}`)
-    return response.data
+    return api.delete<ApiResponse<null>>(`/users/${id}`)
   },
 }

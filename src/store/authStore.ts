@@ -21,7 +21,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true })
     try {
       const response = await api.post<{ data: UserDto }>('/auth/login', credentials)
-      set({ user: response.data, isAuthenticated: true, isLoading: false })
+      const user = response.data
+
+      set({ user, isAuthenticated: true, isLoading: false })
     } catch (error) {
       set({ isLoading: false })
       throw error

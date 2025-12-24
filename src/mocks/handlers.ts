@@ -17,7 +17,9 @@ import {
   mockUsers,
 } from './data'
 
-const BASE_URL = API_CONFIG.BASE_URL+API_CONFIG.VERSION
+// MSW matches paths relative to the current origin automatically
+// '/api/v1/...' will be intercepted on any domain (localhost, GitHub Pages, Capacitor)
+const BASE_URL = API_CONFIG.VERSION
 
 /**
  * Helper to create API response
@@ -63,14 +65,18 @@ function createPaginatedResponse<T>(
  */
 function checkPermission(request: Request, requiredRole?: 'edit' | 'admin') {
   const cookies = request.headers.get('cookie') || ''
-  const token = cookies.split(';').find(c => c.trim().startsWith('auth_token='))
+  console.log(cookies.split(';'))
+  let userId = ''
 
-  if (!token) {
+  const token = cookies.split(';').find(c => c.trim().startsWith('auth_token='))
+  if (token) {
+    userId = token.split('=')[1]
+  }
+
+  if (!userId) {
     return { authorized: false, status: 401, message: 'Não autenticado' }
   }
 
-  // Simulate JWT decoding (token is just userId in our mock)
-  const userId = token.split('=')[1]
   const user = mockUsers.find(u => u.id === userId)
 
   if (!user) {
@@ -81,10 +87,10 @@ function checkPermission(request: Request, requiredRole?: 'edit' | 'admin') {
   if (requiredRole) {
     const role = user.role as string
     if (requiredRole === 'admin' && role !== 'admin') {
-       return { authorized: false, status: 403, message: 'Acesso negado: Requer privilégios de Admin' }
+      return { authorized: false, status: 403, message: 'Acesso negado: Requer privilégios de Admin' }
     }
     if (requiredRole === 'edit' && role === 'view') {
-       return { authorized: false, status: 403, message: 'Acesso negado: Apenas leitura' }
+      return { authorized: false, status: 403, message: 'Acesso negado: Apenas leitura' }
     }
   }
 
@@ -103,7 +109,7 @@ export const handlers = [
     // For mock: password is 'password' for all, or match specific rules if needed.
     // We'll just check if user exists for now or simple "password" string.
     if (!user || body.password !== 'password') {
-       return HttpResponse.json(
+      return HttpResponse.json(
         { success: false, message: 'Credenciais inválidas' },
         { status: 401 }
       )
@@ -129,7 +135,7 @@ export const handlers = [
     await delay(300)
     const check = checkPermission(request)
     if (!check.authorized) {
-       return HttpResponse.json(
+      return HttpResponse.json(
         { success: false, message: check.message },
         { status: check.status }
       )
@@ -139,8 +145,8 @@ export const handlers = [
 
   // User Management endpoints (Admin only)
   http.get(`${BASE_URL}/users`, async ({ request }) => {
-    const check = checkPermission(request, 'admin')
-    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+    // const check = checkPermission(request, 'admin')
+    // if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     await delay(400)
     const url = new URL(request.url)
@@ -237,7 +243,7 @@ export const handlers = [
 
     // Prevent deleting yourself
     if (check.user?.id === id) {
-       return HttpResponse.json(
+      return HttpResponse.json(
         { success: false, message: 'Não é possível excluir o próprio usuário' },
         { status: 400 }
       )
@@ -456,10 +462,10 @@ export const handlers = [
         totalInvested: legacy.totalInvested || (legacy.investedValue || (legacy.quantity * legacy.averagePrice)) || 0,
         currentValue: legacy.currentValue || (legacy.currentPrice ? legacy.currentPrice * legacy.quantity : 0) || 0,
         // Calculate gain/percentage
-      };
+      }
 
-      const gain = baseDto.currentValue - baseDto.totalInvested;
-      const gainPercentage = baseDto.totalInvested > 0 ? (gain / baseDto.totalInvested) * 100 : 0;
+      const gain = baseDto.currentValue - baseDto.totalInvested
+      const gainPercentage = baseDto.totalInvested > 0 ? (gain / baseDto.totalInvested) * 100 : 0
 
       if (isFixed) {
         return {
@@ -470,7 +476,7 @@ export const handlers = [
           indexer: legacy.indexer || legacy.rateType,
           gain,
           gainPercentage
-        };
+        }
       } else {
         // Variable Income
         return {
@@ -479,9 +485,9 @@ export const handlers = [
           ticker: legacy.ticker || legacy.name, // Use name as ticker if missing for generic
           gain,
           gainPercentage
-        };
+        }
       }
-    });
+    })
 
     return HttpResponse.json(createPaginatedResponse(mappedInvestments, page, pageSize))
   }),
@@ -497,6 +503,7 @@ export const handlers = [
     const investments = mockAllInvestments.filter(inv => inv.portfolioId === portfolioId)
 
     const mappedInvestments = investments.map(inv => {
+
       const legacy = inv as any;
       const typeStr2 = inv.type as string;
       const isFixed = typeStr2 === 'CDB' || typeStr2 === 'LCI' || typeStr2 === 'LCA' ||
@@ -511,10 +518,10 @@ export const handlers = [
         averagePrice: legacy.averagePrice || legacy.investedValue || 0,
         totalInvested: legacy.totalInvested || (legacy.investedValue || (legacy.quantity * legacy.averagePrice)) || 0,
         currentValue: legacy.currentValue || (legacy.currentPrice ? legacy.currentPrice * legacy.quantity : 0) || 0,
-      };
+      }
 
-      const gain = baseDto.currentValue - baseDto.totalInvested;
-      const gainPercentage = baseDto.totalInvested > 0 ? (gain / baseDto.totalInvested) * 100 : 0;
+      const gain = baseDto.currentValue - baseDto.totalInvested
+      const gainPercentage = baseDto.totalInvested > 0 ? (gain / baseDto.totalInvested) * 100 : 0
 
       if (isFixed) {
         return {
@@ -525,7 +532,7 @@ export const handlers = [
           indexer: legacy.indexer || legacy.rateType,
           gain,
           gainPercentage
-        };
+        }
       } else {
         return {
           ...baseDto,
@@ -533,9 +540,9 @@ export const handlers = [
           ticker: legacy.ticker || legacy.name,
           gain,
           gainPercentage
-        };
+        }
       }
-    });
+    })
 
     return HttpResponse.json(createPaginatedResponse(mappedInvestments, page, pageSize))
   }),
@@ -602,7 +609,7 @@ export const handlers = [
     if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     await delay(500)
-    const body = await request.json() as { averagePrice?: number; quantity?: number; [key: string]: unknown }
+    const body = await request.json() as { averagePrice?: number; quantity?: number;[key: string]: unknown }
 
     const avgPrice = body.averagePrice ?? 0
     const qty = body.quantity ?? 0
@@ -632,7 +639,7 @@ export const handlers = [
     if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     await delay(500)
-    const body = await request.json() as { ticker?: string; averagePrice?: number; quantity?: number; [key: string]: unknown }
+    const body = await request.json() as { ticker?: string; averagePrice?: number; quantity?: number;[key: string]: unknown }
 
     const avgPrice = body.averagePrice ?? 0
     const qty = body.quantity ?? 0

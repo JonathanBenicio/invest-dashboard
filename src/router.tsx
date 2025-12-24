@@ -6,6 +6,7 @@ import {
   Navigate,
   useRouter,
 } from "@tanstack/react-router"
+import { Capacitor } from '@capacitor/core'
 import { AppLayout } from "@/components/layout/AppLayout"
 import { useAuthStore } from "@/store/authStore"
 import Login from "./pages/auth/Login"
@@ -208,8 +209,9 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   defaultPreload: "intent",
-  // Base path for GitHub Pages
-  basepath: import.meta.env.PROD ? "/invest-dashboard/" : "/",
+  // Base path for GitHub Pages and Capacitor
+  basepath: Capacitor.isNativePlatform() ? "/" :
+    import.meta.env.PROD ? "/invest-dashboard/" : "/",
 })
 
 // Type Safety
