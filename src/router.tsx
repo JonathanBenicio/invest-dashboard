@@ -27,7 +27,7 @@ import Taxas from "./pages/tools/Taxas"
 import Chat from "./pages/tools/Chat"
 import Examples from "./pages/tools/Examples"
 import TraderChart from "./pages/tools/TraderChart"
-import Options from "./pages/investments/Options"
+import ChartJSExamples from "./pages/tools/ChartJSExamples"
 import NotFound from "./pages/errors/NotFound"
 import { z } from "zod"
 
@@ -190,10 +190,10 @@ export const traderRoute = createRoute({
   component: TraderChart,
 })
 
-export const optionsRoute = createRoute({
+export const chartJSExamplesRoute = createRoute({
   getParentRoute: () => layoutRoute,
-  path: "/opcoes",
-  component: Options,
+  path: "/chart-js-exemplos",
+  component: ChartJSExamples,
 })
 
 // 404 Route
@@ -224,7 +224,7 @@ const routeTree = rootRoute.addChildren([
     chatRoute,
     examplesRoute,
     traderRoute,
-    optionsRoute,
+    chartJSExamplesRoute,
   ]),
   notFoundRoute,
 ])
