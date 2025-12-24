@@ -63,24 +63,24 @@ export default function Dashboard() {
   const upcomingDividends: any[] = []
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral da sua carteira de investimentos</p>
+        <h1 className="text-responsive-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-responsive-sm text-muted-foreground">Visão geral da sua carteira de investimentos</p>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Patrimônio Total
             </CardTitle>
-            <Wallet className="h-4 w-4 text-muted-foreground" />
+            <Wallet className="h-4 w-4 text-muted-foreground hidden sm:block" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalPortfolio)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <div className="text-lg sm:text-2xl font-bold">{formatCurrency(totalPortfolio)}</div>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">
               Atualizado em tempo real
             </p>
           </CardContent>
@@ -88,16 +88,16 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Rentabilidade Total
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
+              Rentabilidade
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-muted-foreground hidden sm:block" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${totalProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
+            <div className={`text-lg sm:text-2xl font-bold ${totalProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
               {formatCurrency(totalProfit)}
             </div>
-            <div className={`flex items-center text-xs mt-1 ${profitPercentage >= 0 ? 'text-success' : 'text-destructive'}`}>
+            <div className={`flex items-center text-[10px] sm:text-xs mt-1 ${profitPercentage >= 0 ? 'text-success' : 'text-destructive'}`}>
               {profitPercentage >= 0 ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
               {profitPercentage >= 0 ? '+' : ''}{profitPercentage.toFixed(2)}%
             </div>
@@ -106,14 +106,14 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Maior Alta
             </CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-success" />
+            <ArrowUpRight className="h-4 w-4 text-success hidden sm:block" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{bestPerformer?.ticker || bestPerformer?.name || '-'}</div>
-            <div className="flex items-center text-xs text-success mt-1">
+            <div className="text-lg sm:text-2xl font-bold truncate">{bestPerformer?.ticker || bestPerformer?.name || '-'}</div>
+            <div className="flex items-center text-[10px] sm:text-xs text-success mt-1">
               <ArrowUpRight className="h-3 w-3 mr-1" />
               +{bestPerformer?.gainPercentage.toFixed(2)}%
             </div>
@@ -122,14 +122,14 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground">
               Maior Baixa
             </CardTitle>
-            <ArrowDownRight className="h-4 w-4 text-destructive" />
+            <ArrowDownRight className="h-4 w-4 text-destructive hidden sm:block" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{worstPerformer?.ticker || worstPerformer?.name || '-'}</div>
-            <div className="flex items-center text-xs text-destructive mt-1">
+            <div className="text-lg sm:text-2xl font-bold truncate">{worstPerformer?.ticker || worstPerformer?.name || '-'}</div>
+            <div className="flex items-center text-[10px] sm:text-xs text-destructive mt-1">
               <ArrowDownRight className="h-3 w-3 mr-1" />
               {worstPerformer?.gainPercentage.toFixed(2)}%
             </div>
@@ -138,18 +138,18 @@ export default function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         {/* Portfolio Evolution */}
         <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-row items-start justify-between space-y-0">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-start justify-between space-y-2 sm:space-y-0 gap-2">
             <div>
               <CardTitle>Evolução Patrimonial</CardTitle>
-              <CardDescription>Sua Carteira vs Benchmark (CDI)</CardDescription>
+              <CardDescription className="text-responsive-sm">Sua Carteira vs Benchmark (CDI)</CardDescription>
             </div>
             <ChartPeriodFilter value={chartPeriod} onChange={setChartPeriod} />
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[200px] sm:h-[280px] lg:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={portfolioHistory}>
                   <defs>
@@ -162,12 +162,21 @@ export default function Dashboard() {
                       <stop offset="95%" stopColor="hsl(145, 65%, 42%)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-xs" />
+                  <XAxis 
+                    dataKey="date" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    className="text-[10px] sm:text-xs"
+                    tick={{ fontSize: 10 }}
+                    interval="preserveStartEnd"
+                  />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                    className="text-xs"
+                    className="text-[10px] sm:text-xs"
+                    tick={{ fontSize: 10 }}
+                    width={40}
                   />
                   <Tooltip
                     formatter={(value: number) => formatCurrency(value)}
@@ -175,7 +184,8 @@ export default function Dashboard() {
                     contentStyle={{
                       backgroundColor: 'hsl(0, 0%, 100%)',
                       border: '1px solid hsl(220, 15%, 90%)',
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      fontSize: '12px'
                     }}
                   />
                   <Area
@@ -204,18 +214,18 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <CardTitle>Alocação por Tipo</CardTitle>
-            <CardDescription>Distribuição atual dos ativos</CardDescription>
+            <CardDescription className="text-responsive-sm">Distribuição atual dos ativos</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[200px] sm:h-[280px] lg:h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={allocationData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
+                    innerRadius={40}
+                    outerRadius={70}
                     paddingAngle={2}
                     dataKey="value"
                   >
@@ -228,14 +238,16 @@ export default function Dashboard() {
                     contentStyle={{
                       backgroundColor: 'hsl(0, 0%, 100%)',
                       border: '1px solid hsl(220, 15%, 90%)',
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      fontSize: '12px'
                     }}
                   />
                   <Legend
                     layout="vertical"
                     align="right"
                     verticalAlign="middle"
-                    formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
+                    wrapperStyle={{ fontSize: '12px' }}
+                    formatter={(value) => <span className="text-responsive-sm text-foreground">{value}</span>}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -245,7 +257,7 @@ export default function Dashboard() {
       </div>
 
       {/* Bottom Cards */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         {/* Upcoming Maturities */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">

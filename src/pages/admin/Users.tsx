@@ -77,7 +77,7 @@ const userFormSchema = z.object({
   name: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
   email: z.string().email("E-mail inválido"),
   role: z.enum(["admin", "edit", "view", "user"]),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean(),
   parentesco: z.string().optional(),
 })
 
@@ -230,16 +230,16 @@ export default function Users() {
   const isSaving = createMutation.isPending || updateMutation.isPending
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Usuários</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-responsive-2xl font-bold tracking-tight">Usuários</h1>
+          <p className="text-responsive-sm text-muted-foreground">
             Gerencie o acesso e permissões dos usuários do sistema.
           </p>
         </div>
 
-        <Button onClick={handleCreate}>
+        <Button onClick={handleCreate} className="w-full sm:w-auto touch-target">
           <Plus className="mr-2 h-4 w-4" />
           Novo Usuário
         </Button>
@@ -372,8 +372,8 @@ export default function Users() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar por nome ou e-mail..."
@@ -384,15 +384,69 @@ export default function Users() {
         </div>
       </div>
 
-      <div className="rounded-md border bg-card">
+      {/* Mobile Card View */}
+      <div className="space-y-3 md:hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : data?.data.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            Nenhum usuário encontrado.
+          </div>
+        ) : (
+          data?.data.map((user) => (
+            <div key={user.id} className="p-4 rounded-lg border bg-card">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium truncate">{user.name}</p>
+                    {getRoleBadge(user.role)}
+                    {getStatusBadge(user.isActive)}
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate mt-1">{user.email}</p>
+                  {user.parentesco && (
+                    <p className="text-xs text-muted-foreground mt-1">{user.parentesco}</p>
+                  )}
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => handleEdit(user)}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600"
+                      onClick={() => handleDeleteClick(user)}
+                    >
+                      <Trash className="mr-2 h-4 w-4" />
+                      Excluir
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block rounded-md border bg-card">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>E-mail</TableHead>
+              <TableHead className="hidden lg:table-cell">E-mail</TableHead>
               <TableHead>Função</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Parentesco</TableHead>
+              <TableHead className="hidden lg:table-cell">Parentesco</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -413,11 +467,16 @@ export default function Users() {
             ) : (
               data?.data.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{user.name}</p>
+                      <p className="text-xs text-muted-foreground lg:hidden">{user.email}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">{user.email}</TableCell>
                   <TableCell>{getRoleBadge(user.role)}</TableCell>
                   <TableCell>{getStatusBadge(user.isActive)}</TableCell>
-                  <TableCell>{user.parentesco || "-"}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{user.parentesco || "-"}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
