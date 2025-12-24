@@ -119,3 +119,91 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 }
+
+/* Responsive Typography System */
+@layer utilities {
+  /* Fluid font sizes using clamp() for accessibility */
+  .text-responsive-xs {
+    font-size: clamp(0.625rem, 0.6rem + 0.125vw, 0.75rem); /* 10-12px */
+  }
+  .text-responsive-sm {
+    font-size: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem); /* 12-14px */
+  }
+  .text-responsive-base {
+    font-size: clamp(0.875rem, 0.8rem + 0.375vw, 1rem); /* 14-16px */
+  }
+  .text-responsive-lg {
+    font-size: clamp(1rem, 0.9rem + 0.5vw, 1.25rem); /* 16-20px */
+  }
+  .text-responsive-xl {
+    font-size: clamp(1.125rem, 1rem + 0.625vw, 1.5rem); /* 18-24px */
+  }
+  .text-responsive-2xl {
+    font-size: clamp(1.25rem, 1.1rem + 0.75vw, 1.875rem); /* 20-30px */
+  }
+  .text-responsive-3xl {
+    font-size: clamp(1.5rem, 1.3rem + 1vw, 2.25rem); /* 24-36px */
+  }
+
+  /* Touch-friendly minimum sizes */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Responsive chart heights */
+  .chart-height-sm {
+    height: 200px;
+  }
+  .chart-height-md {
+    height: 280px;
+  }
+  .chart-height-lg {
+    height: 350px;
+  }
+
+  @screen sm {
+    .chart-height-sm {
+      height: 240px;
+    }
+    .chart-height-md {
+      height: 300px;
+    }
+  }
+
+  @screen lg {
+    .chart-height-sm {
+      height: 280px;
+    }
+    .chart-height-md {
+      height: 350px;
+    }
+    .chart-height-lg {
+      height: 400px;
+    }
+  }
+
+  /* Mobile table scroll indicator */
+  .table-scroll-container {
+    position: relative;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .table-scroll-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    background: linear-gradient(to left, var(--background), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  
+  .table-scroll-container.has-scroll::after {
+    opacity: 1;
+  }
+}
