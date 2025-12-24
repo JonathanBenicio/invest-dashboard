@@ -3,8 +3,15 @@ FROM oven/bun:1 AS builder
 
 WORKDIR /app
 
+# Pass build arguments for environment variables
+ARG VITE_API_URL
+ARG VITE_USE_MSW=true
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_USE_MSW=$VITE_USE_MSW
+
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 COPY . .
 RUN bun run build

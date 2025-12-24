@@ -1,74 +1,111 @@
-# Welcome to your Lovable project
+# Invest Dashboard
 
-## Project info
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Build Status](https://github.com/JonathanBenicio/invest-dashboard/actions/workflows/deploy.yml/badge.svg)](https://github.com/JonathanBenicio/invest-dashboard/actions)
+[![Node Version](https://img.shields.io/badge/node-%3E%3D%2018-brightgreen)]
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 📖 Overview
+A modern, responsive investment dashboard built with **React 19**, **Vite**, **TypeScript**, and **shadcn‑ui**. It provides portfolio tracking, investment insights, and an admin panel. The app also supports mobile deployment via **Capacitor**.
 
-## How can I edit this code?
+## ✨ Features & Modules
+- **Dashboard** – Overview charts and key metrics.
+- **Portfolio** – View and manage assets.
+- **Investments** – Detailed investment listings.
+- **Admin** – User management and settings.
+- **Tools** – Utilities such as CSV export, theme switcher, etc.
 
-There are several ways of editing your application.
+## 🛠️ Tech Stack
+| Category | Technologies |
+|----------|--------------|
+| Frontend | React 19, Vite, TypeScript, Tailwind CSS, shadcn‑ui |
+| State Management | Zustand |
+| Data Fetching | @tanstack/react-query |
+| UI Components | @radix-ui, lucide‑react, recharts |
+| Forms & Validation | react‑hook‑form, zod |
+| Mock API | MSW |
+| Mobile | Capacitor (Android & iOS) |
+| CI/CD | GitHub Actions (deploy.yml) |
+| Containerization | Docker, Docker Compose |
 
-**Use Lovable**
+## 🚀 Getting Started
+### Prerequisites
+- **Node.js** ≥ 18 (or **npm**/**npx**)
+- **Docker** (optional, for containerized development)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Bun installed - [install Bun](https://bun.sh/docs/installation)
-
-Follow these steps:
-
+### Local Development
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+# Clone the repository
 git clone <YOUR_GIT_URL>
+cd invest-dashboard
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Install dependencies
+npm install   # or pnpm install
 
-# Step 3: Install the necessary dependencies.
-bun install
+# Run the development server
+npm run dev   # or npx vite
+```
+Open `http://localhost:5173` to view the app.
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-bun run dev
+## 📱 Mobile Development
+```sh
+# Sync Capacitor plugins
+npx cap sync   # or npm run cap sync
+
+# Android
+npx cap open android   # or npm run cap open android
+
+# iOS
+npx cap open ios   # or npm run cap open ios
 ```
 
-**Edit a file directly in GitHub**
+## 🚀 CI/CD
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+The project uses GitHub Actions for automation. Both workflows are configured for **manual trigger**, allowing you to choose the branch before running.
 
-**Use GitHub Codespaces**
+### 🌐 GitHub Pages Deployment
+Deploys the web application to GitHub Pages.
+1. Go to **Actions** > **Deploy to GitHub Pages**.
+2. Click **Run workflow** and select the branch.
+3. The app will be available at your GitHub Pages URL.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 📱 Android APK Build
+Generates the Android APK using Capacitor.
+1. Go to **Actions** > **Build Android APK**.
+2. Click **Run workflow**.
+3. Select the branch and the build type (`debug` or `release`).
+4. Once finished, download the APK from the **Artifacts** section of the run summary.
 
-## What technologies are used for this project?
+> [!IMPORTANT]
+> Ensure the `VITE_API_URL` secret is configured in your repository settings (**Settings > Secrets and variables > Actions**) for the build to point to the correct API.
 
-This project is built with:
+## 🐳 Docker
+```sh
+# Build and run with MSW (default)
+docker-compose up -d --build
 
-- Bun 1.3.4
-- Vite 7.2.7
-- TypeScript
-- React 19.2.1
-- shadcn-ui
-- Tailwind CSS
+# Use real API – edit docker-compose.yml:
+#   VITE_USE_MSW=false
+#   VITE_API_URL=https://your-api.com
+```
 
-## How can I deploy this project?
+## 📂 Project Structure
+```
+src/
+├─ api/            # API clients, env config
+├─ components/     # UI components
+├─ hooks/          # Custom React hooks
+├─ pages/          # Route pages (dashboard, portfolio, etc.)
+├─ mocks/          # MSW handlers
+├─ store/          # Zustand store
+├─ main.tsx        # App entry point
+└─ index.css       # Global styles
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## 🤝 Contributing
+1. Fork the repository.
+2. Create a feature branch.
+3. Run `npm run lint` and ensure all tests pass.
+4. Open a Pull Request.
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 📄 License
+This project is licensed under the MIT License – see the [LICENSE](LICENSE) file.

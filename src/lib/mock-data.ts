@@ -384,3 +384,75 @@ export function formatPercentage(value: number): string {
 export function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('pt-BR');
 }
+
+// Rates Interface
+export interface EconomicRate {
+  id: string;
+  name: string;
+  symbol: string;
+  currentValue: number;
+  previousValue: number;
+  variation: number;
+  description: string;
+  lastUpdate: string;
+  source: string;
+}
+
+// Mock Economic Rates
+export const economicRates: EconomicRate[] = [
+  {
+    id: '1',
+    name: 'SELIC',
+    symbol: 'SELIC',
+    currentValue: 12.75,
+    previousValue: 12.75,
+    variation: 0,
+    description: 'Taxa média de juros básica da economia brasileira',
+    lastUpdate: '2024-12-18',
+    source: 'Banco Central',
+  },
+  {
+    id: '2',
+    name: 'Índice Nacional de Preços ao Consumidor Amplo',
+    symbol: 'IPCA',
+    currentValue: 4.83,
+    previousValue: 4.76,
+    variation: 0.07,
+    description: 'Índice de inflação oficial do Brasil',
+    lastUpdate: '2024-12-10',
+    source: 'IBGE',
+  },
+  {
+    id: '3',
+    name: 'Taxa de Câmbio',
+    symbol: 'USD/BRL',
+    currentValue: 6.28,
+    previousValue: 6.15,
+    variation: 0.13,
+    description: 'Cotação do dólar em relação ao real',
+    lastUpdate: '2024-12-20',
+    source: 'Banco Central',
+  },
+  {
+    id: '4',
+    name: 'CDI - Certificado de Depósito Interbancário',
+    symbol: 'CDI',
+    currentValue: 12.65,
+    previousValue: 12.65,
+    variation: 0,
+    description: 'Taxa média de juros das operações interbancárias',
+    lastUpdate: '2024-12-20',
+    source: 'Cetip',
+  },
+  {
+    id: '5',
+    name: 'Imposto de Renda - Pessoa Física',
+    symbol: 'IR-PF',
+    currentValue: 15.0,
+    previousValue: 15.0,
+    variation: 0,
+    description: 'Alíquota máxima de Imposto de Renda para Pessoa Física',
+    lastUpdate: '2024-12-18',
+    source: 'Receita Federal',
+  },
+];

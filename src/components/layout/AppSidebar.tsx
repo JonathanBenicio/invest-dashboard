@@ -1,16 +1,18 @@
-import { 
-  LayoutDashboard, 
-  Landmark, 
-  TrendingUp, 
-  Upload, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Landmark,
+  TrendingUp,
+  Upload,
+  BarChart3,
   Settings,
   LogOut,
   Wallet,
-  Calculator
-} from "lucide-react";
-import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+  Calculator,
+  Users,
+  Percent,
+  MessageSquare
+} from "lucide-react"
+import { NavLink } from "@/components/NavLink"
 import {
   Sidebar,
   SidebarContent,
@@ -23,9 +25,10 @@ import {
   SidebarHeader,
   SidebarFooter,
   useSidebar,
-} from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { currentUser } from "@/lib/mock-data";
+} from "@/components/ui/sidebar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { useAuthStore } from "@/store/authStore"
+import { useNavigate } from "@tanstack/react-router"
 
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -35,13 +38,25 @@ const menuItems = [
   { title: "Simulador", url: "/simulador", icon: Calculator },
   { title: "Importar Dados", url: "/importar", icon: Upload },
   { title: "Análise", url: "/analise", icon: BarChart3 },
+  { title: "Chat IA", url: "/chat", icon: MessageSquare },
+  { title: "Taxas e Indicadores", url: "/taxas", icon: Percent },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
-];
+]
+
+const adminItems = [
+  { title: "Usuários", url: "/admin/usuarios", icon: Users },
+]
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const location = useLocation();
-  const collapsed = state === "collapsed";
+  const { state } = useSidebar()
+  const collapsed = state === "collapsed"
+  const { user, logout } = useAuthStore()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate({ to: '/login' })
+  }
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -69,8 +84,8 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
-                    <NavLink 
-                      to={item.url} 
+                    <NavLink
+                      to={item.url as any}
                       className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
@@ -83,28 +98,54 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {user?.role === 'admin' && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="px-2 text-xs font-medium text-muted-foreground">
+              Administração
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild tooltip={item.title}>
+                      <NavLink
+                        to={item.url as any}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+                        activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
+                      >
+                        <item.icon className="h-5 w-5" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary/10 text-primary text-sm">
-              {currentUser.name.split(' ').map(n => n[0]).join('')}
+              {user?.name.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex flex-1 flex-col">
-              <span className="text-sm font-medium text-sidebar-foreground">{currentUser.name}</span>
-              <span className="text-xs text-muted-foreground">{currentUser.email}</span>
+              <span className="text-sm font-medium text-sidebar-foreground">{user?.name}</span>
+              <span className="text-xs text-muted-foreground">{user?.email}</span>
             </div>
           )}
           {!collapsed && (
-            <NavLink to="/login" className="text-muted-foreground hover:text-destructive transition-colors">
+            <button onClick={handleLogout} className="text-muted-foreground hover:text-destructive transition-colors">
               <LogOut className="h-4 w-4" />
-            </NavLink>
+            </button>
           )}
         </div>
       </SidebarFooter>
     </Sidebar>
-  );
+  )
 }

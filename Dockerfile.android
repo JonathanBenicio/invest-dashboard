@@ -1,0 +1,57 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    openjdk-21-jdk \
+    wget \
+    unzip \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Android SDK Command Line Tools
+RUN mkdir -p $ANDROID_SDK_ROOT/cmdline-tools \
+    && wget https://dl.google.com/android/repository/commandlinetools-linux-10406996_latest.zip -O cmdline-tools.zip \
+    && unzip cmdline-tools.zip -d $ANDROID_SDK_ROOT/cmdline-tools \
+    && mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest \
+    && rm cmdline-tools.zip
+
+# Accept licenses and install platform tools and SDK
+RUN yes | sdkmanager --licenses \
+    && sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+# Install Bun
+RUN curl -fsSL https://bun.sh/install | bash
+ENV PATH=$PATH:/root/.bun/bin
+
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Install dependencies (will trigger postinstall patch-package)
+RUN bun install
+
+# Build the web app
+ARG VITE_USE_MSW=true
+ARG VERSION_CODE=1
+ARG VERSION_NAME=1.0
+ENV VITE_USE_MSW=$VITE_USE_MSW
+ENV VERSION_CODE=$VERSION_CODE
+ENV VERSION_NAME=$VERSION_NAME
+RUN bun run build:mobile
+
+# Sync Capacitor
+RUN bun x cap sync android
+
+# Build the APK
+WORKDIR /app/android
+RUN chmod +x gradlew
+RUN ./gradlew assembleDebug
+
+# Output APK path
+CMD ["echo", "APK is at /app/android/app/build/outputs/apk/debug/app-debug.apk"]
