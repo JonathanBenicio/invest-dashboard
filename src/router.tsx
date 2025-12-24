@@ -25,6 +25,9 @@ import Settings from "./pages/tools/Settings"
 import Users from "./pages/admin/Users"
 import Taxas from "./pages/tools/Taxas"
 import Chat from "./pages/tools/Chat"
+import Examples from "./pages/tools/Examples"
+import TraderChart from "./pages/tools/TraderChart"
+import Options from "./pages/investments/Options"
 import NotFound from "./pages/errors/NotFound"
 import { z } from "zod"
 
@@ -175,6 +178,24 @@ export const chatRoute = createRoute({
   component: Chat,
 })
 
+export const examplesRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/exemplos",
+  component: Examples,
+})
+
+export const traderRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/trader",
+  component: TraderChart,
+})
+
+export const optionsRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/opcoes",
+  component: Options,
+})
+
 // 404 Route
 export const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -201,6 +222,9 @@ const routeTree = rootRoute.addChildren([
     settingsRoute,
     usersRoute,
     chatRoute,
+    examplesRoute,
+    traderRoute,
+    optionsRoute,
   ]),
   notFoundRoute,
 ])
