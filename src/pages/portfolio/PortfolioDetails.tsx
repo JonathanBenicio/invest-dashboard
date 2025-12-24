@@ -163,7 +163,7 @@ export default function PortfolioDetails() {
             </div>
           </div>
         </div>
-        <Button onClick={() => navigate({ to: '/investimento/novo' })}>
+        <Button onClick={() => navigate({ to: '/renda-fixa' })}>
           <Plus className="mr-2 h-4 w-4" />
           Adicionar Investimento
         </Button>

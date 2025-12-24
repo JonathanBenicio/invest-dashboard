@@ -446,10 +446,11 @@ export const handlers = [
       // Check if it's already in DTO format (has totalInvested) or legacy (has investedValue)
       // Or simply normalize everything.
 
-      const legacy = inv as any
-      const isFixed = inv.type === 'CDB' || inv.type === 'LCI' || inv.type === 'LCA' ||
-        inv.type === 'Tesouro Direto' || inv.type === 'Debênture' ||
-        inv.type === 'CRI' || inv.type === 'CRA' || inv.type === 'fixed_income'
+      const legacy = inv as any;
+      const typeStr = inv.type as string;
+      const isFixed = typeStr === 'CDB' || typeStr === 'LCI' || typeStr === 'LCA' ||
+                      typeStr === 'Tesouro Direto' || typeStr === 'Debênture' ||
+                      typeStr === 'CRI' || typeStr === 'CRA' || typeStr === 'fixed_income';
 
       // Default mapping for Base InvestmentDto fields from legacy
       const baseDto = {
@@ -502,10 +503,12 @@ export const handlers = [
     const investments = mockAllInvestments.filter(inv => inv.portfolioId === portfolioId)
 
     const mappedInvestments = investments.map(inv => {
-      const legacy = inv as any
-      const isFixed = inv.type === 'CDB' || inv.type === 'LCI' || inv.type === 'LCA' ||
-        inv.type === 'Tesouro Direto' || inv.type === 'Debênture' ||
-        inv.type === 'CRI' || inv.type === 'CRA' || inv.type === 'fixed_income'
+
+      const legacy = inv as any;
+      const typeStr2 = inv.type as string;
+      const isFixed = typeStr2 === 'CDB' || typeStr2 === 'LCI' || typeStr2 === 'LCA' ||
+                      typeStr2 === 'Tesouro Direto' || typeStr2 === 'Debênture' ||
+                      typeStr2 === 'CRI' || typeStr2 === 'CRA' || typeStr2 === 'fixed_income';
 
       const baseDto = {
         ...inv,
