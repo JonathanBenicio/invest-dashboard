@@ -54,5 +54,5 @@ Thumbs.db
 # TypeScript
 **/*.tsbuildinfo
 
-/dist
+# Lockfiles
 *.lock
