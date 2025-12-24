@@ -13,7 +13,13 @@ interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
  * Build URL with query parameters
  */
 const buildUrl = (endpoint: string, params?: RequestOptions['params']): string => {
-  const url = new URL(getApiUrl(endpoint))
+  const apiPath = getApiUrl(endpoint)
+
+  // When BASE_URL is empty (MSW mode), apiPath is relative like "/api/v1/..."
+  // We need to provide a base for the URL constructor
+  const url = apiPath.startsWith('http')
+    ? new URL(apiPath)
+    : new URL(apiPath, window.location.origin)
 
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
@@ -30,7 +36,7 @@ const buildUrl = (endpoint: string, params?: RequestOptions['params']): string =
  * Get default headers for requests
  */
 const getDefaultHeaders = (): HeadersInit => {
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   }
@@ -53,7 +59,7 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
         useAuthStore.getState().logout()
         throw new UnauthorizedError(message)
       case 403:
-         throw new ApiError(message || 'Access Forbidden', 403, 'FORBIDDEN')
+        throw new ApiError(message || 'Access Forbidden', 403, 'FORBIDDEN')
       case 404:
         throw new NotFoundError(message)
       default:
