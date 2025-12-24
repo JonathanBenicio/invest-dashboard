@@ -36,11 +36,12 @@ export async function enableMocking() {
   const useByFlag = import.meta.env.VITE_USE_MSW === 'true'
   const useByDev = import.meta.env.DEV
 
-  // ✅ Web dev: ON
-  // ✅ Android nativo dev: ON via flag
+  // ✅ Web dev: ON (sempre em DEV)
+  // ✅ Web prod com flag: ON (GitHub Pages com VITE_USE_MSW=true)
+  // ✅ Android nativo com flag: ON
   // ❌ iOS: OFF (evita falha de SW no empacotado)
   const shouldUseMSW =
-    (platform === 'web' && useByDev) ||
+    (platform === 'web' && (useByDev || useByFlag)) ||
     (platform === 'android' && useByFlag)
 
   console.log('[MSW] Configuration:', {
