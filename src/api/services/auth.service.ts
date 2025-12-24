@@ -70,4 +70,10 @@ export const authService = {
    */
   changePassword: (data: PasswordChangeRequest): Promise<ApiResponse<void>> =>
     api.post(AUTH_ENDPOINTS.PASSWORD_CHANGE, data),
+
+  /**
+   * Update user profile
+   */
+  updateProfile: (data: Partial<UserDto>): Promise<ApiResponse<UserDto>> =>
+    api.patch(AUTH_ENDPOINTS.ME, data),
 }
