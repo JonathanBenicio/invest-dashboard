@@ -65,7 +65,7 @@ function createPaginatedResponse<T>(
  */
 function checkPermission(request: Request, requiredRole?: 'edit' | 'admin') {
   const cookies = request.headers.get('cookie') || ''
-
+  console.log(cookies.split(';'))
   let userId = ''
 
   const token = cookies.split(';').find(c => c.trim().startsWith('auth_token='))
@@ -145,8 +145,8 @@ export const handlers = [
 
   // User Management endpoints (Admin only)
   http.get(`${BASE_URL}/users`, async ({ request }) => {
-    const check = checkPermission(request, 'admin')
-    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+    // const check = checkPermission(request, 'admin')
+    // if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     await delay(400)
     const url = new URL(request.url)

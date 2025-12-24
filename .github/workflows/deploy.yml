@@ -33,7 +33,7 @@ jobs:
 
       - name: Build
         run: |
-          bunx msw init public
+          bunx msw init public --save
           bun run build
           cp dist/index.html dist/404.html
         env:
