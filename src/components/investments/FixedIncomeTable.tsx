@@ -13,9 +13,10 @@ import {
   useReactTable,
   PaginationState,
 } from "@tanstack/react-table"
-import { ArrowUpDown, ChevronDown, MoreHorizontal, Eye, PlusCircle, MinusCircle, Pencil, Trash2 } from "lucide-react"
+import { ArrowUpDown, ChevronDown, MoreHorizontal, Eye, PlusCircle, MinusCircle, Pencil, Trash2, Calendar, TrendingUp } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -284,14 +285,80 @@ export function FixedIncomeTable({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="rounded-md border">
+      {/* Mobile Card View */}
+      <div className="space-y-4 md:hidden">
+        {table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => {
+            const asset = row.original
+            const profit = asset.gainPercentage
+            return (
+              <Card key={row.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed' } })}>
+                <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
+                  <div className="space-y-1">
+                    <CardTitle className="text-base font-medium line-clamp-1">
+                      {asset.name}
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground line-clamp-1">
+                      {asset.issuer}
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="shrink-0">
+                    {asset.subtype}
+                  </Badge>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Valor Atual</p>
+                      <p className="font-semibold">{formatCurrency(asset.currentValue)}</p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Resultado</p>
+                      <p className={`font-semibold flex items-center gap-1 ${profit >= 0 ? 'text-success' : 'text-destructive'}`}>
+                        {profit >= 0 ? '+' : ''}{profit.toFixed(2)}%
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Vencimento</p>
+                      <p className="font-medium flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {formatDate(asset.maturityDate)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-muted-foreground text-xs mb-1">Taxa</p>
+                      <p className="font-medium flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        {asset.interestRate}%
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })
+        ) : (
+          <div className="text-center py-8 text-muted-foreground">
+            {isLoading ? "Carregando..." : "Nenhum resultado encontrado."}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
+                  // Logic to hide less important columns on tablet (md)
+                  const isHiddenOnTablet = ['issuer', 'interestRate', 'maturityDate', 'totalInvested'].includes(header.column.id)
+
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      className={isHiddenOnTablet ? "hidden lg:table-cell" : ""}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -311,14 +378,21 @@ export function FixedIncomeTable({
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const isHiddenOnTablet = ['issuer', 'interestRate', 'maturityDate', 'totalInvested'].includes(cell.column.id)
+
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={isHiddenOnTablet ? "hidden lg:table-cell" : ""}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             ) : (
