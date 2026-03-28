@@ -6,28 +6,32 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { useAuthStore } from "@/store/authStore"
 
 export default function Login() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const { login, isLoading } = useAuthStore()
   const navigate = useNavigate()
   const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
 
-    // Simulate login
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    toast({
-      title: "Login realizado com sucesso!",
-      description: "Bem-vindo de volta ao InvestPro.",
-    })
-
-    navigate({ to: "/dashboard" })
-    setIsLoading(false)
+    try {
+      await login({ email, password })
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Bem-vindo de volta ao InvestPro.",
+      })
+      navigate({ to: "/dashboard" })
+    } catch (error) {
+       toast({
+        title: "Erro no login",
+        description: "Credenciais inválidas. Tente novamente.",
+        variant: "destructive"
+      })
+    }
   }
 
   return (

@@ -17,6 +17,15 @@ export interface PortfolioDto extends BaseEntity {
   gainPercentage: number
   currency: string
   isActive: boolean
+  // Extended fields for UI
+  bankId?: string
+  bankName?: string
+  bankLogo?: string
+  userId?: string
+  userName?: string
+  userEmail?: string
+  assetsCount?: number
+  profitability?: number
 }
 
 /**

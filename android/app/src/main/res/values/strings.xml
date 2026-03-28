@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Invest Dashboard</string>
+    <string name="title_activity_main">Invest Dashboard</string>
+    <string name="package_name">com.investdashboard.app</string>
+    <string name="custom_url_scheme">com.investdashboard.app</string>
+</resources>

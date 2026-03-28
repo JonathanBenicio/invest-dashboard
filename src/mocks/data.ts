@@ -20,9 +20,48 @@ export const mockCurrentUser: UserDto = {
   email: 'joao@email.com',
   role: 'user',
   isEmailVerified: true,
+  isActive: true,
+  parentesco: 'Titular',
   createdAt: '2023-01-01T00:00:00Z',
   updatedAt: '2024-12-01T00:00:00Z',
 }
+
+// Users for Authentication Simulation
+export const mockUsers: UserDto[] = [
+  {
+    id: '1',
+    name: 'Admin User',
+    email: 'admin@investpro.com',
+    role: 'admin',
+    isEmailVerified: true,
+    isActive: true,
+    parentesco: 'Titular',
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2024-12-01T00:00:00Z',
+  },
+  {
+    id: '2',
+    name: 'Editor User',
+    email: 'editor@investpro.com',
+    role: 'user',
+    isEmailVerified: true,
+    isActive: true,
+    parentesco: 'Cônjuge',
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2024-12-01T00:00:00Z',
+  },
+  {
+    id: '3',
+    name: 'Viewer User',
+    email: 'viewer@investpro.com',
+    role: 'user',
+    isEmailVerified: true,
+    isActive: false,
+    parentesco: 'Filho(a)',
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: '2024-12-01T00:00:00Z',
+  },
+]
 
 // Portfolios
 export const mockPortfolios: PortfolioDto[] = [

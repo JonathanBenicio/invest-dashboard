@@ -24,6 +24,8 @@ const INVESTMENT_ENDPOINTS = {
   VARIABLE_INCOME: '/investments/variable-income',
   SUMMARY: '/investments/summary',
   BY_PORTFOLIO: (portfolioId: string) => `/portfolios/${portfolioId}/investments`,
+  DIVIDENDS: '/investments/dividends',
+  TRANSACTIONS: (id: string) => `/investments/${id}/transactions`,
 } as const
 
 /**
@@ -35,6 +37,18 @@ export const investmentService = {
    */
   getAll: (filters?: InvestmentFilters): Promise<PaginatedResponse<InvestmentDto>> =>
     api.get(INVESTMENT_ENDPOINTS.BASE, { params: filters as Record<string, string | number | boolean> }),
+
+  /**
+   * Get dividends history
+   */
+  getDividends: (): Promise<PaginatedResponse<any>> =>
+    api.get(INVESTMENT_ENDPOINTS.DIVIDENDS),
+
+  /**
+   * Get investment transactions
+   */
+  getTransactions: (id: string): Promise<PaginatedResponse<any>> =>
+    api.get(INVESTMENT_ENDPOINTS.TRANSACTIONS(id)),
 
   /**
    * Get investments by portfolio

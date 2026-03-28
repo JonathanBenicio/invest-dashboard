@@ -4,10 +4,14 @@ import {
   createRouter,
   Outlet,
   Navigate,
+  useRouter,
 } from "@tanstack/react-router"
+import { Capacitor } from '@capacitor/core'
 import { AppLayout } from "@/components/layout/AppLayout"
+import { useAuthStore } from "@/store/authStore"
 import Login from "./pages/auth/Login"
 import Register from "./pages/auth/Register"
+import { useEffect } from "react"
 import Dashboard from "./pages/dashboard/Dashboard"
 import Portfolios from "./pages/portfolio/Portfolios"
 import PortfolioDetails from "./pages/portfolio/PortfolioDetails"
@@ -18,7 +22,14 @@ import Import from "./pages/tools/Import"
 import Analysis from "./pages/tools/Analysis"
 import Simulator from "./pages/tools/Simulator"
 import Settings from "./pages/tools/Settings"
+import Users from "./pages/admin/Users"
 import Taxas from "./pages/tools/Taxas"
+import Chat from "./pages/tools/Chat"
+import Examples from "./pages/tools/Examples"
+import TraderChart from "./pages/tools/TraderChart"
+import ChartJSExamples from "./pages/tools/ChartJSExamples"
+import LightningChartTrader from "./pages/tools/LightningChartTrader"
+import TradingViewPro from "./pages/tools/TradingViewPro"
 import NotFound from "./pages/errors/NotFound"
 import { z } from "zod"
 
@@ -27,13 +38,35 @@ const investmentSearchSchema = z.object({
   action: z.enum(["buy", "sell"]).optional(),
 })
 
+// Auth Guard Component
+const AuthGuard = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, isLoading } = useAuthStore()
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Carregando...</div>
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />
+  }
+
+  return <>{children}</>
+}
+
+// Auth Initializer Component
+const AuthInitializer = () => {
+  const checkAuth = useAuthStore(state => state.checkAuth)
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
+
+  return <Outlet />
+}
+
 // Root Route
 export const rootRoute = createRootRoute({
-  component: () => (
-    <>
-      <Outlet />
-    </>
-  ),
+  component: AuthInitializer,
 })
 
 // Index Route (Redirect to dashboard)
@@ -60,7 +93,11 @@ export const registerRoute = createRoute({
 export const layoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "layout",
-  component: AppLayout,
+  component: () => (
+    <AuthGuard>
+      <AppLayout />
+    </AuthGuard>
+  ),
 })
 
 // Dashboard and other tools
@@ -125,10 +162,52 @@ export const settingsRoute = createRoute({
   component: Settings,
 })
 
+export const usersRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/admin/usuarios",
+  component: Users,
+})
+
 export const taxasRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: "/taxas",
   component: Taxas,
+})
+
+export const chatRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/chat",
+  component: Chat,
+})
+
+export const examplesRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/exemplos",
+  component: Examples,
+})
+
+export const traderRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/trader",
+  component: TraderChart,
+})
+
+export const chartJSExamplesRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/chart-js-exemplos",
+  component: ChartJSExamples,
+})
+
+export const lightningTraderRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/lightning-trader",
+  component: LightningChartTrader,
+})
+
+export const tradingViewProRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: "/tradingview-pro",
+  component: TradingViewPro,
 })
 
 // 404 Route
@@ -155,6 +234,13 @@ const routeTree = rootRoute.addChildren([
     simulatorRoute,
     taxasRoute,
     settingsRoute,
+    usersRoute,
+    chatRoute,
+    examplesRoute,
+    traderRoute,
+    chartJSExamplesRoute,
+    lightningTraderRoute,
+    tradingViewProRoute,
   ]),
   notFoundRoute,
 ])
@@ -163,8 +249,9 @@ const routeTree = rootRoute.addChildren([
 export const router = createRouter({
   routeTree,
   defaultPreload: "intent",
-  // Base path for GitHub Pages
-  basepath: import.meta.env.PROD ? "/invest-dashboard/" : "/",
+  // Base path for GitHub Pages and Capacitor
+  basepath: Capacitor.isNativePlatform() ? "/" :
+    import.meta.env.PROD ? "/invest-dashboard/" : "/",
 })
 
 // Type Safety
