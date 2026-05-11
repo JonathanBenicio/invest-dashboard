@@ -4,8 +4,8 @@ VERSION_NAME="1.0.$VERSION_CODE"
 
 echo "Building APK version $VERSION_NAME ($VERSION_CODE)..."
 
-# Build the Docker image
-docker build -t android-builder -f Dockerfile.android \
+# Build the Docker image (--no-cache to ensure fresh build)
+docker build --no-cache -t android-builder -f Dockerfile.android \
     --build-arg VERSION_CODE=$VERSION_CODE \
     --build-arg VERSION_NAME=$VERSION_NAME .
 

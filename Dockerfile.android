@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     git \
     curl \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Android SDK Command Line Tools
@@ -24,17 +26,13 @@ RUN mkdir -p $ANDROID_SDK_ROOT/cmdline-tools \
 RUN yes | sdkmanager --licenses \
     && sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-# Install Bun
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH=$PATH:/root/.bun/bin
-
 WORKDIR /app
 
 # Copy project files
 COPY . .
 
 # Install dependencies (will trigger postinstall patch-package)
-RUN bun install
+RUN npm install
 
 # Build the web app
 ARG VITE_USE_MSW=true
@@ -43,10 +41,27 @@ ARG VERSION_NAME=1.0
 ENV VITE_USE_MSW=$VITE_USE_MSW
 ENV VERSION_CODE=$VERSION_CODE
 ENV VERSION_NAME=$VERSION_NAME
-RUN bun run build:mobile
+RUN npm run build:mobile
+
+# Add Android platform (creates android directory if not present)
+RUN echo "=== Running cap add android ===" && \
+    npx cap add android 2>&1 || true && \
+    echo "=== cap add android completed ==="
+
+# List what we have after cap add
+RUN echo "=== Contents after cap add ===" && ls -la /app/ && echo "=== End listing ==="
 
 # Sync Capacitor
-RUN bun x cap sync android
+RUN echo "=== Running cap sync android ===" && \
+    npx cap sync android 2>&1 && \
+    echo "=== cap sync completed ==="
+
+# Verify android directory exists and has gradlew
+RUN echo "=== Verifying android directory ===" && \
+    ls -la /app/android && \
+    echo "=== Checking for gradlew ===" && \
+    ls -la /app/android/gradlew || echo "ERROR: gradlew not found!" && \
+    test -f /app/android/gradlew || exit 1
 
 # Build the APK
 WORKDIR /app/android

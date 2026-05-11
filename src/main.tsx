@@ -23,7 +23,7 @@ const queryClient = new QueryClient({
 async function initCapacitor() {
   // Initialize PWA elements for camera support on web
   if (!Capacitor.isNativePlatform()) {
-    defineCustomElements(window);
+    defineCustomElements(window)
   }
 
   if (Capacitor.isNativePlatform()) {
@@ -62,16 +62,19 @@ export async function enableMocking() {
   })
 
   if (!shouldUseMSW) {
+    if (Capacitor.isNativePlatform()) alert('MSW: Disabled by config')
     console.log('[MSW] Skipping MSW initialization')
     return
   }
 
   if (!('serviceWorker' in navigator)) {
+    if (Capacitor.isNativePlatform()) alert('MSW: Service Worker API missing')
     console.warn('[MSW] Service Worker API not available in this runtime.')
     return
   }
 
   if (!window.isSecureContext) {
+    if (Capacitor.isNativePlatform()) alert('MSW: Not Secure Context')
     console.warn('[MSW] Not a secure context. SW/MSW will not register here.')
     return
   }
@@ -88,13 +91,19 @@ export async function enableMocking() {
     ).toString()
 
     console.log('[MSW] SW URL:', swUrl)
+    if (Capacitor.isNativePlatform()) alert(`MSW: Attempting to fetch ${swUrl}`)
 
     // Debug opcional: confirmar acesso ao arquivo
     try {
       const res = await fetch(swUrl, { cache: 'no-store' })
       console.log('[MSW] SW Script fetch:', res.status, res.statusText)
-      if (!res.ok) console.warn('[MSW] SW script not reachable:', swUrl)
+      // if (Capacitor.isNativePlatform()) alert(`MSW: Script Status ${res.status}`)
+      if (!res.ok) {
+        if (Capacitor.isNativePlatform()) alert(`MSW: Script unreachable: ${res.status}`)
+        console.warn('[MSW] SW script not reachable:', swUrl)
+      }
     } catch (e) {
+      if (Capacitor.isNativePlatform()) alert(`MSW: Script fetch error: ${e}`)
       console.warn('[MSW] SW Script fetch error:', e)
     }
 
@@ -107,8 +116,10 @@ export async function enableMocking() {
     })
 
     console.log('[MSW] Worker started successfully!')
+    if (Capacitor.isNativePlatform()) alert('MSW: Worker STARTED OK!')
   } catch (error) {
     console.error('[MSW] Failed to start worker:', error)
+    if (Capacitor.isNativePlatform()) alert(`MSW: Failed to start: ${error}`)
     // não rethrow
   }
 }
