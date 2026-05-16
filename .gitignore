@@ -56,3 +56,11 @@ Thumbs.db
 
 # Lockfiles
 *.lock
+
+.agents/*
+
+*/bin/*
+*/obj/*
+*/lib/*
+*/android/*  
+*.dll*

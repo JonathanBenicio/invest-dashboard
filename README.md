@@ -1,111 +1,100 @@
-# Invest Dashboard
+# Invest Dashboard - Monorepo
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Build Status](https://github.com/JonathanBenicio/invest-dashboard/actions/workflows/deploy.yml/badge.svg)](https://github.com/JonathanBenicio/invest-dashboard/actions)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D%2018-brightgreen)]
+[![.NET Version](https://img.shields.io/badge/.NET-10-violet)]
 
 ## 📖 Overview
-A modern, responsive investment dashboard built with **React 19**, **Vite**, **TypeScript**, and **shadcn‑ui**. It provides portfolio tracking, investment insights, and an admin panel. The app also supports mobile deployment via **Capacitor**.
+A modern, responsive investment platform built as a Monorepo. It features a state-of-the-art **React 19** and **Vite** frontend (with full mobile support via **Capacitor**) and a robust **.NET 10** backend structured around **Domain-Driven Design (DDD)** using **Entity Framework Core**, **Supabase/Postgres**, and **SignalR** for ultra-low latency real-time market data.
 
-## ✨ Features & Modules
-- **Dashboard** – Overview charts and key metrics.
-- **Portfolio** – View and manage assets.
-- **Investments** – Detailed investment listings.
-- **Admin** – User management and settings.
-- **Tools** – Utilities such as CSV export, theme switcher, etc.
+---
 
-## 🛠️ Tech Stack
-| Category | Technologies |
-|----------|--------------|
-| Frontend | React 19, Vite, TypeScript, Tailwind CSS, shadcn‑ui |
-| State Management | Zustand |
-| Data Fetching | @tanstack/react-query |
-| UI Components | @radix-ui, lucide‑react, recharts |
-| Forms & Validation | react‑hook‑form, zod |
-| Mock API | MSW |
-| Mobile | Capacitor (Android & iOS) |
-| CI/CD | GitHub Actions (deploy.yml) |
-| Containerization | Docker, Docker Compose |
+## 🏗️ Monorepo Architecture
 
-## 🚀 Getting Started
-### Prerequisites
-- **Node.js** ≥ 18 (or **npm**/**npx**)
-- **Docker** (optional, for containerized development)
+The repository is structured into two main independent but cohesive domains:
 
-### Local Development
+### 📱 [Frontend (React 19 + Capacitor)](./frontend/)
+A beautiful, highly-responsive user experience featuring portfolio insights, asset distribution, and transaction logs.
+- **Path:** `frontend/`
+- **Core Stack:** React 19, Vite, TypeScript, Tailwind CSS, shadcn-ui, Zustand, TanStack Query, Recharts.
+- **Mobile Capabilities:** Integrated with Capacitor for native Android and iOS builds.
+
+### ⚙️ [Backend (.NET 10 + EF Core + DDD)](./src/)
+A scalable, decoupled backend engine organized around clean architecture and domain-driven design principles.
+- **Path:** `src/`
+- **Core Stack:** ASP.NET Core 10, EF Core 10, PostgreSQL (Supabase Postgres Image), SignalR (Realtime Quotations), Background Services (Market Quotation Synchronizers).
+- **Security:** JWT Signature validation integrated with Supabase Auth.
+- **Storage:** Supabase Storage (Brokerage notes and reports upload with automatic Base64 DB fallback).
+
+---
+
+## 🐳 Running with Docker Compose (Database + API + Frontend)
+
+Launch the entire ecosystem with a single command:
+
 ```sh
-# Clone the repository
-git clone <YOUR_GIT_URL>
-cd invest-dashboard
-
-# Install dependencies
-npm install   # or pnpm install
-
-# Run the development server
-npm run dev   # or npx vite
-```
-Open `http://localhost:5173` to view the app.
-
-## 📱 Mobile Development
-```sh
-# Sync Capacitor plugins
-npx cap sync   # or npm run cap sync
-
-# Android
-npx cap open android   # or npm run cap open android
-
-# iOS
-npx cap open ios   # or npm run cap open ios
-```
-
-## 🚀 CI/CD
-
-The project uses GitHub Actions for automation. Both workflows are configured for **manual trigger**, allowing you to choose the branch before running.
-
-### 🌐 GitHub Pages Deployment
-Deploys the web application to GitHub Pages.
-1. Go to **Actions** > **Deploy to GitHub Pages**.
-2. Click **Run workflow** and select the branch.
-3. The app will be available at your GitHub Pages URL.
-
-### 📱 Android APK Build
-Generates the Android APK using Capacitor.
-1. Go to **Actions** > **Build Android APK**.
-2. Click **Run workflow**.
-3. Select the branch and the build type (`debug` or `release`).
-4. Once finished, download the APK from the **Artifacts** section of the run summary.
-
-> [!IMPORTANT]
-> Ensure the `VITE_API_URL` secret is configured in your repository settings (**Settings > Secrets and variables > Actions**) for the build to point to the correct API.
-
-## 🐳 Docker
-```sh
-# Build and run with MSW (default)
+# Start Postgres, .NET 10 API, and React Frontend simultaneously
 docker-compose up -d --build
-
-# Use real API – edit docker-compose.yml:
-#   VITE_USE_MSW=false
-#   VITE_API_URL=https://your-api.com
 ```
 
-## 📂 Project Structure
+- **Vite Frontend:** `http://localhost:8080`
+- **ASP.NET Core Web API:** `http://localhost:5000`
+- **PostgreSQL Database:** `localhost:5432`
+
+---
+
+## 🚀 Getting Started (Local Development)
+
+### 📁 Frontend Setup
+```sh
+cd frontend
+npm install
+npm run dev
 ```
-src/
-├─ api/            # API clients, env config
-├─ components/     # UI components
-├─ hooks/          # Custom React hooks
-├─ pages/          # Route pages (dashboard, portfolio, etc.)
-├─ mocks/          # MSW handlers
-├─ store/          # Zustand store
-├─ main.tsx        # App entry point
-└─ index.css       # Global styles
+Open `http://localhost:5173` to view the local frontend dev server.
+
+### 📁 Backend Setup
+```sh
+# Ensure you have .NET 10 SDK installed
+cd src
+dotnet restore
+dotnet build InvestDashboard.slnx
+dotnet run --project InvestDashboard.WebAPI
 ```
+The API is available locally at `http://localhost:5000` (or `https://localhost:5001`).
+
+---
+
+## 📂 Repository Layout
+
+```plaintext
+├── .agents/                 # AI specializations, rules, and checklist scripts
+├── frontend/                # Frontend Vite + React + Capacitor App
+│   ├── src/                 # React source code
+│   ├── public/              # Static assets
+│   ├── android/             # Android native studio project
+│   ├── package.json         # Node dependencies
+│   └── vite.config.ts       # Vite bundler configuration
+│
+└── src/                     # Backend Solution Folder (.NET 10)
+    ├── InvestDashboard.slnx # Modern XML-based .NET Solution file
+    ├── InvestDashboard.Domain/ # DDD Domain Layer (Entities, Value Objects, Aggregates)
+    ├── InvestDashboard.Application/ # Use Cases & DTOs
+    ├── InvestDashboard.Infrastructure/ # EF Core, Supabase integrations, SignalR Hubs, Workers
+    ├── InvestDashboard.WebAPI/ # ASP.NET Core Controllers & Minimal APIs
+    └── tests/               # Unit and Integration test suites
+```
+
+---
 
 ## 🤝 Contributing
 1. Fork the repository.
 2. Create a feature branch.
-3. Run `npm run lint` and ensure all tests pass.
+3. Run lint runners and check tests.
 4. Open a Pull Request.
+
+---
 
 ## 📄 License
 This project is licensed under the MIT License – see the [LICENSE](LICENSE) file.
