@@ -1,0 +1,6 @@
+@InvestDashboard.WebAPI_HostAddress = http://localhost:5085
+
+GET {{InvestDashboard.WebAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

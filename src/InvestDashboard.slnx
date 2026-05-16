@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/InvestDashboard.IntegrationTests/InvestDashboard.IntegrationTests.csproj" />
+    <Project Path="tests/InvestDashboard.UnitTests/InvestDashboard.UnitTests.csproj" />
+  </Folder>
+  <Project Path="InvestDashboard.Application/InvestDashboard.Application.csproj" />
+  <Project Path="InvestDashboard.Domain/InvestDashboard.Domain.csproj" />
+  <Project Path="InvestDashboard.Infrastructure/InvestDashboard.Infrastructure.csproj" />
+  <Project Path="InvestDashboard.WebAPI/InvestDashboard.WebAPI.csproj" />
+</Solution>
