@@ -766,4 +766,144 @@ export const handlers = [
       message: `Olá! Recebi sua mensagem: "${body.message}". Como sou uma IA simulada, não posso processar solicitações reais ainda, mas estou aqui para ajudar!`
     })
   }),
+
+  // Taxes endpoints
+  http.get(`${BASE_URL}/taxes`, async () => {
+    await delay(300)
+    const mockRates = [
+      {
+        id: 'rate-1',
+        name: 'SELIC',
+        symbol: 'SELIC',
+        currentValue: 12.75,
+        previousValue: 12.75,
+        variation: 0,
+        description: 'Taxa básica de juros da economia brasileira',
+        source: 'Banco Central',
+        lastUpdate: '2024-12-18',
+      },
+      {
+        id: 'rate-2',
+        name: 'IPCA',
+        symbol: 'IPCA',
+        currentValue: 4.83,
+        previousValue: 4.76,
+        variation: 0.07,
+        description: 'Índice Nacional de Preços ao Consumidor Amplo',
+        source: 'IBGE',
+        lastUpdate: '2024-12-10',
+      },
+      {
+        id: 'rate-3',
+        name: 'CDI',
+        symbol: 'CDI',
+        currentValue: 12.65,
+        previousValue: 12.65,
+        variation: 0,
+        description: 'Certificado de Depósito Interbancário',
+        source: 'Cetip',
+        lastUpdate: '2024-12-20',
+      },
+      {
+        id: 'rate-4',
+        name: 'Dólar Comercial',
+        symbol: 'USD/BRL',
+        currentValue: 6.28,
+        previousValue: 6.15,
+        variation: 0.13,
+        description: 'Cotação do dólar em relação ao real',
+        source: 'Banco Central',
+        lastUpdate: '2024-12-20',
+      },
+      {
+        id: 'rate-5',
+        name: 'Imposto de Renda - PF',
+        symbol: 'IR-PF',
+        currentValue: 15.0,
+        previousValue: 15.0,
+        variation: 0,
+        description: 'Alíquota máxima de IR para Pessoa Física',
+        source: 'Receita Federal',
+        lastUpdate: '2024-12-18',
+      },
+    ]
+    return HttpResponse.json(createResponse(mockRates))
+  }),
+
+  http.post(`${BASE_URL}/taxes`, async ({ request }) => {
+    await delay(400)
+    const body = await request.json() as Record<string, unknown>
+    const newRate = {
+      id: `rate-${Date.now()}`,
+      ...body,
+      variation: 0,
+      lastUpdate: new Date().toISOString().split('T')[0],
+    }
+    return HttpResponse.json(createResponse(newRate, 'Taxa adicionada com sucesso'))
+  }),
+
+  http.put(`${BASE_URL}/taxes/:id`, async ({ params, request }) => {
+    await delay(400)
+    const { id } = params
+    const body = await request.json() as Record<string, unknown>
+    const updatedRate = {
+      id,
+      ...body,
+      lastUpdate: new Date().toISOString().split('T')[0],
+    }
+    return HttpResponse.json(createResponse(updatedRate, 'Taxa atualizada com sucesso'))
+  }),
+
+  http.delete(`${BASE_URL}/taxes/:id`, async () => {
+    await delay(300)
+    return HttpResponse.json(createResponse(null, 'Taxa removida com sucesso'))
+  }),
+
+  // Simulation endpoints
+  http.post(`${BASE_URL}/simulation`, async ({ request }) => {
+    await delay(500)
+    const body = await request.json() as {
+      initialAmount: number
+      monthlyContribution: number
+      years: number
+      annualInterestRate: number
+      strategy?: string
+    }
+
+    const totalMonths = body.years * 12
+    const monthlyRate = Math.pow(1 + body.annualInterestRate / 100, 1 / 12) - 1
+    const points: Array<{ month: number; invested: number; total: number; interest: number }> = []
+
+    let currentAmount = body.initialAmount
+    let totalInvested = body.initialAmount
+
+    for (let i = 0; i <= totalMonths; i++) {
+      points.push({
+        month: i,
+        invested: Number(totalInvested.toFixed(2)),
+        total: Number(currentAmount.toFixed(2)),
+        interest: Number((currentAmount - totalInvested).toFixed(2)),
+      })
+      if (i < totalMonths) {
+        currentAmount = currentAmount * (1 + monthlyRate) + body.monthlyContribution
+        totalInvested += body.monthlyContribution
+      }
+    }
+
+    return HttpResponse.json(createResponse({
+      points,
+      finalAmount: points[points.length - 1].total,
+      totalInvested: points[points.length - 1].invested,
+      totalInterest: points[points.length - 1].interest,
+      strategyName: body.strategy === 'montecarlo' ? 'Estatístico (Monte Carlo)' : 'Matemático (Determinístico)',
+    }))
+  }),
+
+  http.get(`${BASE_URL}/simulation/strategies`, async () => {
+    await delay(200)
+    return HttpResponse.json(createResponse([
+      { id: 'deterministic', name: 'Matemático (Determinístico)', description: 'Simulação baseada em juros compostos com taxa fixa' },
+      { id: 'montecarlo', name: 'Estatístico (Monte Carlo)', description: 'Simulação probabilística com volatilidade' },
+    ]))
+  }),
 ]

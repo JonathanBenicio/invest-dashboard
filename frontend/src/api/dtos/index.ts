@@ -52,3 +52,17 @@ export type {
   BrapiHistoricalData,
   BrapiHistoricalResponse,
 } from './brapi.dto'
+
+// Taxes DTOs
+export type {
+  EconomicRateDto,
+  CreateEconomicRateRequest,
+} from './taxes.dto'
+
+// Simulation DTOs
+export type {
+  SimulationRequest,
+  SimulationPointDto,
+  SimulationResponse,
+  SimulationStrategy,
+} from './simulation.dto'

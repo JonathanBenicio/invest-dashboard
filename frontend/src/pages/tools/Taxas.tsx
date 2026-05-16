@@ -6,77 +6,108 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { economicRates, type EconomicRate } from "@/lib/mock-data"
 import { useToast } from "@/hooks/use-toast"
+import { taxesService } from "@/api/services"
+import { queryKeys } from "@/api/query-keys"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import type { EconomicRateDto } from "@/api/dtos"
 
 export default function Taxas() {
-  const [rates, setRates] = useState(economicRates)
+  const { toast } = useToast()
+  const queryClient = useQueryClient()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [selectedRate, setSelectedRate] = useState<EconomicRate | null>(null)
-  const { toast } = useToast()
+  const [selectedRate, setSelectedRate] = useState<EconomicRateDto | null>(null)
+
+  const { data: ratesData, isLoading } = useQuery({
+    queryKey: queryKeys.taxes.list(),
+    queryFn: () => taxesService.getAll(),
+  })
+
+  const rates = ratesData?.data ?? []
+
+  const createMutation = useMutation({
+    mutationFn: taxesService.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.taxes.list() })
+      setIsDialogOpen(false)
+      toast({ title: "Taxa adicionada", description: "Taxa adicionada com sucesso." })
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Não foi possível adicionar a taxa.", variant: "destructive" })
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof taxesService.update>[1] }) =>
+      taxesService.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.taxes.list() })
+      setIsEditDialogOpen(false)
+      setSelectedRate(null)
+      toast({ title: "Taxa atualizada", description: "Taxa atualizada com sucesso." })
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Não foi possível atualizar a taxa.", variant: "destructive" })
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: taxesService.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.taxes.list() })
+      toast({ title: "Taxa removida", description: "Taxa removida com sucesso." })
+    },
+    onError: () => {
+      toast({ title: "Erro", description: "Não foi possível remover a taxa.", variant: "destructive" })
+    },
+  })
 
   const handleAddRate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
-
-    const newRate: EconomicRate = {
-      id: Date.now().toString(),
+    createMutation.mutate({
       name: formData.get('name') as string,
       symbol: formData.get('symbol') as string,
       currentValue: parseFloat(formData.get('currentValue') as string),
       previousValue: parseFloat(formData.get('previousValue') as string),
-      variation: 0,
       description: formData.get('description') as string,
-      lastUpdate: new Date().toISOString().split('T')[0],
       source: formData.get('source') as string,
-    }
-
-    newRate.variation = newRate.currentValue - newRate.previousValue
-
-    setRates([...rates, newRate])
-    setIsDialogOpen(false)
-    toast({
-      title: "Taxa adicionada",
-      description: `${newRate.symbol} foi adicionada com sucesso.`,
     })
   }
 
-  const handleEditRate = (updatedRate: EconomicRate | any) => {
-    const updatedRateTyped = updatedRate as EconomicRate
-    updatedRateTyped.variation = updatedRateTyped.currentValue - updatedRateTyped.previousValue
-    setRates(rates.map(r => r.id === updatedRateTyped.id ? updatedRateTyped : r))
-    setSelectedRate(null)
-    setIsEditDialogOpen(false)
-    toast({
-      title: "Taxa atualizada",
-      description: `${updatedRateTyped.symbol} foi atualizada com sucesso.`,
+  const handleEditRate = (updatedRate: EconomicRateDto) => {
+    updateMutation.mutate({
+      id: updatedRate.id,
+      data: {
+        name: updatedRate.name,
+        symbol: updatedRate.symbol,
+        currentValue: updatedRate.currentValue,
+        previousValue: updatedRate.previousValue,
+        description: updatedRate.description,
+        source: updatedRate.source,
+      },
     })
   }
 
   const handleDeleteRate = (id: string) => {
-    const deletedRate = rates.find(r => r.id === id)
-    setRates(rates.filter(r => r.id !== id))
-    toast({
-      title: "Taxa removida",
-      description: `${deletedRate?.symbol} foi removida com sucesso.`,
-    })
+    deleteMutation.mutate(id)
   }
 
-  const openEditDialog = (rate: EconomicRate) => {
+  const openEditDialog = (rate: EconomicRateDto) => {
     setSelectedRate(rate)
     setIsEditDialogOpen(true)
   }
 
-  const rateCategories = [
-    { name: 'SELIC', rates: rates.filter(r => r.symbol === 'SELIC') },
-    { name: 'IPCA', rates: rates.filter(r => r.symbol === 'IPCA') },
-    { name: 'CDI', rates: rates.filter(r => r.symbol === 'CDI') },
-    { name: 'IR', rates: rates.filter(r => r.symbol === 'IR-PF') },
-    { name: 'Câmbio', rates: rates.filter(r => r.symbol === 'USD/BRL') },
-  ]
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-foreground">Taxas e Indicadores</h1>
+        <p className="text-muted-foreground">Carregando...</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -141,7 +172,7 @@ export default function Taxas() {
 
       {/* Rates Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {rates.map((rate) => (
+        {rates.map((rate: EconomicRateDto) => (
           <Card key={rate.id} className="flex flex-col">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -220,7 +251,7 @@ export default function Taxas() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rates.map((rate) => (
+                {rates.map((rate: EconomicRateDto) => (
                   <TableRow key={rate.id}>
                     <TableCell>
                       <div>

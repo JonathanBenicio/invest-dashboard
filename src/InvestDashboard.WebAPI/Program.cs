@@ -30,10 +30,12 @@ builder.Services.AddScoped<IAssetRepository, AssetRepository>();
 builder.Services.AddScoped<IHistoricalPriceRepository, HistoricalPriceRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IPortfolioRepository, PortfolioRepository>();
+builder.Services.AddScoped<IEconomicRateRepository, EconomicRateRepository>();
 
 // Register Application Services
 builder.Services.AddScoped<IPortfolioAppService, PortfolioAppService>();
 builder.Services.AddScoped<ITransactionAppService, TransactionAppService>();
+builder.Services.AddScoped<ITaxesAppService, TaxesAppService>();
 
 // HttpContext and Identity services
 builder.Services.AddHttpContextAccessor();
@@ -119,4 +121,13 @@ app.MapControllers();
 // Map SignalR Realtime Hubs
 app.MapHub<MarketDataHub>("/hubs/market-data");
 
+ApplyMigrations(app);
+
 app.Run();
+
+static void ApplyMigrations(WebApplication app)
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+    db.Database.Migrate();
+}

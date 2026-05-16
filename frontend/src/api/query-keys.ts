@@ -51,4 +51,17 @@ export const queryKeys = {
       [...queryKeys.investments.all, 'portfolio', portfolioId] as const,
     summary: () => [...queryKeys.investments.all, 'summary'] as const,
   },
+
+  taxes: {
+    all: ['taxes'] as const,
+    lists: () => [...queryKeys.taxes.all, 'list'] as const,
+    list: () => [...queryKeys.taxes.lists()] as const,
+  },
+
+  simulation: {
+    all: ['simulation'] as const,
+    result: (params: Record<string, unknown>) =>
+      [...queryKeys.simulation.all, 'result', params] as const,
+    strategies: () => [...queryKeys.simulation.all, 'strategies'] as const,
+  },
 } as const

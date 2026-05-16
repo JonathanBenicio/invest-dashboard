@@ -16,6 +16,7 @@ public class InvestDbContext : DbContext
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Portfolio> Portfolios => Set<Portfolio>();
     public DbSet<AssetPosition> AssetPositions => Set<AssetPosition>();
+    public DbSet<EconomicRate> EconomicRates => Set<EconomicRate>();
 
     public InvestDbContext(DbContextOptions<InvestDbContext> options)
         : base(options)
