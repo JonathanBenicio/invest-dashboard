@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { api } from '@/api/client'
+import { supabase } from '@/lib/supabase'
 import type { UserDto } from '@/api/dtos'
 
 interface AuthState {
@@ -20,10 +21,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (credentials) => {
     set({ isLoading: true })
     try {
-      const response = await api.post<{ data: UserDto }>('/auth/login', credentials)
-      const user = response.data
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      })
 
-      set({ user, isAuthenticated: true, isLoading: false })
+      if (error) throw error
+
+      const user = data.user
+      if (!user) throw new Error('User not found')
+
+      const userDto: UserDto = {
+        id: user.id,
+        email: user.email || '',
+        name: user.user_metadata.full_name || '',
+        role: 'user', // Default role
+      }
+
+      set({ user: userDto, isAuthenticated: true, isLoading: false })
     } catch (error) {
       set({ isLoading: false })
       throw error
@@ -32,7 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     try {
-      await api.post('/auth/logout')
+      await supabase.auth.signOut()
     } catch (error) {
       console.error('Logout failed', error)
     } finally {
@@ -44,8 +59,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   checkAuth: async () => {
     set({ isLoading: true })
     try {
-      const response = await api.get<{ data: UserDto }>('/auth/me')
-      set({ user: response.data, isAuthenticated: true, isLoading: false })
+      const { data, error } = await supabase.auth.getUser()
+      if (error) throw error
+
+      const user = data.user
+      if (!user) throw new Error('User not found')
+
+      const userDto: UserDto = {
+        id: user.id,
+        email: user.email || '',
+        name: user.user_metadata.full_name || '',
+        role: 'user', // Default role
+      }
+
+      set({ user: userDto, isAuthenticated: true, isLoading: false })
     } catch (error) {
       set({ user: null, isAuthenticated: false, isLoading: false })
     }

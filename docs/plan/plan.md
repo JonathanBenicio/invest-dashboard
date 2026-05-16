@@ -23,6 +23,17 @@ Este documento detalha o plano de ação para implementar as funcionalidades de 
 
 ## 🗺️ Plano de Ação
 
+### Fase 0: Login / Cadastro (Supabase)
+Foco em garantir a segurança e multi-tenancy.
+
+1. **Configurar Supabase Auth no Backend**
+   - Integrar o middleware de validação de JWT do Supabase.
+   - Garantir que as rotas de API extraiam o `UserId` do token.
+
+2. **Ajustar Fluxo de Autenticação no Frontend**
+   - Garantir que as páginas de login/cadastro usem o cliente do Supabase.
+   - Redirecionar para o Dashboard após o login.
+
 ### Fase 1: Expansão do Domínio e Serviços (Backend)
 Foco em implementar a inteligência financeira no C#.
 

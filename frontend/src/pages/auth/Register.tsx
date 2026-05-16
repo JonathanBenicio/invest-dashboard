@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { supabase } from "@/lib/supabase"
 
 export default function Register() {
   const [name, setName] = useState("")
@@ -30,16 +31,34 @@ export default function Register() {
 
     setIsLoading(true)
 
-    // Simulate registration
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+          },
+        },
+      })
 
-    toast({
-      title: "Conta criada com sucesso!",
-      description: "Você já pode fazer login.",
-    })
+      if (error) throw error
 
-    navigate({ to: "/login" })
-    setIsLoading(false)
+      toast({
+        title: "Conta criada com sucesso!",
+        description: "Você já pode fazer login.",
+      })
+
+      navigate({ to: "/login" })
+    } catch (error: any) {
+      toast({
+        title: "Erro no cadastro",
+        description: error.message || "Não foi possível criar a conta.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

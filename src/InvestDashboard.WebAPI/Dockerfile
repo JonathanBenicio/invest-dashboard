@@ -9,7 +9,7 @@ COPY src/InvestDashboard.Application/InvestDashboard.Application.csproj src/Inve
 COPY src/InvestDashboard.Infrastructure/InvestDashboard.Infrastructure.csproj src/InvestDashboard.Infrastructure/
 COPY src/InvestDashboard.WebAPI/InvestDashboard.WebAPI.csproj src/InvestDashboard.WebAPI/
 
-RUN dotnet restore src/InvestDashboard.slnx
+RUN dotnet restore src/InvestDashboard.WebAPI/InvestDashboard.WebAPI.csproj
 
 # Copy everything else and build
 COPY src/ src/
