@@ -425,7 +425,7 @@ export const handlers = [
 
     // Filter by Issuer (Institution)
     if (issuer) {
-      // Assuming 'issuer' field exists on FixedIncomeDto, but it might be 'institution' in mock data
+      // Assuming 'issuer' field exists on RendaFixaDto, but it might be 'institution' in mock data
       // Let's check the mock data structure or cast it safely
       investments = investments.filter(inv =>
         ('issuer' in inv && (inv as any).issuer.toLowerCase().includes(issuer.toLowerCase())) ||
@@ -471,7 +471,7 @@ export const handlers = [
     }
 
     // Map Legacy Data to DTOs
-    // The UI expects InvestmentDto / FixedIncomeDto structure, but mock data has legacy structure.
+    // The UI expects PosicaoInvestimentoDto / RendaFixaDto structure, but mock data has legacy structure.
     const mappedInvestments = investments.map(inv => {
       // Check if it's already in DTO format (has totalInvested) or legacy (has investedValue)
       // Or simply normalize everything.
@@ -482,7 +482,7 @@ export const handlers = [
         typeStr === 'Tesouro Direto' || typeStr === 'Debênture' ||
         typeStr === 'CRI' || typeStr === 'CRA' || typeStr === 'fixed_income'
 
-      // Default mapping for Base InvestmentDto fields from legacy
+      // Default mapping for Base PosicaoInvestimentoDto fields from legacy
       const baseDto = {
         ...inv,
         portfolioId: legacy.portfolioId || 'portfolio-1', // Default if missing

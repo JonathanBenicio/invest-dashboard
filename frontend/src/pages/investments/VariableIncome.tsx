@@ -15,7 +15,7 @@ import { useVariableIncomeInvestments, useDividends } from "@/hooks/use-variable
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { StockSearch } from "@/components/investments/StockSearch"
 import { investmentService } from "@/api/services/investment.service"
-import type { VariableIncomeDto, InvestmentFilters, VariableIncomeType, CreateVariableIncomeRequest, BrapiQuote } from "@/api/dtos"
+import type { RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, CriarRendaVariavelRequest, BrapiQuote } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -25,7 +25,7 @@ export default function VariableIncome() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [selectedAsset, setSelectedAsset] = useState<VariableIncomeDto | null>(null)
+  const [selectedAsset, setSelectedAsset] = useState<RendaVariavelDto | null>(null)
   const [selectedQuote, setSelectedQuote] = useState<BrapiQuote | null>(null)
   const [ticker, setTicker] = useState("")
   const [name, setName] = useState("")
@@ -42,8 +42,8 @@ export default function VariableIncome() {
   const [globalFilter, setGlobalFilter] = useState("")
 
   // Construct filters for API
-  const filters: InvestmentFilters = useMemo(() => {
-    const apiFilters: InvestmentFilters = {
+  const filters: InvestimentoFiltros = useMemo(() => {
+    const apiFilters: InvestimentoFiltros = {
       page: pagination.pageIndex + 1,
       pageSize: pagination.pageSize,
       search: globalFilter || undefined,
@@ -53,7 +53,7 @@ export default function VariableIncome() {
 
     const subtypeFilter = columnFilters.find(f => f.id === 'subtype')?.value
     if (subtypeFilter) {
-      apiFilters.subtype = subtypeFilter as VariableIncomeType
+      apiFilters.subtype = subtypeFilter as TipoRendaVariavel
     }
 
     // Add sector filter logic if DTO supported it explicitly or reuse generic filters
@@ -70,7 +70,7 @@ export default function VariableIncome() {
   const { data: investmentsData, isLoading, refetch } = useVariableIncomeInvestments(filters)
   const { data: dividendsData } = useDividends()
 
-  const assets = (investmentsData?.data || []) as VariableIncomeDto[]
+  const assets = (investmentsData?.data || []) as RendaVariavelDto[]
   const pageCount = investmentsData?.pagination?.totalPages || 0
 
   const dividends = dividendsData?.data || []
@@ -85,10 +85,10 @@ export default function VariableIncome() {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
 
-    const newAssetData: CreateVariableIncomeRequest = {
+    const newAssetData: CriarRendaVariavelRequest = {
       portfolioId: formData.get('portfolioId') as string,
       ticker: ticker.toUpperCase(),
-      subtype: formData.get('type') as VariableIncomeType,
+      subtype: formData.get('type') as TipoRendaVariavel,
       quantity: parseInt(formData.get('quantity') as string),
       averagePrice: parseFloat(formData.get('averagePrice') as string),
       purchaseDate: new Date().toISOString(),
@@ -123,7 +123,7 @@ export default function VariableIncome() {
     // In a real app we might want to fetch more details if needed
   }
 
-  const handleEditAsset = async (updatedAsset: VariableIncomeDto) => {
+  const handleEditAsset = async (updatedAsset: RendaVariavelDto) => {
     if (!selectedAsset) return
 
     try {
@@ -164,12 +164,12 @@ export default function VariableIncome() {
     }
   }
 
-  const openEditDialog = (asset: VariableIncomeDto) => {
+  const openEditDialog = (asset: RendaVariavelDto) => {
     setSelectedAsset(asset)
     setIsEditDialogOpen(true)
   }
 
-  const openDeleteDialog = (asset: VariableIncomeDto) => {
+  const openDeleteDialog = (asset: RendaVariavelDto) => {
     setSelectedAsset(asset)
     setIsDeleteDialogOpen(true)
   }

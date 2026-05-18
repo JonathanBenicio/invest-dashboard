@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { portfolioService } from '@/api/services/portfolio.service'
 import { investmentService } from '@/api/services/investment.service'
-import type { PortfolioFilters, InvestmentFilters } from '@/api/dtos'
+import type { CarteiraFiltros, InvestimentoFiltros } from '@/api/dtos'
 
-export function usePortfolios(filters: PortfolioFilters = {}) {
+export function usePortfolios(filters: CarteiraFiltros = {}) {
   return useQuery({
     queryKey: ['portfolios', filters],
     queryFn: () => portfolioService.getAll(filters),
@@ -27,7 +27,7 @@ export function usePortfolioSummary(id: string) {
 }
 
 // Generic hook for investments in a portfolio, but specialized hooks are better for specific tables
-export function usePortfolioInvestments(portfolioId: string, filters: InvestmentFilters = {}) {
+export function usePortfolioInvestments(portfolioId: string, filters: InvestimentoFiltros = {}) {
   return useQuery({
     queryKey: ['portfolio', portfolioId, 'investments', filters],
     queryFn: () => investmentService.getByPortfolio(portfolioId, filters),

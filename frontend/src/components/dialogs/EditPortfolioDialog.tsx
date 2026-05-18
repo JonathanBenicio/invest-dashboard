@@ -16,13 +16,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { mockBanks, mockUsers } from "@/lib/mock-data"
-import type { PortfolioDto } from "@/api/dtos"
+import type { CarteiraDto } from "@/api/dtos"
 
 interface EditPortfolioDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  portfolio: PortfolioDto | null
-  onSave: (portfolio: PortfolioDto) => void
+  portfolio: CarteiraDto | null
+  onSave: (portfolio: CarteiraDto) => void
 }
 
 export function EditPortfolioDialog({
@@ -56,7 +56,7 @@ export function EditPortfolioDialog({
     const bank = mockBanks.find((b) => b.id === formData.bankId)
     const user = mockUsers.find((u) => u.id === formData.userId)
 
-    const updatedPortfolio: PortfolioDto = {
+    const updatedPortfolio: CarteiraDto = {
       ...portfolio,
       name: formData.name,
       bankId: formData.bankId,

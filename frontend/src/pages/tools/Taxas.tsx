@@ -11,14 +11,14 @@ import { useToast } from "@/hooks/use-toast"
 import { taxesService } from "@/api/services"
 import { queryKeys } from "@/api/query-keys"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { EconomicRateDto } from "@/api/dtos"
+import type { TaxaEconomicaDto } from "@/api/dtos"
 
 export default function Taxas() {
   const { toast } = useToast()
   const queryClient = useQueryClient()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [selectedRate, setSelectedRate] = useState<EconomicRateDto | null>(null)
+  const [selectedRate, setSelectedRate] = useState<TaxaEconomicaDto | null>(null)
 
   const { data: ratesData, isLoading } = useQuery({
     queryKey: queryKeys.taxes.list(),
@@ -77,7 +77,7 @@ export default function Taxas() {
     })
   }
 
-  const handleEditRate = (updatedRate: EconomicRateDto) => {
+  const handleEditRate = (updatedRate: TaxaEconomicaDto) => {
     updateMutation.mutate({
       id: updatedRate.id,
       data: {
@@ -95,7 +95,7 @@ export default function Taxas() {
     deleteMutation.mutate(id)
   }
 
-  const openEditDialog = (rate: EconomicRateDto) => {
+  const openEditDialog = (rate: TaxaEconomicaDto) => {
     setSelectedRate(rate)
     setIsEditDialogOpen(true)
   }
@@ -172,7 +172,7 @@ export default function Taxas() {
 
       {/* Rates Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {rates.map((rate: EconomicRateDto) => (
+        {rates.map((rate: TaxaEconomicaDto) => (
           <Card key={rate.id} className="flex flex-col">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -251,7 +251,7 @@ export default function Taxas() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rates.map((rate: EconomicRateDto) => (
+                {rates.map((rate: TaxaEconomicaDto) => (
                   <TableRow key={rate.id}>
                     <TableCell>
                       <div>

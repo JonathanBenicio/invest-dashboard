@@ -50,7 +50,7 @@ import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 import { EditPortfolioDialog } from "@/components/dialogs/EditPortfolioDialog"
 import { usePortfolios } from "@/hooks/use-portfolios"
 import { portfolioService } from "@/api/services/portfolio.service"
-import type { PortfolioDto } from "@/api/dtos"
+import type { CarteiraDto } from "@/api/dtos"
 import { useAuthStore } from "@/store/authStore"
 
 const Portfolios = () => {
@@ -69,9 +69,9 @@ const Portfolios = () => {
   const portfolios = portfoliosResponse?.data || []
 
   // Edit/Delete state
-  const [editingPortfolio, setEditingPortfolio] = useState<PortfolioDto | null>(null)
+  const [editingPortfolio, setEditingPortfolio] = useState<CarteiraDto | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [deletingPortfolio, setDeletingPortfolio] = useState<PortfolioDto | null>(null)
+  const [deletingPortfolio, setDeletingPortfolio] = useState<CarteiraDto | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,12 +110,12 @@ const Portfolios = () => {
     }
   }
 
-  const handleEditPortfolio = (portfolio: PortfolioDto) => {
+  const handleEditPortfolio = (portfolio: CarteiraDto) => {
     setEditingPortfolio(portfolio)
     setIsEditDialogOpen(true)
   }
 
-  const handleSaveEdit = async (updatedPortfolio: PortfolioDto) => {
+  const handleSaveEdit = async (updatedPortfolio: CarteiraDto) => {
     try {
       // Pass the whole updated object so mock handler can persist extra fields
       await portfolioService.update(updatedPortfolio.id, updatedPortfolio as any)
@@ -134,7 +134,7 @@ const Portfolios = () => {
     }
   }
 
-  const handleDeleteClick = (portfolio: PortfolioDto) => {
+  const handleDeleteClick = (portfolio: CarteiraDto) => {
     setDeletingPortfolio(portfolio)
     setIsDeleteDialogOpen(true)
   }
