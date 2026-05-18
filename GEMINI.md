@@ -36,6 +36,15 @@ Todas as definições de agentes, skills e workflows estão centralizadas no dir
 - **Clean Code**: Siga rigorosamente a skill `@[skills/clean-code]`.
 - **Lint & Types**: Execute os comandos de verificação (ex: lint, type-check, build) antes de considerar uma tarefa concluída. **Zero tolerância para erros.**
 
+### 📜 Governança de Documentação (Roadmap Q2 2026)
+Toda nova funcionalidade estratégica deve seguir rigorosamente esta ordem:
+1. **GitHub Issue**: Registro da necessidade. **Obrigatório atualizar a descrição da Issue com links para o ADR, Story e Plan assim que criados.**
+2. **ADR (Architectural Decision Record)**: Definição de padrões técnicos em `docs/architecture/adr/`.
+3. **User Story**: Detalhamento dos critérios de aceite em `docs/USER-STORIES.md`.
+4. **Implementation Plan**: Roteiro técnico detalhado em `plan/`.
+5. **Rastreabilidade**: Commits vinculados à issue (ex: `feat: ... Closes #ID`).
+6. **Sincronização de Índices**: Atualizar `README.md`, `INDEX.md` e `CONSOLIDATED_DOCS.md`.
+
 ### Comunicação
 - Responda no idioma do usuário.
 - Mantenha comentários e nomes de variáveis em Inglês, a menos que existam termos de domínio específicos já estabelecidos no projeto.
