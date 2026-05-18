@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/mock-data";
 import { simulationService } from "@/api/services";
-import type { SimulationResponse } from "@/api/dtos";
+import type { SimulacaoResponse } from "@/api/dtos";
 import {
   AreaChart,
   Area,
@@ -26,7 +26,7 @@ export default function Simulator() {
   const [strategy, setStrategy] = useState<string>("deterministic");
   const [volatility, setVolatility] = useState<number>(15);
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<SimulationResponse | null>(null);
+  const [result, setResult] = useState<SimulacaoResponse | null>(null);
 
   const handleSimulate = async () => {
     setIsLoading(true);

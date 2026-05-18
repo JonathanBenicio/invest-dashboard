@@ -16,7 +16,7 @@ import { useVariableIncomeInvestments } from "@/hooks/use-variable-income"
 import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { investmentService } from "@/api/services/investment.service"
-import type { FixedIncomeDto, VariableIncomeDto, InvestmentFilters, VariableIncomeType, FixedIncomeType } from "@/api/dtos"
+import type { RendaFixaDto, RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, TipoRendaFixa } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
 
@@ -45,8 +45,8 @@ export default function PortfolioDetails() {
   const [variableGlobalFilter, setVariableGlobalFilter] = useState("")
 
   // Filters construction
-  const fixedFilters: InvestmentFilters = useMemo(() => {
-    const filters: InvestmentFilters = {
+  const fixedFilters: InvestimentoFiltros = useMemo(() => {
+    const filters: InvestimentoFiltros = {
       portfolioId: id,
       page: fixedPagination.pageIndex + 1,
       pageSize: fixedPagination.pageSize,
@@ -55,14 +55,14 @@ export default function PortfolioDetails() {
       sortOrder: fixedSorting[0]?.desc ? 'desc' : 'asc',
     }
     const subtype = fixedColumnFilters.find(f => f.id === 'subtype')?.value
-    if (subtype) filters.subtype = subtype as FixedIncomeType
+    if (subtype) filters.subtype = subtype as TipoRendaFixa
     const issuer = fixedColumnFilters.find(f => f.id === 'issuer')?.value
     if (issuer) filters.issuer = issuer as string
     return filters
   }, [id, fixedPagination, fixedSorting, fixedColumnFilters, fixedGlobalFilter])
 
-  const variableFilters: InvestmentFilters = useMemo(() => {
-    const filters: InvestmentFilters = {
+  const variableFilters: InvestimentoFiltros = useMemo(() => {
+    const filters: InvestimentoFiltros = {
       portfolioId: id,
       page: variablePagination.pageIndex + 1,
       pageSize: variablePagination.pageSize,
@@ -71,7 +71,7 @@ export default function PortfolioDetails() {
       sortOrder: variableSorting[0]?.desc ? 'desc' : 'asc',
     }
     const subtype = variableColumnFilters.find(f => f.id === 'subtype')?.value
-    if (subtype) filters.subtype = subtype as VariableIncomeType
+    if (subtype) filters.subtype = subtype as TipoRendaVariavel
     const sector = variableColumnFilters.find(f => f.id === 'sector')?.value
     if (sector) (filters as any).sector = sector
     return filters
@@ -81,24 +81,24 @@ export default function PortfolioDetails() {
   const { data: fixedResponse, isLoading: isLoadingFixed, refetch: refetchFixed } = useFixedIncomeInvestments(fixedFilters)
   const { data: variableResponse, isLoading: isLoadingVariable, refetch: refetchVariable } = useVariableIncomeInvestments(variableFilters)
 
-  const fixedAssets = (fixedResponse?.data || []) as FixedIncomeDto[]
-  const variableAssets = (variableResponse?.data || []) as VariableIncomeDto[]
+  const fixedAssets = (fixedResponse?.data || []) as RendaFixaDto[]
+  const variableAssets = (variableResponse?.data || []) as RendaVariavelDto[]
 
   // Edit/Delete State
-  const [editingInvestment, setEditingInvestment] = useState<FixedIncomeDto | VariableIncomeDto | null>(null)
+  const [editingInvestment, setEditingInvestment] = useState<RendaFixaDto | RendaVariavelDto | null>(null)
   const [editingType, setEditingType] = useState<"fixed" | "variable">("fixed")
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [deletingInvestment, setDeletingInvestment] = useState<{ asset: FixedIncomeDto | VariableIncomeDto; type: "fixed" | "variable" } | null>(null)
+  const [deletingInvestment, setDeletingInvestment] = useState<{ asset: RendaFixaDto | RendaVariavelDto; type: "fixed" | "variable" } | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
 
   // Handlers
-  const handleEditFixed = (asset: FixedIncomeDto) => {
+  const handleEditFixed = (asset: RendaFixaDto) => {
     setEditingInvestment(asset)
     setEditingType("fixed")
     setIsEditDialogOpen(true)
   }
 
-  const handleEditVariable = (asset: VariableIncomeDto) => {
+  const handleEditVariable = (asset: RendaVariavelDto) => {
     setEditingInvestment(asset)
     setEditingType("variable")
     setIsEditDialogOpen(true)
@@ -117,7 +117,7 @@ export default function PortfolioDetails() {
     }
   }
 
-  const handleDeleteClick = (asset: FixedIncomeDto | VariableIncomeDto, type: "fixed" | "variable") => {
+  const handleDeleteClick = (asset: RendaFixaDto | RendaVariavelDto, type: "fixed" | "variable") => {
     setDeletingInvestment({ asset, type })
     setIsDeleteDialogOpen(true)
   }

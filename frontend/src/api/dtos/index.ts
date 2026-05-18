@@ -20,28 +20,28 @@ export type {
 
 // Portfolio DTOs
 export type {
-  PortfolioDto,
-  PortfolioSummaryDto,
-  AssetAllocationDto,
-  PerformancePointDto,
-  CreatePortfolioRequest,
-  UpdatePortfolioRequest,
-  PortfolioFilters,
+  CarteiraDto,
+  ResumoCarteiraDto,
+  AlocacaoAtivoDto,
+  PontoPerformanceDto,
+  CriarCarteiraRequest,
+  AtualizarCarteiraRequest,
+  CarteiraFiltros,
 } from './portfolio.dto'
 
 // Investment DTOs
 export type {
-  InvestmentType,
-  FixedIncomeType,
-  VariableIncomeType,
-  InvestmentDto,
-  FixedIncomeDto,
-  VariableIncomeDto,
-  CreateFixedIncomeRequest,
-  CreateVariableIncomeRequest,
-  UpdateInvestmentRequest,
-  InvestmentFilters,
-  InvestmentSummaryDto,
+  TipoInvestimento,
+  TipoRendaFixa,
+  TipoRendaVariavel,
+  PosicaoInvestimentoDto,
+  RendaFixaDto,
+  RendaVariavelDto,
+  CriarRendaFixaRequest,
+  CriarRendaVariavelRequest,
+  AtualizarInvestimentoRequest,
+  InvestimentoFiltros,
+  ResumoInvestimentoDto,
 } from './investment.dto'
 
 // Brapi DTOs
@@ -55,14 +55,22 @@ export type {
 
 // Taxes DTOs
 export type {
-  EconomicRateDto,
-  CreateEconomicRateRequest,
+  TaxaEconomicaDto,
+  CriarTaxaEconomicaRequest,
+  AtualizarTaxaEconomicaRequest,
 } from './taxes.dto'
 
 // Simulation DTOs
 export type {
-  SimulationRequest,
-  SimulationPointDto,
-  SimulationResponse,
-  SimulationStrategy,
+  SimulacaoRequest,
+  SimulacaoPontoDto,
+  SimulacaoResponse,
+  SimulacaoEstrategia,
 } from './simulation.dto'
+
+// Transaction DTOs
+export type {
+  TransacaoDto,
+  RegistrarTransacaoRequest,
+  TransacaoFiltros,
+} from './transacao.dto'

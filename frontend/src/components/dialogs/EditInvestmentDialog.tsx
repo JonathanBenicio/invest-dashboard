@@ -15,12 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { FixedIncomeDto, VariableIncomeDto, FixedIncomeType, VariableIncomeType } from "@/api/dtos"
+import type { RendaFixaDto, RendaVariavelDto, TipoRendaFixa, TipoRendaVariavel } from "@/api/dtos"
 
 interface EditInvestmentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  investment: FixedIncomeDto | VariableIncomeDto | null
+  investment: RendaFixaDto | RendaVariavelDto | null
   type: "fixed" | "variable"
   onSave: (data: any) => void
 }
@@ -34,7 +34,7 @@ export function EditInvestmentDialog({
 }: EditInvestmentDialogProps) {
   const [fixedFormData, setFixedFormData] = useState({
     name: "",
-    subtype: "CDB" as FixedIncomeType,
+    subtype: "CDB" as TipoRendaFixa,
     issuer: "",
     totalInvested: "",
     interestRate: "",
@@ -45,7 +45,7 @@ export function EditInvestmentDialog({
   const [variableFormData, setVariableFormData] = useState({
     ticker: "",
     name: "",
-    subtype: "ACAO" as VariableIncomeType,
+    subtype: "ACAO" as TipoRendaVariavel,
     sector: "",
     quantity: "",
     averagePrice: "",
@@ -55,7 +55,7 @@ export function EditInvestmentDialog({
     if (!investment) return
 
     if (type === "fixed") {
-      const fixed = investment as FixedIncomeDto
+      const fixed = investment as RendaFixaDto
       setFixedFormData({
         name: fixed.name,
         subtype: fixed.subtype,
@@ -66,7 +66,7 @@ export function EditInvestmentDialog({
         maturityDate: fixed.maturityDate ? fixed.maturityDate.split('T')[0] : '',
       })
     } else {
-      const variable = investment as VariableIncomeDto
+      const variable = investment as RendaVariavelDto
       setVariableFormData({
         ticker: variable.ticker || "",
         name: variable.name,
@@ -140,7 +140,7 @@ export function EditInvestmentDialog({
                     onValueChange={(value) =>
                       setFixedFormData({
                         ...fixedFormData,
-                        subtype: value as FixedIncomeType,
+                        subtype: value as TipoRendaFixa,
                       })
                     }
                   >
@@ -256,7 +256,7 @@ export function EditInvestmentDialog({
                     onValueChange={(value) =>
                       setVariableFormData({
                         ...variableFormData,
-                        subtype: value as VariableIncomeType,
+                        subtype: value as TipoRendaVariavel,
                       })
                     }
                   >

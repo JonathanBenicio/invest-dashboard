@@ -5,14 +5,14 @@
 
 import { api } from '../client'
 import type {
-  InvestmentDto,
-  FixedIncomeDto,
-  VariableIncomeDto,
-  CreateFixedIncomeRequest,
-  CreateVariableIncomeRequest,
-  UpdateInvestmentRequest,
-  InvestmentFilters,
-  InvestmentSummaryDto,
+  PosicaoInvestimentoDto,
+  RendaFixaDto,
+  RendaVariavelDto,
+  CriarRendaFixaRequest,
+  CriarRendaVariavelRequest,
+  AtualizarInvestimentoRequest,
+  InvestimentoFiltros,
+  ResumoInvestimentoDto,
   ApiResponse,
   PaginatedResponse,
 } from '../dtos'
@@ -35,7 +35,7 @@ export const investmentService = {
   /**
    * Get all investments with optional filters
    */
-  getAll: (filters?: InvestmentFilters): Promise<PaginatedResponse<InvestmentDto>> =>
+  getAll: (filters?: InvestimentoFiltros): Promise<PaginatedResponse<PosicaoInvestimentoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.BASE, { params: filters as Record<string, string | number | boolean> }),
 
   /**
@@ -53,37 +53,37 @@ export const investmentService = {
   /**
    * Get investments by portfolio
    */
-  getByPortfolio: (portfolioId: string, filters?: InvestmentFilters): Promise<PaginatedResponse<InvestmentDto>> =>
+  getByPortfolio: (portfolioId: string, filters?: InvestimentoFiltros): Promise<PaginatedResponse<PosicaoInvestimentoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.BY_PORTFOLIO(portfolioId), { params: filters as Record<string, string | number | boolean> }),
 
   /**
    * Get investment by ID
    */
-  getById: (id: string): Promise<ApiResponse<InvestmentDto>> =>
+  getById: (id: string): Promise<ApiResponse<PosicaoInvestimentoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.DETAIL(id)),
 
   /**
    * Get investment summary for dashboard
    */
-  getSummary: (): Promise<ApiResponse<InvestmentSummaryDto>> =>
+  getSummary: (): Promise<ApiResponse<ResumoInvestimentoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.SUMMARY),
 
   /**
    * Create a fixed income investment
    */
-  createFixedIncome: (data: CreateFixedIncomeRequest): Promise<ApiResponse<FixedIncomeDto>> =>
+  createFixedIncome: (data: CriarRendaFixaRequest): Promise<ApiResponse<RendaFixaDto>> =>
     api.post(INVESTMENT_ENDPOINTS.FIXED_INCOME, data),
 
   /**
    * Create a variable income investment
    */
-  createVariableIncome: (data: CreateVariableIncomeRequest): Promise<ApiResponse<VariableIncomeDto>> =>
+  createVariableIncome: (data: CriarRendaVariavelRequest): Promise<ApiResponse<RendaVariavelDto>> =>
     api.post(INVESTMENT_ENDPOINTS.VARIABLE_INCOME, data),
 
   /**
    * Update an existing investment
    */
-  update: (id: string, data: UpdateInvestmentRequest): Promise<ApiResponse<InvestmentDto>> =>
+  update: (id: string, data: AtualizarInvestimentoRequest): Promise<ApiResponse<PosicaoInvestimentoDto>> =>
     api.patch(INVESTMENT_ENDPOINTS.DETAIL(id), data),
 
   /**

@@ -26,20 +26,20 @@ builder.Services.AddDbContext<InvestDbContext>(options =>
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 // Register Scoped Repositories
-builder.Services.AddScoped<IAssetRepository, AssetRepository>();
-builder.Services.AddScoped<IHistoricalPriceRepository, HistoricalPriceRepository>();
-builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
-builder.Services.AddScoped<IPortfolioRepository, PortfolioRepository>();
-builder.Services.AddScoped<IEconomicRateRepository, EconomicRateRepository>();
+builder.Services.AddScoped<IAtivoRepository, AtivoRepository>();
+builder.Services.AddScoped<IPrecoHistoricoRepository, PrecoHistoricoRepository>();
+builder.Services.AddScoped<ITransacaoRepository, TransacaoRepository>();
+builder.Services.AddScoped<ICarteiraRepository, CarteiraRepository>();
+builder.Services.AddScoped<ITaxaEconomicaRepository, TaxaEconomicaRepository>();
 
 // Register Application Services
-builder.Services.AddScoped<IPortfolioAppService, PortfolioAppService>();
-builder.Services.AddScoped<ITransactionAppService, TransactionAppService>();
-builder.Services.AddScoped<ITaxesAppService, TaxesAppService>();
+builder.Services.AddScoped<ICarteiraAppService, CarteiraAppService>();
+builder.Services.AddScoped<ITransacaoAppService, TransacaoAppService>();
+builder.Services.AddScoped<ITaxasAppService, TaxasAppService>();
 
 // HttpContext and Identity services
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IUsuarioAtualService, UsuarioAtualService>();
 
 // Storage & HttpClient registration
 builder.Services.AddHttpClient();
@@ -95,7 +95,7 @@ builder.Services.AddControllers();
 builder.Services.AddSignalR();
 
 // Register Hosted Services (Background Workers)
-builder.Services.AddHostedService<MarketDataUpdateWorker>();
+builder.Services.AddHostedService<AtualizadorDadosMercadoWorker>();
 
 // Add OpenAPI
 builder.Services.AddOpenApi();
@@ -119,7 +119,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Map SignalR Realtime Hubs
-app.MapHub<MarketDataHub>("/hubs/market-data");
+app.MapHub<DadosMercadoHub>("/hubs/market-data");
 
 ApplyMigrations(app);
 

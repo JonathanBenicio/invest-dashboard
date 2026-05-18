@@ -1,4 +1,4 @@
-export interface SimulationRequest {
+export interface SimulacaoRequest {
   initialAmount: number
   monthlyContribution: number
   years: number
@@ -8,22 +8,22 @@ export interface SimulationRequest {
   numberOfSimulations?: number
 }
 
-export interface SimulationPointDto {
+export interface SimulacaoPontoDto {
   month: number
   invested: number
   total: number
   interest: number
 }
 
-export interface SimulationResponse {
-  points: SimulationPointDto[]
+export interface SimulacaoResponse {
+  points: SimulacaoPontoDto[]
   finalAmount: number
   totalInvested: number
   totalInterest: number
   strategyName: string
 }
 
-export interface SimulationStrategy {
+export interface SimulacaoEstrategia {
   id: string
   name: string
   description: string

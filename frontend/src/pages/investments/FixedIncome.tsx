@@ -15,14 +15,14 @@ import { FixedIncomeProjection } from "@/components/projections/FixedIncomeProje
 import { useFixedIncomeInvestments } from "@/hooks/use-investments"
 import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
 import { investmentService } from "@/api/services/investment.service"
-import type { FixedIncomeDto, InvestmentFilters, FixedIncomeType, CreateFixedIncomeRequest } from "@/api/dtos"
+import type { RendaFixaDto, InvestimentoFiltros, TipoRendaFixa, CriarRendaFixaRequest } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 
 export default function FixedIncome() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [selectedAsset, setSelectedAsset] = useState<FixedIncomeDto | null>(null)
+  const [selectedAsset, setSelectedAsset] = useState<RendaFixaDto | null>(null)
   const { toast } = useToast()
 
   // Table State
@@ -35,8 +35,8 @@ export default function FixedIncome() {
   const [globalFilter, setGlobalFilter] = useState("")
 
   // Construct filters for API
-  const filters: InvestmentFilters = useMemo(() => {
-    const apiFilters: InvestmentFilters = {
+  const filters: InvestimentoFiltros = useMemo(() => {
+    const apiFilters: InvestimentoFiltros = {
       page: pagination.pageIndex + 1,
       pageSize: pagination.pageSize,
       search: globalFilter || undefined,
@@ -47,7 +47,7 @@ export default function FixedIncome() {
     // Map column filters to API params
     const subtypeFilter = columnFilters.find(f => f.id === 'subtype')?.value
     if (subtypeFilter) {
-      apiFilters.subtype = subtypeFilter as FixedIncomeType
+      apiFilters.subtype = subtypeFilter as TipoRendaFixa
     }
 
     const issuerFilter = columnFilters.find(f => f.id === 'issuer')?.value
@@ -60,7 +60,7 @@ export default function FixedIncome() {
 
   const { data: investmentsData, isLoading, refetch } = useFixedIncomeInvestments(filters)
 
-  const assets = (investmentsData?.data || []) as FixedIncomeDto[]
+  const assets = (investmentsData?.data || []) as RendaFixaDto[]
   const pageCount = investmentsData?.pagination?.totalPages || 0
 
   const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvested, 0)
@@ -73,10 +73,10 @@ export default function FixedIncome() {
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
 
-    const newAssetData: CreateFixedIncomeRequest = {
+    const newAssetData: CriarRendaFixaRequest = {
       portfolioId: formData.get('portfolioId') as string,
       name: formData.get('name') as string,
-      subtype: formData.get('type') as FixedIncomeType,
+      subtype: formData.get('type') as TipoRendaFixa,
       issuer: formData.get('institution') as string,
       quantity: 1, // Defaulting to 1 for simplicity if not in form
       averagePrice: parseFloat(formData.get('investedValue') as string),
@@ -103,7 +103,7 @@ export default function FixedIncome() {
     }
   }
 
-  const handleEditAsset = async (updatedAsset: FixedIncomeDto) => {
+  const handleEditAsset = async (updatedAsset: RendaFixaDto) => {
     if (!selectedAsset) return
 
     try {
@@ -144,12 +144,12 @@ export default function FixedIncome() {
     }
   }
 
-  const openEditDialog = (asset: FixedIncomeDto) => {
+  const openEditDialog = (asset: RendaFixaDto) => {
     setSelectedAsset(asset)
     setIsEditDialogOpen(true)
   }
 
-  const openDeleteDialog = (asset: FixedIncomeDto) => {
+  const openDeleteDialog = (asset: RendaFixaDto) => {
     setSelectedAsset(asset)
     setIsDeleteDialogOpen(true)
   }

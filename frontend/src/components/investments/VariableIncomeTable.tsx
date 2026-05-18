@@ -22,11 +22,11 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { VariableIncomeDto } from "@/api/dtos"
+import { RendaVariavelDto } from "@/api/dtos"
 import { formatCurrency } from "@/lib/mock-data"
 
 interface VariableIncomeTableProps {
-  data: VariableIncomeDto[]
+  data: RendaVariavelDto[]
   pageCount: number
   pagination: PaginationState
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>
@@ -37,8 +37,8 @@ interface VariableIncomeTableProps {
   globalFilter: string
   setGlobalFilter: React.Dispatch<React.SetStateAction<string>>
   isLoading: boolean
-  onEdit: (asset: VariableIncomeDto) => void
-  onDelete: (asset: VariableIncomeDto) => void
+  onEdit: (asset: RendaVariavelDto) => void
+  onDelete: (asset: RendaVariavelDto) => void
 }
 
 export function VariableIncomeTable({
@@ -69,7 +69,7 @@ export function VariableIncomeTable({
     }
   }
 
-  const columns: ColumnDef<VariableIncomeDto>[] = [
+  const columns: ColumnDef<RendaVariavelDto>[] = [
     {
       accessorKey: "ticker",
       header: ({ column }) => {

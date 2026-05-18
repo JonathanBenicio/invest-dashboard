@@ -5,12 +5,12 @@
 
 import type {
   UserDto,
-  PortfolioDto,
-  InvestmentDto,
-  FixedIncomeDto,
-  VariableIncomeDto,
-  InvestmentSummaryDto,
-  PortfolioSummaryDto,
+  CarteiraDto,
+  PosicaoInvestimentoDto,
+  RendaFixaDto,
+  RendaVariavelDto,
+  ResumoInvestimentoDto,
+  ResumoCarteiraDto,
 } from '@/api/dtos'
 
 // Current User
@@ -64,7 +64,7 @@ export const mockUsers: UserDto[] = [
 ]
 
 // Portfolios
-export const mockPortfolios: PortfolioDto[] = [
+export const mockPortfolios: CarteiraDto[] = [
   {
     id: 'portfolio-1',
     name: 'Carteira Principal',
@@ -107,7 +107,7 @@ export const mockPortfolios: PortfolioDto[] = [
 ]
 
 // Fixed Income Investments
-export const mockFixedIncomeInvestments: FixedIncomeDto[] = [
+export const mockFixedIncomeInvestments: RendaFixaDto[] = [
   {
     id: 'fixed-1',
     portfolioId: 'portfolio-1',
@@ -177,7 +177,7 @@ export const mockFixedIncomeInvestments: FixedIncomeDto[] = [
 ]
 
 // Variable Income Investments
-export const mockVariableIncomeInvestments: VariableIncomeDto[] = [
+export const mockVariableIncomeInvestments: RendaVariavelDto[] = [
   {
     id: 'var-1',
     portfolioId: 'portfolio-2',
@@ -284,13 +284,13 @@ export const mockVariableIncomeInvestments: VariableIncomeDto[] = [
 ]
 
 // All investments combined
-export const mockAllInvestments: InvestmentDto[] = [
+export const mockAllInvestments: PosicaoInvestimentoDto[] = [
   ...mockFixedIncomeInvestments,
   ...mockVariableIncomeInvestments,
 ]
 
 // Investment Summary
-export const mockInvestmentSummary: InvestmentSummaryDto = {
+export const mockInvestmentSummary: ResumoInvestimentoDto = {
   totalInvested: 149350,
   currentValue: 159010,
   totalGain: 9660,
@@ -302,7 +302,7 @@ export const mockInvestmentSummary: InvestmentSummaryDto = {
 }
 
 // Portfolio Summary with allocation
-export const mockPortfolioSummary: PortfolioSummaryDto = {
+export const mockPortfolioSummary: ResumoCarteiraDto = {
   ...mockPortfolios[0],
   assetAllocation: [
     { category: 'Renda Fixa', value: 175800, percentage: 54.3, color: 'hsl(220, 70%, 50%)' },

@@ -1,34 +1,34 @@
 /**
- * Investment DTOs
- * Types for fixed income and variable income investments
+ * DTOs de Investimento
+ * Tipos para investimentos de renda fixa e variável
  */
 
 import type { BaseEntity, PaginationParams } from './base.dto'
 
 /**
- * Investment type enum
+ * Tipo de investimento
  */
-export type InvestmentType = 'fixed_income' | 'variable_income'
+export type TipoInvestimento = 'fixed_income' | 'variable_income'
 
 /**
- * Fixed income investment subtypes
+ * Subtipos de renda fixa
  */
-export type FixedIncomeType = 'CDB' | 'LCI' | 'LCA' | 'TESOURO_DIRETO' | 'DEBENTURE' | 'CRI' | 'CRA'
+export type TipoRendaFixa = 'CDB' | 'LCI' | 'LCA' | 'TESOURO_DIRETO' | 'DEBENTURE' | 'CRI' | 'CRA'
 
 /**
- * Variable income investment subtypes
+ * Subtipos de renda variável
  */
-export type VariableIncomeType = 'ACAO' | 'FII' | 'ETF' | 'BDR' | 'CRYPTO'
+export type TipoRendaVariavel = 'ACAO' | 'FII' | 'ETF' | 'BDR' | 'CRYPTO'
 
 /**
- * Base investment entity
+ * Entidade base de investimento
  */
-export interface InvestmentDto extends BaseEntity {
+export interface PosicaoInvestimentoDto extends BaseEntity {
   portfolioId: string
   name: string
   ticker?: string
-  type: InvestmentType
-  subtype: FixedIncomeType | VariableIncomeType
+  type: TipoInvestimento
+  subtype: TipoRendaFixa | TipoRendaVariavel
   quantity: number
   averagePrice: number
   currentPrice: number
@@ -40,11 +40,11 @@ export interface InvestmentDto extends BaseEntity {
 }
 
 /**
- * Fixed income specific fields
+ * Campos específicos de renda fixa
  */
-export interface FixedIncomeDto extends InvestmentDto {
+export interface RendaFixaDto extends PosicaoInvestimentoDto {
   type: 'fixed_income'
-  subtype: FixedIncomeType
+  subtype: TipoRendaFixa
   issuer: string
   interestRate: number
   indexer?: 'CDI' | 'IPCA' | 'SELIC' | 'PREFIXADO'
@@ -53,23 +53,23 @@ export interface FixedIncomeDto extends InvestmentDto {
 }
 
 /**
- * Variable income specific fields
+ * Campos específicos de renda variável
  */
-export interface VariableIncomeDto extends InvestmentDto {
+export interface RendaVariavelDto extends PosicaoInvestimentoDto {
   type: 'variable_income'
-  subtype: VariableIncomeType
+  subtype: TipoRendaVariavel
   sector?: string
   dividendYield?: number
   lastDividend?: number
 }
 
 /**
- * Create fixed income investment request
+ * Requisição para criar renda fixa
  */
-export interface CreateFixedIncomeRequest {
+export interface CriarRendaFixaRequest {
   portfolioId: string
   name: string
-  subtype: FixedIncomeType
+  subtype: TipoRendaFixa
   issuer: string
   quantity: number
   averagePrice: number
@@ -80,33 +80,33 @@ export interface CreateFixedIncomeRequest {
 }
 
 /**
- * Create variable income investment request
+ * Requisição para criar renda variável
  */
-export interface CreateVariableIncomeRequest {
+export interface CriarRendaVariavelRequest {
   portfolioId: string
   ticker: string
-  subtype: VariableIncomeType
+  subtype: TipoRendaVariavel
   quantity: number
   averagePrice: number
   purchaseDate: string
 }
 
 /**
- * Update investment request
+ * Requisição para atualizar investimento
  */
-export interface UpdateInvestmentRequest {
+export interface AtualizarInvestimentoRequest {
   quantity?: number
   averagePrice?: number
   currentPrice?: number
 }
 
 /**
- * Investment list filters
+ * Filtros para lista de investimentos
  */
-export interface InvestmentFilters extends PaginationParams {
+export interface InvestimentoFiltros extends PaginationParams {
   portfolioId?: string
-  type?: InvestmentType
-  subtype?: FixedIncomeType | VariableIncomeType
+  type?: TipoInvestimento
+  subtype?: TipoRendaFixa | TipoRendaVariavel
   search?: string
   issuer?: string
   sortBy?: string
@@ -114,15 +114,15 @@ export interface InvestmentFilters extends PaginationParams {
 }
 
 /**
- * Investment summary for dashboard
+ * Resumo de investimento para dashboard
  */
-export interface InvestmentSummaryDto {
+export interface ResumoInvestimentoDto {
   totalInvested: number
   currentValue: number
   totalGain: number
   gainPercentage: number
   fixedIncomeTotal: number
   variableIncomeTotal: number
-  topPerformers: InvestmentDto[]
-  worstPerformers: InvestmentDto[]
+  topPerformers: PosicaoInvestimentoDto[]
+  worstPerformers: PosicaoInvestimentoDto[]
 }

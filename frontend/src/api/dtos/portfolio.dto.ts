@@ -1,14 +1,14 @@
 /**
- * Portfolio DTOs
- * Types for portfolio operations
+ * DTOs de Carteira
+ * Tipos para operações de carteira
  */
 
 import type { BaseEntity, PaginationParams } from './base.dto'
 
 /**
- * Portfolio entity
+ * Entidade de carteira
  */
-export interface PortfolioDto extends BaseEntity {
+export interface CarteiraDto extends BaseEntity {
   name: string
   description?: string
   totalValue: number
@@ -29,17 +29,17 @@ export interface PortfolioDto extends BaseEntity {
 }
 
 /**
- * Portfolio summary with asset allocation
+ * Resumo da carteira com alocação de ativos
  */
-export interface PortfolioSummaryDto extends PortfolioDto {
-  assetAllocation: AssetAllocationDto[]
-  performanceHistory: PerformancePointDto[]
+export interface ResumoCarteiraDto extends CarteiraDto {
+  assetAllocation: AlocacaoAtivoDto[]
+  performanceHistory: PontoPerformanceDto[]
 }
 
 /**
- * Asset allocation breakdown
+ * Detalhamento de alocação de ativos
  */
-export interface AssetAllocationDto {
+export interface AlocacaoAtivoDto {
   category: string
   value: number
   percentage: number
@@ -47,36 +47,36 @@ export interface AssetAllocationDto {
 }
 
 /**
- * Performance data point for charts
+ * Ponto de dados de performance para gráficos
  */
-export interface PerformancePointDto {
+export interface PontoPerformanceDto {
   date: string
   value: number
   percentageChange: number
 }
 
 /**
- * Create portfolio request
+ * Requisição para criar carteira
  */
-export interface CreatePortfolioRequest {
+export interface CriarCarteiraRequest {
   name: string
   description?: string
   currency?: string
 }
 
 /**
- * Update portfolio request
+ * Requisição para atualizar carteira
  */
-export interface UpdatePortfolioRequest {
+export interface AtualizarCarteiraRequest {
   name?: string
   description?: string
   isActive?: boolean
 }
 
 /**
- * Portfolio list filters
+ * Filtros para lista de carteiras
  */
-export interface PortfolioFilters extends PaginationParams {
+export interface CarteiraFiltros extends PaginationParams {
   isActive?: boolean
   search?: string
 }

@@ -54,7 +54,7 @@ import {
   formatDate,
 } from "@/lib/mock-data"
 import { useInvestment, useInvestmentTransactions } from "@/hooks/use-investment-details"
-import { FixedIncomeDto, VariableIncomeDto } from "@/api/dtos"
+import { RendaFixaDto, RendaVariavelDto } from "@/api/dtos"
 import { ChartPeriodFilter, ChartPeriod, generatePeriodData } from "@/components/ChartPeriodFilter"
 
 // Generate monthly profitability data
@@ -173,8 +173,8 @@ export default function InvestmentDetails() {
   }
 
   const isVariable = asset.type === "variable_income"
-  const variableAsset = isVariable ? asset as VariableIncomeDto : null
-  const fixedAsset = !isVariable ? asset as FixedIncomeDto : null
+  const variableAsset = isVariable ? asset as RendaVariavelDto : null
+  const fixedAsset = !isVariable ? asset as RendaFixaDto : null
 
   // Helper to get display name
   const displayName = isVariable ? variableAsset?.ticker : fixedAsset?.name

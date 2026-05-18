@@ -5,11 +5,11 @@
 
 import { api } from '../client'
 import type {
-  PortfolioDto,
-  PortfolioSummaryDto,
-  CreatePortfolioRequest,
-  UpdatePortfolioRequest,
-  PortfolioFilters,
+  CarteiraDto,
+  ResumoCarteiraDto,
+  CriarCarteiraRequest,
+  AtualizarCarteiraRequest,
+  CarteiraFiltros,
   ApiResponse,
   PaginatedResponse,
 } from '../dtos'
@@ -27,31 +27,31 @@ export const portfolioService = {
   /**
    * Get all portfolios with optional filters
    */
-  getAll: (filters?: PortfolioFilters): Promise<PaginatedResponse<PortfolioDto>> =>
+  getAll: (filters?: CarteiraFiltros): Promise<PaginatedResponse<CarteiraDto>> =>
     api.get(PORTFOLIO_ENDPOINTS.BASE, { params: filters as Record<string, string | number | boolean> }),
 
   /**
    * Get portfolio by ID
    */
-  getById: (id: string): Promise<ApiResponse<PortfolioDto>> =>
+  getById: (id: string): Promise<ApiResponse<CarteiraDto>> =>
     api.get(PORTFOLIO_ENDPOINTS.DETAIL(id)),
 
   /**
    * Get portfolio summary with allocation and performance
    */
-  getSummary: (id: string): Promise<ApiResponse<PortfolioSummaryDto>> =>
+  getSummary: (id: string): Promise<ApiResponse<ResumoCarteiraDto>> =>
     api.get(PORTFOLIO_ENDPOINTS.SUMMARY(id)),
 
   /**
    * Create a new portfolio
    */
-  create: (data: CreatePortfolioRequest): Promise<ApiResponse<PortfolioDto>> =>
+  create: (data: CriarCarteiraRequest): Promise<ApiResponse<CarteiraDto>> =>
     api.post(PORTFOLIO_ENDPOINTS.BASE, data),
 
   /**
    * Update an existing portfolio
    */
-  update: (id: string, data: UpdatePortfolioRequest): Promise<ApiResponse<PortfolioDto>> =>
+  update: (id: string, data: AtualizarCarteiraRequest): Promise<ApiResponse<CarteiraDto>> =>
     api.patch(PORTFOLIO_ENDPOINTS.DETAIL(id), data),
 
   /**

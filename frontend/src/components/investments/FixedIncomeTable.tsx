@@ -22,11 +22,11 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { FixedIncomeDto } from "@/api/dtos"
+import { RendaFixaDto } from "@/api/dtos"
 import { formatCurrency, formatDate } from "@/lib/mock-data"
 
 interface FixedIncomeTableProps {
-  data: FixedIncomeDto[]
+  data: RendaFixaDto[]
   pageCount: number
   pagination: PaginationState
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>
@@ -37,8 +37,8 @@ interface FixedIncomeTableProps {
   globalFilter: string
   setGlobalFilter: React.Dispatch<React.SetStateAction<string>>
   isLoading: boolean
-  onEdit: (asset: FixedIncomeDto) => void
-  onDelete: (asset: FixedIncomeDto) => void
+  onEdit: (asset: RendaFixaDto) => void
+  onDelete: (asset: RendaFixaDto) => void
 }
 
 export function FixedIncomeTable({
@@ -59,7 +59,7 @@ export function FixedIncomeTable({
   const navigate = useNavigate()
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
-  const columns: ColumnDef<FixedIncomeDto>[] = [
+  const columns: ColumnDef<RendaFixaDto>[] = [
     {
       accessorKey: "name",
       header: ({ column }) => {

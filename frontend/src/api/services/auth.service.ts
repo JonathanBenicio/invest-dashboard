@@ -9,7 +9,7 @@ import type {
   RegisterRequest,
   AuthResponse,
   TokenResponse,
-  UserDto,
+  UsuarioDto,
   PasswordResetRequest,
   PasswordChangeRequest,
   ApiResponse,
@@ -50,7 +50,7 @@ export const authService = {
   /**
    * Get current user profile
    */
-  getMe: (): Promise<ApiResponse<UserDto>> =>
+  getMe: (): Promise<ApiResponse<UsuarioDto>> =>
     api.get(AUTH_ENDPOINTS.ME),
 
   /**
@@ -74,6 +74,6 @@ export const authService = {
   /**
    * Update user profile
    */
-  updateProfile: (data: Partial<UserDto>): Promise<ApiResponse<UserDto>> =>
+  updateProfile: (data: Partial<UsuarioDto>): Promise<ApiResponse<UsuarioDto>> =>
     api.patch(AUTH_ENDPOINTS.ME, data),
 }
