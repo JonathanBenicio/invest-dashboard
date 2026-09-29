@@ -56,4 +56,31 @@ test.describe('Acompanhamento de posições', () => {
     await expect(page.getByText(/Cotação DEMO ·/).first()).toBeVisible()
     await expect(page.getByRole('status')).toHaveCount(0)
   })
+
+  test('analisa posições da carteira usando os contratos da API', async ({ page }) => {
+    await page.getByRole('link', { name: 'Análise' }).click()
+
+    await expect(page.getByRole('heading', { name: 'Análise da carteira' })).toBeVisible()
+    await expect(page.getByText(/Valores calculados a partir das posições/)).toBeVisible()
+  })
+
+  test('lê CSV, valida linhas e envia operações para a carteira selecionada', async ({ page }) => {
+    await page.getByRole('link', { name: 'Importar operações' }).click()
+    await page.getByRole('combobox', { name: 'Carteira de destino' }).click()
+    await page.getByRole('option', { name: 'Carteira Principal' }).click()
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'operacoes.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(
+        'ticker;type;quantity;unitPrice;fees;transactionDate;assetClass;name;sector;issuer;subtype;indexer;interestRate;maturityDate;initialStatementValue\nPETR4;Buy;10;35,50;1;2026-09-29;ACAO;Petrobras;Petróleo;;;;;;\nRFABC1;Buy;1000;1;0;2026-09-29;RENDA_FIXA;CDB;;Banco de teste;CDB;CDI;110;2028-01-15;1010\nINVLD;Buy;0;10;0;2026-09-29;ACAO;Linha inválida;;;;;;;;\n',
+      ),
+    })
+
+    await expect(page.getByRole('table').getByText('PETR4')).toBeVisible()
+    await expect(page.getByRole('table').getByText('RFABC1')).toBeVisible()
+    await expect(page.getByText('Quantidade deve ser maior que zero.')).toBeVisible()
+    await page.getByRole('button', { name: 'Importar 2 operações' }).click()
+    await expect(page.getByRole('cell', { name: 'Operação registrada.' })).toHaveCount(2)
+    await expect(page.getByText('2 operações registradas; 1 linha precisa de correção.', { exact: true })).toBeVisible()
+  })
 })

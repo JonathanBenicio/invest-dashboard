@@ -23,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { RendaVariavelDto } from "@/api/dtos"
-import { formatCurrency } from "@/lib/mock-data"
+import { formatCurrency } from "@/lib/utils"
 import { formatQuoteObservation } from "@/hooks/use-market-quotes"
 
 interface VariableIncomeTableProps {

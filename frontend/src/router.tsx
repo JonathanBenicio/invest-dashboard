@@ -20,6 +20,8 @@ import Portfolios from './pages/portfolio/Portfolios'
 import Settings from './pages/tools/Settings'
 import Simulator from './pages/tools/Simulator'
 import Taxas from './pages/tools/Taxas'
+import Analysis from './pages/tools/Analysis'
+import Import from './pages/tools/Import'
 import { z } from 'zod'
 
 const investmentSearchSchema = z.object({
@@ -116,6 +118,18 @@ export const simulatorRoute = createRoute({
   component: Simulator,
 })
 
+export const analysisRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/analise',
+  component: Analysis,
+})
+
+export const importRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/importar',
+  component: Import,
+})
+
 export const settingsRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: '/configuracoes',
@@ -146,6 +160,8 @@ const routeTree = rootRoute.addChildren([
     variableIncomeRoute,
     investmentDetailsRoute,
     simulatorRoute,
+    analysisRoute,
+    importRoute,
     settingsRoute,
     taxasRoute,
   ]),

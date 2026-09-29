@@ -5,7 +5,7 @@
 
 import { http, HttpResponse, delay } from 'msw'
 import { API_CONFIG } from '@/api/env'
-import type { ApiResponse, PaginatedResponse, UserDto } from '@/api/dtos'
+import type { ApiResponse, PaginatedResponse, RegistrarTransacaoRequest, TransacaoDto, UserDto } from '@/api/dtos'
 import {
   mockCurrentUser,
   mockPortfolios,
@@ -21,6 +21,7 @@ import {
 // '/api/v1/...' will be intercepted on any domain (localhost, GitHub Pages, Capacitor)
 const BASE_URL = API_CONFIG.VERSION
 let activeMockUserId: string | null = null
+const mockTransactionsByIdempotencyKey = new Map<string, TransacaoDto>()
 
 /**
  * Helper to create API response
@@ -224,7 +225,7 @@ export const handlers = [
         symbol: investment.ticker,
         name: investment.name,
         price: investment.currentPrice,
-        observedAtUtc: new Date().toISOString(),
+        observedAtUtc: '2024-12-18T00:00:00.000Z',
         currency: investment.currency,
         sector: investment.sector,
         subtype: investment.subtype,
@@ -677,29 +678,46 @@ export const handlers = [
   // Dividends
   http.get(`${BASE_URL}/investments/dividends`, async () => {
     await delay(400)
-    // Importing dividends from data.ts would be better but I can assume it's there or use mock-data if imported
-    // Since I cannot change imports easily without context, I will use a hardcoded empty list or try to access 'dividends' from mock-data if available in scope.
-    // 'dividends' is not imported in this file. I should add it to imports or use a placeholder.
-    // Checking imports... 'dividends' is not in './data'. It is in '@/lib/mock-data'.
-    // I will add a simplified mock response for now to pass the check, or add import.
-    // Let's rely on the previous plan: I'm adding handlers.
-
-    // I'll return an empty list or a static list for now, as importing from lib might break isolation if not careful.
-    // But ideally I should import from '@/lib/mock-data'.
-    // Let's assume I can add the import.
-
-    // Actually, let's look at the imports again.
-    // import { ... } from './data'
-    // I'll use a local const for now to avoid import errors until I fix imports.
-    const mockDividends = [
-      { id: '1', ticker: 'PETR4', type: 'Dividendo', value: 1.25, paymentDate: '2024-12-15', exDate: '2024-11-28' },
-      { id: '2', ticker: 'ITUB4', type: 'JCP', value: 0.45, paymentDate: '2024-12-20', exDate: '2024-12-01' },
-      { id: '3', ticker: 'HGLG11', type: 'Rendimento', value: 1.10, paymentDate: '2024-12-10', exDate: '2024-11-30' },
-    ]
-    return HttpResponse.json(createPaginatedResponse(mockDividends))
+    return HttpResponse.json(createPaginatedResponse([]))
   }),
 
   // Transactions
+  http.post(`${BASE_URL}/transactions`, async ({ request }) => {
+    const check = checkPermission(request, 'edit')
+    if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
+
+    const body = await request.json() as RegistrarTransacaoRequest
+    const previous = mockTransactionsByIdempotencyKey.get(body.idempotencyKey)
+    if (previous) return HttpResponse.json(createResponse(previous))
+    if (!mockPortfolios.some(portfolio => portfolio.id === body.portfolioId)) {
+      return HttpResponse.json({ success: false, message: 'Carteira não encontrada.' }, { status: 404 })
+    }
+
+    const investment = mockAllInvestments.find(item => item.portfolioId === body.portfolioId && item.ticker?.toUpperCase() === body.ticker?.toUpperCase())
+    if (body.type === 'Sell' && (!investment || investment.quantity < body.quantity)) {
+      return HttpResponse.json({ success: false, message: 'Quantidade disponível insuficiente.' }, { status: 409 })
+    }
+
+    const transaction: TransacaoDto = {
+      id: `transaction-${crypto.randomUUID()}`,
+      portfolioId: body.portfolioId,
+      assetId: investment?.assetId,
+      ticker: body.ticker,
+      type: body.type,
+      quantity: body.quantity,
+      unitPrice: body.unitPrice,
+      fees: body.fees,
+      totalAmount: body.quantity * body.unitPrice + (body.type === 'Buy' ? body.fees : -body.fees),
+      realizedGain: 0,
+      realizedCostBasis: 0,
+      transactionDate: body.transactionDate,
+      notes: body.notes,
+    }
+    mockTransactionsByIdempotencyKey.set(body.idempotencyKey, transaction)
+    await delay(100)
+    return HttpResponse.json(createResponse(transaction), { status: 201 })
+  }),
+
   http.get(`${BASE_URL}/investments/:id/transactions`, async ({ params }) => {
     await delay(400)
     const { id } = params

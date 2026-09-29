@@ -25,6 +25,12 @@ export interface RegistrarTransacaoRequest {
   transactionDate: string
   idempotencyKey: string
   assetClass?: string
+  subtype?: string
+  issuer?: string
+  indexer?: string
+  interestRate?: number
+  maturityDate?: string
+  initialStatementValue?: number
   notes?: string
 }
 

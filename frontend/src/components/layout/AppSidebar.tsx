@@ -7,6 +7,8 @@ import {
   Wallet,
   Calculator,
   Percent,
+  LineChart,
+  Upload,
 } from "lucide-react"
 import { NavLink } from "@/components/NavLink"
 import {
@@ -32,6 +34,8 @@ const menuItems = [
   { title: "Renda Fixa", url: "/renda-fixa", icon: Landmark },
   { title: "Renda Variável", url: "/renda-variavel", icon: TrendingUp },
   { title: "Simulador", url: "/simulador", icon: Calculator },
+  { title: "Análise", url: "/analise", icon: LineChart },
+  { title: "Importar operações", url: "/importar", icon: Upload },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ]
 

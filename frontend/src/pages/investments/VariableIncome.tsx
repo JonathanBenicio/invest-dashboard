@@ -149,7 +149,6 @@ export default function VariableIncome() {
     if (!selectedAsset) return
 
     try {
-      // Since API expects UpdateInvestmentRequest but mock allows any, we pass what we have
       await investmentService.update(selectedAsset.id, {
         totalValue: updatedAsset.currentValue,
         date: new Date(`${valuationDate}T12:00:00`).toISOString(),
@@ -360,7 +359,6 @@ export default function VariableIncome() {
       < Tabs defaultValue="assets" className="space-y-4" >
         <TabsList>
           <TabsTrigger value="assets">Ativos</TabsTrigger>
-          <TabsTrigger value="dividends">Proventos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="assets">
@@ -390,17 +388,6 @@ export default function VariableIncome() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="dividends">
-          <Card>
-            <CardHeader>
-              <CardTitle>Proventos</CardTitle>
-              <CardDescription>O histórico de dividendos e rendimentos será incluído na etapa futura de fluxo de caixa.</CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              Nesta etapa, acompanhe quantidade, custo, cotação e valor atual das posições.
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs >
 
       <EditInvestmentDialog

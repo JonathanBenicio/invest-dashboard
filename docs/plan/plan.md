@@ -75,7 +75,7 @@ Foco em remover os mocks e usar o Backend.
 
 ## Próximos passos — estado em 29/09/2026
 
-O plano vigente para remover mocks de produto e fechar a integração frontend/backend está em [real-data-integration.md](real-data-integration.md). A CI de `df2bae7` falhou por migrations concorrentes no banco de testes. A correção preliminar isola PostgreSQL por teste e passou localmente; aguardar CI corretiva antes de homologação.
+O plano vigente para remover mocks de produto e fechar a integração frontend/backend está em [real-data-integration.md](real-data-integration.md). A colisão de migrations de `df2bae7` foi corrigida em `aa31fc9`, cuja CI passou nos três jobs. As telas de análise/importação atuais estão no worktree, aguardando commit/CI.
 
 - [x] Renomear o helper local e confirmar que os nomes legados não aparecem em `src/` e `frontend/src/`.
 - [x] Executar o fluxo de ledger contra PostgreSQL 15 em Compose efêmero: migrations, compra idempotente, venda parcial, sobre-venda, histórico incompleto e persistência entre hosts.
@@ -96,7 +96,7 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 ### Próxima etapa de acompanhamento de posições
 
 1. Validar autenticação Supabase e dados Brapi em um ambiente de homologação configurado; comprovar isolamento entre usuários, origem e data das cotações, além da indicação de indisponibilidade sem preços simulados.
-2. [x] Integrar o carregamento de posições com a API de cotações: exibir origem e horário da observação Brapi/SignalR; se o provedor não retornar preço, conservar o último valor persistido e avisar que está indisponível. CI deste incremento pendente.
+2. [x] Integrar o carregamento de posições com a API de cotações: exibir origem e horário da observação Brapi/SignalR; se o provedor não retornar preço, conservar o último valor persistido e avisar que está indisponível. CI local/remota do commit `df2bae7` validou essa etapa.
 3. [x] Cobrir filtros combinados de classe, subtipo, setor, status e busca, além de ordenação/paginação, com testes InMemory e PostgreSQL; CI do commit `a9ad5ac` passou.
 4. Tratar o lint global em uma alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
 5. Preparar a homologação de frontend/API/banco após validar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.

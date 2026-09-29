@@ -23,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { RendaFixaDto } from "@/api/dtos"
-import { formatCurrency, formatDate } from "@/lib/mock-data"
+import { formatCurrency, formatDate } from "@/lib/utils"
 
 interface FixedIncomeTableProps {
   data: RendaFixaDto[]

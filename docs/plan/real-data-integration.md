@@ -1,6 +1,6 @@
 # Plano: remover mocks de produto e integrar frontend/backend
 
-Atualizado em 29/09/2026, a pedido do usuário antes de retomar mudanças de código. A branch está no commit `df2bae7`; o worktree contém alterações preliminares não commitadas para análise real, importação CSV e navegação.
+Atualizado em 29/09/2026, a pedido do usuário antes de retomar mudanças de código. A branch está no commit `aa31fc9`; o worktree contém alterações frontend ainda não commitadas para análise real, importação CSV e remoção dos fixtures antigos.
 
 ## Objetivo e limites
 
@@ -12,25 +12,26 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 - O backend já expõe carteiras, posições, transações, histórico patrimonial, cotações, taxas econômicas e simulações.
 - Dashboard, carteiras, telas de renda variável/fixa, detalhes de posição, taxas e simulador já usam alguns desses endpoints; a conexão real ainda precisa de verificação integrada.
-- `Analysis.tsx` continha séries estáticas de carteira, Ibovespa, CDI, setores e proventos. A implementação preliminar passou a consumir carteira, posições e histórico do backend, e foi adicionada à navegação.
-- `Import.tsx` simulava leitura, criava linhas fixas e declarava importação concluída sem chamar API. A implementação preliminar lê CSV, valida linhas e envia transações ordenadas ao endpoint real. Ainda precisa fechar os casos de teste e confirmar o contrato MSW isolado para E2E.
+- `Analysis.tsx` continha séries estáticas de carteira, Ibovespa, CDI, setores e proventos. A implementação preliminar passou a consumir carteira, posições e histórico do backend, calcula alocação/resultados das posições abertas e foi adicionada à navegação. Benchmark continua indisponível sem fonte real.
+- `Import.tsx` simulava leitura, criava linhas fixas e declarava importação concluída sem chamar API. A implementação preliminar lê CSV delimitado, valida compra/venda e dados completos de renda fixa, envia operações sequencialmente ao ledger, mostra resultados e permite retry seguro para falhas transitórias.
 - `FixedIncomeProjection.tsx` era código sem rota/uso conhecido e projetava rendimentos com CDI/IPCA fixos; foi removido no worktree preliminar.
 - `frontend/src/lib/mock-data.ts` fornecia fixtures e também formatação. Os consumidores ativos de formatação foram migrados para `lib/utils.ts`; o arquivo foi removido no worktree preliminar.
 - `frontend/src/mocks/handlers.ts` permanece usado pelo Playwright e por uma opção explícita de demonstração. Produção, Docker e GitHub Pages definem `VITE_USE_MSW=false`; o Playwright define `true`.
 - As rotas de usuários administrativos, chat e integrações diretas com corretoras não possuem contratos backend correspondentes ou não estão expostas na navegação. Não podem ser apresentadas como funcionais sem implementação real.
 - O backend retorna lista vazia para proventos. A UI preliminar removeu a aba de proventos da tela de posições e o fixture MSW deixa de inventar pagamentos.
-- A CI de `df2bae7` falhou no backend: frontend e `docker-smoke` passaram, enquanto dois testes aplicavam migrations concorrentes no mesmo banco PostgreSQL compartilhado. A falha reproduzida foi SQLSTATE `42701`, coluna `portfolio_id` já existente na tabela `transactions`. A correção preliminar cria um database efêmero por teste PostgreSQL e o remove ao final.
-- Depois dessas alterações locais: typecheck passou, ESLint direcionado passou sem erros (3 avisos preexistentes em `router.tsx`) e 5 E2E passaram. Build ainda precisa ser repetido com o worktree completo. O lint global conhecido falha com 30 erros e 16 avisos em arquivos legados/gerados.
+- A CI de `df2bae7` falhou no backend: frontend e `docker-smoke` passaram, enquanto dois testes aplicavam migrations concorrentes no mesmo banco PostgreSQL compartilhado. A falha reproduzida foi SQLSTATE `42701`, coluna `portfolio_id` já existente na tabela `transactions`. O commit `aa31fc9` cria um database efêmero por teste PostgreSQL; os três jobs da CI passaram.
+- Depois dessas alterações locais: typecheck, build e ESLint direcionado passaram (3 avisos preexistentes em `router.tsx`); 5 E2E passaram, incluindo análise pela API e importação de renda variável/renda fixa com uma linha inválida. O lint global conhecido falha com 30 erros e 16 avisos em arquivos legados/gerados.
 
 ## Fases de implementação
 
 ### Fase 0 — revisar e estabilizar o worktree atual
 
 1. Revisar o diff completo e confirmar que os arquivos apagados estavam sem uso e que nenhuma fixture foi removida do Playwright por engano.
-2. [x] Isolar cada teste PostgreSQL em um banco efêmero próprio (criação e descarte por teste) e repetir a suíte backend inteira contra PostgreSQL: 21 unitários e 27 integrações passaram, sem skips. Confirmar o CI do commit corretivo antes de homologação.
-3. Validar as novas rotas `/analise` e `/importar`, acesso autenticado, consultas e erros sem fallback simulado.
-4. Executar typecheck, build, E2E, testes .NET, lint direcionado e CI; corrigir falhas introduzidas por este trabalho. Registrar separadamente problemas anteriores no lint global.
-5. Atualizar este plano e o catálogo de user stories com as evidências. Fazer commits por contexto e manter o deploy em produção fora desta fase.
+2. [x] Isolar cada teste PostgreSQL em um banco efêmero próprio; a suíte local passou sem skips e a CI de `aa31fc9` passou nos três jobs.
+3. [x] Validar as rotas `/analise` e `/importar`, acesso autenticado, consultas e erros; 5 E2E passaram usando fixtures MSW explícitas.
+4. [x] Executar typecheck, build e lint direcionado; o lint global mantém falhas legadas documentadas.
+5. Fazer commits contextuais da implementação frontend preliminar e executar CI para confirmar a integração completa. O E2E atual usa MSW para a resposta HTTP de importação; ainda falta teste integrado da UI CSV contra API/PostgreSQL e validar Brapi/Supabase reais.
+6. Atualizar este plano e o catálogo de user stories com as evidências. Manter o deploy em produção fora desta fase.
 
 **Aceite:** os testes demonstram cotação com origem/horário, aviso quando a API não retorna preço, análise baseada na carteira selecionada e importação de linhas CSV para o ledger real. Nenhuma tela apresenta uma operação simulada como concluída.
 
@@ -90,9 +91,9 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 ## Validação e acompanhamento
 
-- Local já passou nesta continuação: typecheck, lint direcionado (exceto erros preexistentes dentro do handler MSW) e 5 testes E2E. O build precisa ser repetido após a análise/importação; a compilação da API e testes .NET foi executada antes das últimas alterações, que são de frontend.
+- Local já passou nesta continuação: typecheck, build, lint direcionado (3 avisos existentes no router) e 5 testes E2E incluindo análise e importação CSV.
 - Testes .NET locais com PostgreSQL: 21 unitários e 27 integrações passaram, sem skips; cada teste PostgreSQL criou seu próprio database, e todos os databases temporários foram removidos.
-- CI de `a9ad5ac` passou. A CI de `df2bae7` ([execução 36538233870](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36538233870)) teve frontend e Docker smoke verdes e falhou no backend pela colisão de migrations; o worktree contém a correção, ainda aguardando confirmação remota.
+- CI de `a9ad5ac` passou. A CI de `df2bae7` ([execução 36538233870](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36538233870)) teve frontend/Docker smoke verdes e falhou no backend por migrations concorrentes. O corretivo `aa31fc9` passou backend/PostgreSQL, frontend e Docker smoke; análise e importação ainda aguardam CI própria.
 - Após congelar cada fase, executar a validação correspondente e só então registrar seu aceite neste arquivo e em `docs/USER-STORIES.md`.
 
 ## Fora desta entrega
