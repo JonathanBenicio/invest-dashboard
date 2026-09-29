@@ -100,13 +100,13 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 2. [x] Integrar o carregamento de posições com a API de cotações: exibir origem e horário da observação Brapi/SignalR; se o provedor não retornar preço, conservar o último valor persistido e avisar que está indisponível. CI local/remota do commit `df2bae7` validou essa etapa.
 3. [x] Cobrir filtros combinados de classe, subtipo, setor, status e busca, além de ordenação/paginação, com testes InMemory e PostgreSQL; CI do commit `a9ad5ac` passou.
 4. [x] Cobrir o contrato de importação até o PostgreSQL: compra de ação e renda fixa, replay idempotente, rejeição de linha inválida e persistência após reinício do host.
-5. [x] E2E Playwright sem MSW para importar CSV pela interface contra API/PostgreSQL reais em ambiente de teste; sessão de teste controlada, operações financeiras reais. Job dedicado adicionado à CI; execução remota pendente.
+5. [x] E2E Playwright sem MSW para importar CSV pela interface contra API/PostgreSQL reais; sessão de teste controlada e operações financeiras reais. Os quatro jobs passaram na CI de `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654).
 6. Tratar o lint global em alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
 7. Preparar a homologação de frontend/API/banco após configurar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
 
-### Plano para a próxima alteração de código
+### Próximos passos de acompanhamento
 
-1. Executar a CI remota do job `csv-import-e2e` ao enviar as alterações e corrigir qualquer diferença de ambiente Linux.
-2. Confirmar que o job encerra a API e o PostgreSQL descartável em sucesso e falha.
-3. Validar parsing com extratos reais anonimizados de corretoras e documentar formatos aceitos; manter isso separado do contrato atual.
-4. Não implementar nesta alteração coleta Tesouro, caixa, proventos ou produção.
+1. Validar parsing com extratos reais anonimizados de corretoras e documentar formatos aceitos; manter isso separado do contrato atual.
+2. Tratar o lint global em alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
+3. Preparar a homologação de frontend/API/banco após configurar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
+4. Manter a coleta e visualização do Tesouro Transparente na fase futura descrita em `real-data-integration.md`.

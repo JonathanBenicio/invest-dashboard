@@ -1,6 +1,6 @@
 # Plano: remover mocks de produto e integrar frontend/backend
 
-Atualizado em 29/09/2026. A implementação de análise real, importação CSV e remoção dos fixtures de produto foi commitada em `605bbc5`; backend/PostgreSQL, frontend e Docker smoke passaram na CI. O E2E de importação pelo navegador contra API/PostgreSQL reais passou localmente sem MSW; apenas a sessão de autenticação é controlada pelo teste. O novo job de CI está configurado, aguardando execução remota. Homologação com credenciais Supabase/Brapi continua pendente.
+Atualizado em 29/09/2026. A implementação de análise real, importação CSV e remoção dos fixtures de produto foi commitada em `605bbc5`; backend/PostgreSQL, frontend e Docker smoke passaram na CI. O E2E de importação pelo navegador contra API/PostgreSQL reais passou localmente sem MSW; apenas a sessão de autenticação é controlada pelo teste. A CI do commit `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654) passou nos quatro jobs. Homologação com credenciais Supabase/Brapi continua pendente.
 
 ## Objetivo e limites
 
@@ -30,7 +30,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 2. [x] Isolar cada teste PostgreSQL em um banco efêmero próprio; a suíte local passou sem skips e a CI de `aa31fc9` passou nos três jobs.
 3. [x] Validar as rotas `/analise` e `/importar`, acesso autenticado, consultas e erros; 5 E2E passaram usando fixtures MSW explícitas.
 4. [x] Executar typecheck, build e lint direcionado; o lint global mantém falhas legadas documentadas.
-5. [x] Fazer commit da implementação frontend (`605bbc5`) e confirmar CI nos três jobs. Testes API/PostgreSQL cobrem ação e renda fixa, replay idempotente, rejeição e persistência após recriar o host. Um E2E adicional atravessa navegador, API e PostgreSQL sem MSW para os fluxos financeiros; falta a execução remota do job e validar Brapi/Supabase reais.
+5. [x] Fazer commit da implementação frontend (`605bbc5`) e confirmar CI nos três jobs. Testes API/PostgreSQL cobrem ação e renda fixa, replay idempotente, rejeição e persistência após recriar o host. O E2E de navegador/API/PostgreSQL sem MSW também passou na CI de `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654); validar Brapi/Supabase reais continua pendente.
 6. [x] Atualizar este plano e o catálogo de user stories com as evidências. Manter deploy em produção fora desta fase.
 
 **Aceite:** os testes demonstram cotação com origem/horário, aviso quando a API não retorna preço, análise baseada na carteira selecionada e importação de linhas CSV para o ledger real. Nenhuma tela apresenta uma operação simulada como concluída.
@@ -91,7 +91,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 ## Validação e acompanhamento
 
-- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI com backend/PostgreSQL, frontend e Docker smoke passaram. Na alteração atual: novo E2E sem MSW passou localmente contra API/PostgreSQL; o job GitHub Actions está adicionado e ainda não executado remotamente.
+- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI dos três jobs passaram. Na alteração atual: E2E sem MSW passou localmente e os quatro jobs, incluindo `csv-import-e2e`, passaram na CI `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654).
 - Testes .NET locais em Release com PostgreSQL: 21 unitários e 28 integrações passaram, sem skips; cada teste PostgreSQL criou seu próprio database e foi removido ao final.
 - CI de `a9ad5ac` passou. A CI de `df2bae7` ([execução 36538233870](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36538233870)) teve frontend/Docker smoke verdes e falhou no backend por migrations concorrentes. O corretivo `aa31fc9` isolou os bancos dos testes PostgreSQL; depois, `605bbc5` passou backend/PostgreSQL, frontend e Docker smoke com análise/importação incluídas.
 - Após congelar cada fase, executar a validação correspondente e só então registrar seu aceite neste arquivo e em `docs/USER-STORIES.md`.
