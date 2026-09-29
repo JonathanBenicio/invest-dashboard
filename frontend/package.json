@@ -18,6 +18,7 @@
     "mobile:ios": "bun run build:mobile && bun x cap sync ios && bun x cap open ios",
     "postinstall": "patch-package",
     "test": "playwright test",
+    "test:api": "playwright test --config playwright.real-api.config.ts",
     "test:ui": "playwright test --ui"
   },
   "dependencies": {

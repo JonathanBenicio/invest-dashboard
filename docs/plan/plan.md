@@ -3,7 +3,7 @@
 Este documento detalha o plano de ação para implementar as funcionalidades de Gestão de Patrimônio, com foco nas regras fiscais brasileiras e simulações avançadas, integrando o Frontend (React) e o Backend (.NET).
 
 
-> Atualizado em 29/09/2026: as fases abaixo registram o plano original. A entrega de acompanhamento de posições foi concluída; consulte o catálogo de user stories para evidências e os próximos passos atualizados.
+> Atualizado em 29/09/2026: as fases abaixo registram o plano original. A entrega de acompanhamento de posições foi concluída; consulte o [catálogo de user stories](../USER-STORIES.md) e o [plano vigente de integração com dados reais](real-data-integration.md) para evidências e próximos passos. A coleta do Tesouro Transparente — incluindo visualizações informativas e comparação segura com posições compatíveis — está registrada como fase futura, ainda sem implementação.
 
 ---
 
@@ -75,7 +75,7 @@ Foco em remover os mocks e usar o Backend.
 
 ## Próximos passos — estado em 29/09/2026
 
-O plano vigente para remover mocks de produto e fechar a integração frontend/backend está em [real-data-integration.md](real-data-integration.md). A colisão de migrations de `df2bae7` foi corrigida em `aa31fc9`, cuja CI passou nos três jobs. As telas de análise/importação atuais estão no worktree, aguardando commit/CI.
+O plano vigente para remover mocks de produto e fechar a integração frontend/backend está em [real-data-integration.md](real-data-integration.md). A colisão de migrations foi corrigida em `aa31fc9`. A análise/importação e substituição dos mocks de produto foram integradas em `605bbc5`; backend/PostgreSQL, frontend e Docker smoke passaram na CI.
 
 - [x] Renomear o helper local e confirmar que os nomes legados não aparecem em `src/` e `frontend/src/`.
 - [x] Executar o fluxo de ledger contra PostgreSQL 15 em Compose efêmero: migrations, compra idempotente, venda parcial, sobre-venda, histórico incompleto e persistência entre hosts.
@@ -83,6 +83,7 @@ O plano vigente para remover mocks de produto e fechar a integração frontend/b
 - [x] Atualizar `docs/USER-STORIES.md` com evidências e gaps atuais.
 - [x] Fechar a issue #42 no GitHub usando o PR #43 merged como evidência (concluída em 29/09/2026).
 - [x] Sincronizar `develop` e confirmar a [CI do commit dc82a07](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36534836526): backend/PostgreSQL, frontend e smoke Compose passaram.
+- [x] Substituir mocks das telas de análise/importação por API e registrar a coleta futura do Tesouro Transparente; CI de `605bbc5` passou nos três jobs.
 - [x] Revisar os PRs #14 e #4 separadamente e encerrá-los sem merge em 29/09/2026, conforme decisão do usuário de manter `develop` como linha de trabalho.
 
 Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte desta etapa.
@@ -98,5 +99,14 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 1. Validar autenticação Supabase e dados Brapi em um ambiente de homologação configurado; comprovar isolamento entre usuários, origem e data das cotações, além da indicação de indisponibilidade sem preços simulados.
 2. [x] Integrar o carregamento de posições com a API de cotações: exibir origem e horário da observação Brapi/SignalR; se o provedor não retornar preço, conservar o último valor persistido e avisar que está indisponível. CI local/remota do commit `df2bae7` validou essa etapa.
 3. [x] Cobrir filtros combinados de classe, subtipo, setor, status e busca, além de ordenação/paginação, com testes InMemory e PostgreSQL; CI do commit `a9ad5ac` passou.
-4. Tratar o lint global em uma alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
-5. Preparar a homologação de frontend/API/banco após validar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
+4. [x] Cobrir o contrato de importação até o PostgreSQL: compra de ação e renda fixa, replay idempotente, rejeição de linha inválida e persistência após reinício do host.
+5. [x] E2E Playwright sem MSW para importar CSV pela interface contra API/PostgreSQL reais em ambiente de teste; sessão de teste controlada, operações financeiras reais. Job dedicado adicionado à CI; execução remota pendente.
+6. Tratar o lint global em alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
+7. Preparar a homologação de frontend/API/banco após configurar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
+
+### Plano para a próxima alteração de código
+
+1. Executar a CI remota do job `csv-import-e2e` ao enviar as alterações e corrigir qualquer diferença de ambiente Linux.
+2. Confirmar que o job encerra a API e o PostgreSQL descartável em sucesso e falha.
+3. Validar parsing com extratos reais anonimizados de corretoras e documentar formatos aceitos; manter isso separado do contrato atual.
+4. Não implementar nesta alteração coleta Tesouro, caixa, proventos ou produção.

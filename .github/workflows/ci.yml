@@ -85,3 +85,74 @@ jobs:
           VITE_API_URL: /
       - run: bunx playwright install --with-deps chromium
       - run: bun run test
+
+  csv-import-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: investdashboard_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d investdashboard_tests"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.4
+      - run: dotnet restore src/InvestDashboard.WebAPI/InvestDashboard.WebAPI.csproj
+      - run: dotnet build src/InvestDashboard.WebAPI/InvestDashboard.WebAPI.csproj --configuration Release --no-restore
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: bunx playwright install --with-deps chromium
+        working-directory: frontend
+      - name: Start test API and wait for database readiness
+        env:
+          ASPNETCORE_ENVIRONMENT: Testing
+          ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=investdashboard_tests;Username=postgres;Password=postgres
+          Jwt__Secret: integration_test_secret_key_that_is_long_enough_for_hmac256
+          Jwt__Issuer: test-issuer
+          Jwt__Audience: test-audience
+          Cors__AllowedOrigins__0: http://127.0.0.1:5174
+        run: |
+          dotnet src/InvestDashboard.WebAPI/bin/Release/net10.0/InvestDashboard.WebAPI.dll --urls http://127.0.0.1:5051 > "$RUNNER_TEMP/invest-api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/invest-api.pid"
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:5051/health/ready >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:5051/health/ready >/dev/null
+      - name: Seed isolated E2E authentication session
+        run: |
+          database_container=$(docker ps --filter "ancestor=postgres:15" --format '{{.ID}}' | head -n 1)
+          test -n "$database_container"
+          docker exec "$database_container" psql -U postgres -d investdashboard_tests -v ON_ERROR_STOP=1 -c "INSERT INTO auth_sessions (id, user_id, email, name, role, refresh_token_hash, created_at_utc, expires_at_utc, revoked_at_utc) VALUES ('bbbbbbbb-cccc-dddd-eeee-ffffffff0001', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001', 'test@investdashboard.com', 'Test User', 'user', repeat('A', 64), now() - interval '1 minute', now() + interval '1 day', NULL) ON CONFLICT (id) DO NOTHING"
+      - name: Run CSV import against real API and PostgreSQL
+        working-directory: frontend
+        env:
+          E2E_API_URL: http://127.0.0.1:5051
+          E2E_JWT_SECRET: integration_test_secret_key_that_is_long_enough_for_hmac256
+          E2E_JWT_ISSUER: test-issuer
+          E2E_JWT_AUDIENCE: test-audience
+        run: bun run test:api
+      - name: Show API logs on failure
+        if: failure()
+        run: cat "$RUNNER_TEMP/invest-api.log"
+      - name: Stop test API
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/invest-api.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/invest-api.pid")" || true
+          fi

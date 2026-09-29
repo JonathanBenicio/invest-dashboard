@@ -2,7 +2,7 @@
 
 ## Escopo desta revisão
 
-Revisado em 29/09/2026. A [CI do commit aa31fc9](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36540296769) passou nos três jobs: backend/PostgreSQL, frontend e Docker smoke. A execução local completa passou em 21 testes unitários e 27 testes de integração PostgreSQL, sem skips; a suíte E2E atual passou em 5 testes, além de typecheck e build. O worktree contém novas telas de análise de posições e importação CSV; essas alterações ainda aguardam commit/CI. Credenciais reais Supabase/Brapi e produção não foram validadas. O lint global tem 30 erros e 16 avisos legados; lint direcionado das telas/rotas alteradas não encontrou erros. Fluxo de caixa/proventos continuam adiados.
+Revisado em 29/09/2026. O commit `605bbc5` integrou análise real e importação CSV, e sua CI passou em backend/PostgreSQL, frontend e Docker smoke. A execução local em Release passou em 21 testes unitários e 28 testes de integração PostgreSQL, sem skips. Os 5 E2E existentes usam MSW; um novo E2E de navegador sem MSW validou localmente a importação contra API/PostgreSQL, controlando apenas a sessão de autenticação. O job de CI desse fluxo foi adicionado, mas ainda aguarda execução remota. Credenciais reais Supabase/Brapi e produção não foram validadas. O lint global tem 30 erros e 16 avisos legados; lint direcionado das telas/rotas alteradas não encontrou erros. Fluxo de caixa/proventos continuam adiados.
 
 | ID estável | História | Estado observado no código | Evidência e gap principal |
 |---|---|---|---|
@@ -16,7 +16,7 @@ Revisado em 29/09/2026. A [CI do commit aa31fc9](https://github.com/JonathanBeni
 | US-PORT-002 | Visualização e filtragem | Implementada; filtros combinados cobertos em teste | Endpoint oferece tipo, subtipo, emissor, setor, status, busca e paginação. Teste cobre filtros combinados, ordenação e paginação em InMemory e PostgreSQL; CI de `a9ad5ac` passou. |
 | US-SIM-001 | Simulação de investimentos | Fluxo de simulação presente; integração de taxa externa não comprovada | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs), [estratégias](../src/InvestDashboard.Domain/Services/EstrategiaDeterministica.cs) e [tela](../frontend/src/pages/tools/Simulator.tsx). Recebe aportes mensais e taxa informada; ligação com SELIC configurada e validação não foram comprovadas. |
 | US-COMP-001 | Análise de posições | Parcial; carteira, posições, cotações e histórico conectados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) lê carteira, posições e histórico da API, combinando cotações atuais. Dias incompletos são sinalizados e omitidos. Benchmark CDI/Ibovespa aguarda fonte/contrato real. E2E com fixture passou. |
-| US-IMPORT-001 | Importação CSV de operações | Implementação frontend conectada ao endpoint de transações | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê CSV, valida compra/venda e campos de renda fixa, seleciona carteira, envia sequencialmente com idempotência, permite retry transitório e invalida caches. E2E MSW valida 2 linhas aceitas e 1 linha rejeitada; falta teste integrado da UI com API/PostgreSQL. |
+| US-IMPORT-001 | Importação CSV de operações | Implementada; E2E real local e CI pendente | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê CSV, valida compra/venda e campos de renda fixa, seleciona carteira, envia sequencialmente com idempotência, permite retry transitório e invalida caches. E2E MSW valida parser e estados por linha. [csv-import.spec.ts](../frontend/e2e-real-api/csv-import.spec.ts) percorre a UI contra endpoints reais e confirma transações/posições no PostgreSQL; a sessão de teste é controlada e o job remoto aguarda execução. [PostgresCsvImportContractTests](../src/tests/InvestDashboard.IntegrationTests/Controllers/PostgresCsvImportContractTests.cs) complementa replay, rejeição por API e persistência entre hosts. |
 
 ## US-AUTH-001 — Autenticação segura
 
@@ -82,9 +82,9 @@ Revisado em 29/09/2026. A [CI do commit aa31fc9](https://github.com/JonathanBeni
 
 **Como** investidor, **quero** revisar um CSV e registrar suas linhas como operações, **para** atualizar as posições sem redigitar cada operação.
 
-**Estado:** a implementação preliminar valida campos, números brasileiros, datas, compra/venda, compra de renda fixa, carteira de destino e idempotência por linha. Operações são enviadas ao endpoint real e as consultas são invalidadas após sucesso. O MSW usado no E2E é uma fixture explícita.
+**Estado:** a implementação valida campos, números brasileiros, datas, compra/venda, compra de renda fixa, carteira de destino e idempotência por linha. Operações são enviadas ao endpoint real e as consultas são invalidadas após sucesso. O MSW usado no E2E da interface é uma fixture explícita. O teste PostgreSQL confirma o contrato HTTP, idempotência, rejeição de linha inválida e persistência do ledger entre hosts.
 
-**Gap:** validar parsing de extratos reais de corretoras e fazer um teste integrado do fluxo do frontend contra a API/PostgreSQL. XLS/XLSX e conectores diretos de corretora não são suportados.
+**Gap:** executar o job novo na CI remota e validar parsing com extratos reais anonimizados de corretoras. XLS/XLSX e conectores diretos de corretora não são suportados.
 
 ## Manutenção do catálogo
 

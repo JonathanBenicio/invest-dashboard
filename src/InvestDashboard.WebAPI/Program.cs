@@ -184,8 +184,9 @@ builder.Services.AddControllers();
 // Add SignalR Realtime services
 builder.Services.AddSignalR();
 
-// Register Hosted Services (Background Workers)
-builder.Services.AddHostedService<AtualizadorDadosMercadoWorker>();
+// Register hosted workers except in test runs, where deterministic API behavior is required.
+if (!builder.Environment.IsEnvironment("Testing"))
+    builder.Services.AddHostedService<AtualizadorDadosMercadoWorker>();
 
 // Add OpenAPI
 builder.Services.AddOpenApi();
