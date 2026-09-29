@@ -1,0 +1,110 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using FluentAssertions;
+using InvestDashboard.IntegrationTests.Fakes;
+using InvestDashboard.IntegrationTests.Setup;
+
+namespace InvestDashboard.IntegrationTests.Controllers;
+
+public sealed class FixedIncomeStatementValuationTests
+{
+    [Fact]
+    public async Task StatementValuation_UpdatesPositionAndHistory_InMemory()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = CreateAuthenticatedClient(factory);
+
+        var ids = await RegisterAndValuePositionAsync(client);
+        await AssertValuedPositionAndHistoryAsync(client, ids.PortfolioId, ids.PositionId);
+    }
+
+    [RequiresPostgresFact]
+    public async Task StatementValuation_PersistsPositionAndHistoryAcrossApiHosts_Postgres()
+    {
+        var connectionString = Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!;
+        await using var database = await IsolatedPostgresDatabase.CreateAsync(connectionString);
+        (Guid PortfolioId, Guid PositionId) ids;
+
+        using (var factory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString))
+        using (var client = CreateAuthenticatedClient(factory))
+            ids = await RegisterAndValuePositionAsync(client);
+
+        using var restartedFactory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString);
+        using var restartedClient = CreateAuthenticatedClient(restartedFactory);
+        await AssertValuedPositionAndHistoryAsync(restartedClient, ids.PortfolioId, ids.PositionId);
+    }
+
+    private static HttpClient CreateAuthenticatedClient(CustomWebApplicationFactory factory)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer", FakeAuthProvider.GenerateJwt(FakeAuthProvider.TestEmail));
+        return client;
+    }
+
+    private static async Task<(Guid PortfolioId, Guid PositionId)> RegisterAndValuePositionAsync(HttpClient client)
+    {
+        var portfolioResponse = await client.PostAsJsonAsync(
+            "/api/v1/portfolios", new { name = "Fixed income statement" });
+        portfolioResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        using var portfolioBody = JsonDocument.Parse(await portfolioResponse.Content.ReadAsStringAsync());
+        var portfolioId = portfolioBody.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+
+        var purchaseDate = DateTime.UtcNow.AddMonths(-1);
+        var purchaseResponse = await client.PostAsJsonAsync("/api/v1/investments/fixed-income", new
+        {
+            portfolioId,
+            name = "CDB extrato",
+            subtype = "CDB",
+            issuer = "Banco de teste",
+            principal = 5000m,
+            statementValue = 5075m,
+            interestRate = 110m,
+            indexer = "CDI",
+            purchaseDate,
+            maturityDate = DateTime.UtcNow.AddYears(1),
+            idempotencyKey = Guid.NewGuid()
+        });
+        purchaseResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        using var purchaseBody = JsonDocument.Parse(await purchaseResponse.Content.ReadAsStringAsync());
+        var positionId = purchaseBody.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+        purchaseBody.RootElement.GetProperty("data").GetProperty("currentValue").GetDecimal().Should().Be(5075m);
+
+        var valuationDate = DateTime.UtcNow;
+        var valuationResponse = await client.PostAsJsonAsync(
+            $"/api/v1/investments/{positionId}/valuations",
+            new { totalValue = 5200m, date = valuationDate });
+        valuationResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var valuationBody = JsonDocument.Parse(await valuationResponse.Content.ReadAsStringAsync());
+        valuationBody.RootElement.GetProperty("data").GetProperty("currentValue").GetDecimal().Should().Be(5200m);
+
+        return (portfolioId, positionId);
+    }
+
+    private static async Task AssertValuedPositionAndHistoryAsync(HttpClient client, Guid portfolioId, Guid positionId)
+    {
+        var portfolioResponse = await client.GetAsync($"/api/v1/portfolios/{portfolioId}");
+        portfolioResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var portfolioBody = JsonDocument.Parse(await portfolioResponse.Content.ReadAsStringAsync());
+        var positions = portfolioBody.RootElement.GetProperty("data").GetProperty("positions");
+        positions.GetArrayLength().Should().Be(1);
+        positions[0].GetProperty("id").GetGuid().Should().Be(positionId);
+        positions[0].GetProperty("currentValue").GetDecimal().Should().Be(5200m);
+
+        var historyResponse = await client.GetAsync($"/api/v1/investments/{positionId}/history");
+        historyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var historyBody = JsonDocument.Parse(await historyResponse.Content.ReadAsStringAsync());
+        var history = historyBody.RootElement.GetProperty("data");
+        history.GetArrayLength().Should().BeGreaterThanOrEqualTo(2);
+        history.EnumerateArray().Should().Contain(item =>
+            item.GetProperty("source").GetString() == "statement" &&
+            item.GetProperty("price").GetDecimal() == 1.04m);
+
+        var transactionsResponse = await client.GetAsync($"/api/v1/transactions/portfolio/{portfolioId}");
+        transactionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var transactionsBody = JsonDocument.Parse(await transactionsResponse.Content.ReadAsStringAsync());
+        transactionsBody.RootElement.GetProperty("data").GetArrayLength().Should().Be(1);
+    }
+}

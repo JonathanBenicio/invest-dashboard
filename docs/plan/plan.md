@@ -134,13 +134,20 @@ A documentação do [schema oficial Brapi](https://brapi.dev/docs/openapi) defin
 
 1. [x] Client descarta preços sem `regularMarketTime` parseável; o endpoint não promove horário de consulta a cotação recente.
 2. [x] Testes HTTP simulados cobrem ações e cripto: timestamp válido usa o horário de mercado e timestamp ausente resulta em lista vazia mesmo com `requestedAt`.
-3. [x] Suíte .NET Release passou com 23 unitários e 28 integrações PostgreSQL, sem skips; o endpoint/UI já mantêm o último valor e indicam indisponibilidade quando a API não retorna observação válida.
+3. [x] Suíte .NET Release atual: 23 testes unitários e 32 integrações PostgreSQL, sem skips; o fluxo conserva preço e informa indisponibilidade sem cotação válida.
 
 **Aceite:** nenhum preço sem horário de observação válido é apresentado como cotação atual. A validação Supabase ponta a ponta permanece pendente.
 ### Cobertura de isolamento multiusuário (concluída)
 
 - [x] Adicionadas ao ambiente de teste uma segunda identidade e sessão JWT independentes.
 - [x] Cenário executado em InMemory e PostgreSQL isolado: usuário B não lista/lê carteira, resumo, histórico, posições ou transações de A; tentativa de registrar, reavaliar ou excluir dados alheios retorna NotFound e não altera os dados do proprietário.
-- [x] Suíte .NET Release completa: 23 unitários e 30 integrações PostgreSQL, sem skips. Os quatro jobs da CI de `1a4215a` passaram (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36549005452).
+- [x] Suíte .NET Release na validação multiusuário: 23 unitários e 30 integrações PostgreSQL, sem skips; testes provam que a identidade B não lê nem altera carteira/posição da identidade A.
 
 **Aceite:** isolamento de tenant provado com tokens de teste; autenticação e claims reais Supabase permanecem para a fase final de serviços terceiros.
+### Avaliação de renda fixa por extrato (concluída)
+
+- [x] Compra com `statementValue` e avaliação posterior usam os endpoints reais da API.
+- [x] A posição atual reflete o novo valor; histórico contém preço/fonte `statement` e nenhuma transação extra é criada.
+- [x] InMemory e PostgreSQL (incluindo recriação do host) passaram; suíte .NET Release: 23 unitários e 32 integrações PostgreSQL, sem skips.
+
+**Aceite:** valor de extrato informado pelo usuário atualiza a posição e persiste no histórico, sem serviço externo nem preço simulado.
