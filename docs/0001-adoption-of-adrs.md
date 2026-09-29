@@ -9,7 +9,7 @@
 
 ## Decisão
 
-Decidimos adotar os Architecture Decision Records (ADRs) usando uma formatação em Markdown simplificada baseada no modelo proposto por Michael Nygard. Todos os ADRs ficarão versionados na pasta `docs/adr/`.
+Decidimos adotar os Architecture Decision Records (ADRs) usando uma formatação em Markdown simplificada baseada no modelo proposto por Michael Nygard. O caminho indicado neste registro foi corrigido para a localização existente `docs/adrs/`; consulte o índice atual antes de criar registros novos.
 
 ## Consequências
 

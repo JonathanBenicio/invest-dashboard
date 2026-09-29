@@ -1,41 +1,82 @@
-# User Stories & Epics - Invest Dashboard
+# Catálogo de User Stories
 
-## Visão Geral do Produto
-O objetivo da plataforma é ser uma solução completa de Gestão de Carteira de Investimentos. A plataforma permite gerenciar todo o ciclo de vida dos investimentos (compras, vendas, vencimentos), simular cenários, acompanhar a evolução histórica, realizar comparações entre ativos e contar com cálculos automatizados de lucro, prejuízo e deduções fiscais (IR, taxas), baseando-se em indicadores macroeconômicos configuráveis (SELIC, CDI, Juros).
+## Escopo desta revisão
 
----
+As histórias abaixo foram preservadas do catálogo anterior e receberam IDs estáveis para referência; isso não as torna requisitos aprovados. Revisão estática do código-fonte no working tree em 2026-09-28. Os links de evidência indicam código ou especificações encontradas, não prova de execução. Nenhum teste/build foi executado nesta revisão. Código presente (inclusive mudanças locais) não equivale a comportamento validado. Para todas as histórias, critérios de aceite verificáveis e contratos completos permanecem pendentes de confirmação; não foram inferidos a partir do código.
 
-## Epic 1: Autenticação e Configurações Globais
-### US 1.1: Autenticação Segura (Supabase)
-**Como** investidor, **Quero** realizar login seguro via e-mail/senha ou SSO, **Para** acessar meus dados financeiros com privacidade.
+| ID estável | História | Estado observado no código | Evidência e gap principal |
+|---|---|---|---|
+| US-AUTH-001 | Autenticação segura | Parcial; não validada | [AuthController](../src/InvestDashboard.WebAPI/Controllers/AuthController.cs), [provider Supabase](../src/InvestDashboard.Infrastructure/Services/SupabaseAuthProvider.cs), [cenários registrados](features/authentication.feature). Login/cadastro por e-mail aparecem no código; SSO e isolamento/privacidade ponta a ponta não foram comprovados. |
+| US-CONFIG-001 | Indicadores e taxas | Parcial; não validada | [TaxasController](../src/InvestDashboard.WebAPI/Controllers/TaxasController.cs), [modelo de taxa](../src/InvestDashboard.Domain/Aggregates/MarketData/TaxaEconomica.cs), [tela de taxas](../frontend/src/pages/tools/Taxas.tsx). CRUD genérico existe; atualização automática e uso integrado em projeções/cálculos não foram comprovados. |
+| US-INV-001 | Compra e venda | Parcial; não validada | [Transacao](../src/InvestDashboard.Domain/Aggregates/Trading/Transacao.cs), [Carteira](../src/InvestDashboard.Domain/Aggregates/Portfolio/Carteira.cs), [TransacoesController](../src/InvestDashboard.WebAPI/Controllers/TransacoesController.cs). Há modelos/fluxo para operações; cobertura integrada e todos os campos/regras precisam ser confirmados. |
+| US-INV-002 | Vencimentos | Parcial; a transição descrita não foi evidenciada | [RendaFixa](../src/InvestDashboard.Domain/Aggregates/MarketData/RendaFixa.cs) armazena data de vencimento e a UI mostra projeções. Não localizei transição automática de estado para “Vencido” nem liquidação do principal/juros. |
+| US-TAX-001 | Apuração de lucro e prejuízo | Parcial; não validada | [PosicaoInvestimento](../src/InvestDashboard.Domain/Aggregates/Portfolio/PosicaoInvestimento.cs) mantém custo médio e atualiza vendas; [testes de carteira](../src/tests/InvestDashboard.UnitTests/Domain/CarteiraTests.cs) existem, mas não foram executados. Fórmulas/casos completos ainda precisam de critérios confirmados. |
+| US-TAX-002 | Imposto de Renda | Cálculos de domínio presentes; integração e regras pendentes | [CalculoImpostoService](../src/InvestDashboard.Domain/Services/CalculoImpostoService.cs) contém alíquotas/limiar codificados. Não localizei fluxo que aplique o serviço ao registrar venda nem testes específicos no catálogo de testes. As regras fiscais não foram verificadas como orientação vigente. |
+| US-PORT-001 | Histórico patrimonial | Dados demonstrativos; histórico real não comprovado | [resumo da carteira](../src/InvestDashboard.WebAPI/Controllers/CarteirasController.cs) devolve pontos de performance fixos derivados do valor atual; [preços históricos](../src/InvestDashboard.Domain/Aggregates/MarketData/PrecoHistorico.cs) e repositório existem, mas não confirmei integração destes dados no gráfico patrimonial. |
+| US-PORT-002 | Visualização e filtragem | Parcial; filtros/status/instituição incompletos | [InvestimentosController](../src/InvestDashboard.WebAPI/Controllers/InvestimentosController.cs) filtra por tipo, subtipo e busca, com paginação. Não oferece filtro de status/instituição no endpoint consultado. |
+| US-SIM-001 | Simulação de investimentos | Fluxo de simulação presente; integração de taxa externa não comprovada | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs), [estratégias](../src/InvestDashboard.Domain/Services/EstrategiaDeterministica.cs) e [tela](../frontend/src/pages/tools/Simulator.tsx). Recebe aportes mensais e taxa informada; ligação com SELIC configurada e validação não foram comprovadas. |
+| US-COMP-001 | Comparação de ativos | Protótipo visual com série fixa; seleção/dados reais não comprovados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) define valores mensais no componente e desenha carteira/Ibovespa/CDI. Não encontrei seleção de ativos nem origem de dados integrada para essa comparação. |
 
-### US 1.2: Configuração de Indicadores e Taxas
-**Como** usuário, **Quero** configurar e visualizar variáveis macroeconômicas e fiscais (Taxa SELIC atual, % de IR padrão, taxas de corretagem e B3), **Para** que o sistema utilize essas bases em todas as projeções e cálculos automáticos de rendimento e desconto.
+## US-AUTH-001 — Autenticação segura
 
-## Epic 2: Gestão do Ciclo de Vida do Investimento
-### US 2.1: Lançamento de Operações (Compra e Venda)
-**Como** investidor, **Quero** registrar a compra ou venda de ativos (Ações, FIIs, Renda Fixa) informando ticker, data, preço e taxas, **Para** atualizar a custódia da minha carteira.
+**Como** investidor, **quero** realizar login seguro via e-mail/senha ou SSO, **para** acessar meus dados financeiros com privacidade.
 
-### US 2.2: Gestão de Vencimentos (Renda Fixa / Opções)
-**Como** investidor, **Quero** que o sistema identifique e altere o status de investimentos que chegaram à data de término para "Vencidos", **Para** refletir a liquidez e o retorno do principal + juros na conta corrente da carteira.
+**Gap:** código de autenticação identificado não demonstra suporte a SSO nem prova isolamento de dados de ponta a ponta. Critérios de aceite e validação executada: pendentes.
 
-## Epic 3: Cálculos Automáticos e Fiscalidade
-### US 3.1: Apuração de Lucro e Prejuízo
-**Como** investidor, **Quero** que o sistema calcule automaticamente o preço médio, lucro bruto e prejuízo acumulado de cada operação de venda, **Para** ter clareza exata da minha performance por ativo.
+## US-CONFIG-001 — Indicadores e taxas
 
-### US 3.2: Retenção e Cálculo de Imposto de Renda (IR)
-**Como** investidor, **Quero** que o sistema deduza ou calcule automaticamente a previsão do Imposto de Renda sobre o lucro real (considerando isenções e compensação de prejuízos), **Para** facilitar minha declaração fiscal e saber o lucro líquido.
+**Como** usuário, **quero** configurar e visualizar variáveis macroeconômicas e fiscais (SELIC, percentual de IR, corretagem e B3), **para** que sejam consideradas nas projeções e cálculos.
 
-## Epic 4: Análise e Acompanhamento de Patrimônio
-### US 4.1: Histórico e Evolução Patrimonial
-**Como** investidor, **Quero** visualizar um gráfico de linha do tempo com a evolução histórica do meu patrimônio e rentabilidade mês a mês, **Para** acompanhar o crescimento da minha riqueza ao longo do tempo.
+**Gap:** CRUD de taxas econômicas é genérico; catálogo/valores específicos e integração com simulação/cálculos permanecem por confirmar. Critérios e validação executada: pendentes.
 
-### US 4.2: Visualização e Filtragem Detalhada
-**Como** investidor, **Quero** visualizar uma tabela detalhada de todos os meus ativos e poder filtrar por classe (Renda Variável, Fixa), status (Ativo, Vencido) ou instituição, **Para** gerenciar fatias específicas do meu portfólio.
+## US-INV-001 — Compra e venda
 
-## Epic 5: Ferramentas Avançadas de Decisão
-### US 5.1: Simulação de Investimentos
-**Como** investidor, **Quero** criar simulações de aportes futuros informando valor, prazo e taxa esperada (fixa ou atrelada à Selic), **Para** projetar quanto terei no futuro antes de realizar a aplicação real.
+**Como** investidor, **quero** registrar operações de compra ou venda de ativos informando ticker, data, preço e taxas, **para** atualizar a custódia da carteira.
 
-### US 5.2: Comparador de Ativos
-**Como** investidor, **Quero** selecionar dois ou mais ativos ou benchmarks (ex: Meu Portfólio vs CDI vs IBOV) e plotar suas rentabilidades em um único gráfico, **Para** descobrir qual ativo entregou melhor performance no mesmo período.
+**Gap:** confirmar contratos e regras completas, inclusive taxas e cenários de erro. Testes existentes não foram executados nesta revisão.
+
+## US-INV-002 — Vencimentos
+
+**Como** investidor, **quero** que o sistema identifique investimentos que chegaram à data de término e atualize seu status, **para** refletir vencimento e retorno na carteira.
+
+**Gap:** data/projeção de vencimento aparece no domínio/UI; mudança automática de status e crédito de principal/juros não foram encontrados. O comportamento original permanece uma proposta, não capacidade confirmada.
+
+## US-TAX-001 — Apuração de lucro e prejuízo
+
+**Como** investidor, **quero** que o sistema calcule preço médio, lucro e prejuízo em operações de venda, **para** acompanhar a performance por ativo.
+
+**Gap:** há cálculo de custo médio e testes de domínio; fórmulas completas, casos negativos e execução dos testes não foram comprovados nesta revisão.
+
+## US-TAX-002 — Imposto de Renda
+
+**Como** investidor, **quero** que o sistema calcule ou estime Imposto de Renda sobre resultados, **para** compreender o impacto fiscal no lucro líquido.
+
+**Gap:** serviço de domínio isolado contém regras codificadas, mas sua integração com vendas não foi localizada. As regras precisam de critérios e fonte validados antes de serem requisito; este registro não é orientação fiscal.
+
+## US-PORT-001 — Histórico patrimonial
+
+**Como** investidor, **quero** visualizar evolução histórica do patrimônio e rentabilidade, **para** acompanhar a evolução da carteira.
+
+**Gap:** há gráfico e dados históricos em partes da interface, porém o endpoint de resumo consultado fornece pontos demonstrativos. Integração de uma série histórica persistida permanece pendente.
+
+## US-PORT-002 — Visualização e filtragem
+
+**Como** investidor, **quero** visualizar e filtrar ativos por classe, status ou instituição, **para** gerenciar recortes da carteira.
+
+**Gap:** endpoint consultado oferece tipo/subtipo/busca; status e instituição não estão expostos nesse contrato. Critérios e evidência executada: pendentes.
+
+## US-SIM-001 — Simulação de investimentos
+
+**Como** investidor, **quero** simular aportes futuros com valor, prazo e taxa, **para** projetar resultados antes de investir.
+
+**Gap:** estratégias determinística e Monte Carlo recebem taxa como entrada; integração com SELIC/CDI configurados e execução validada não foram comprovadas.
+
+## US-COMP-001 — Comparação de ativos
+
+**Como** investidor, **quero** comparar ativos ou benchmarks em um mesmo período, **para** avaliar seu desempenho relativo.
+
+**Gap:** a tela apresenta uma série fixa de carteira/Ibovespa/CDI; seleção de ativos, origem de dados integrada, normalização e validação permanecem pendentes.
+
+## Manutenção do catálogo
+
+Não reutilize IDs. Histórias extensas podem ter arquivo próprio em `docs/user-stories/`, criado somente quando necessário e sempre ligado daqui. Ao confirmar ou mudar uma história, registre ator, benefício, critérios verificáveis, contratos, evidências e gaps conforme [templates/user-stories-template.md](../templates/user-stories-template.md). Atualize o estado apenas com evidência compatível.

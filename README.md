@@ -94,6 +94,17 @@ The API is available locally at `http://localhost:5000` (or `https://localhost:5
 3. Run lint runners and check tests.
 4. Open a Pull Request.
 
+### Documentation and traceability
+
+For the documentation and implementation workflow, templates, and repository indices, see:
+
+- [Contribution workflow](./conductor/workflow.md)
+- [Documentation index](./docs/INDEX.md)
+- [User Stories catalog](./docs/USER-STORIES.md)
+- [Templates](./templates/README.md)
+
+Use the Issue → ADR → User Story → Plan → Implementation → Validation → PR flow where applicable. The workflow defines when an artifact can be N/A and how to record evidence and gaps.
+
 ---
 
 ## 📄 License
