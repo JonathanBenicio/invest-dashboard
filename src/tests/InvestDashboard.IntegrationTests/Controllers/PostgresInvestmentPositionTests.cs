@@ -14,14 +14,15 @@ public sealed class PostgresInvestmentPositionTests
     public async Task MigrationsAndPositionLedger_PersistBuyReplayAndSaleAcrossApiHosts()
     {
         var connectionString = Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!;
+        await using var database = await IsolatedPostgresDatabase.CreateAsync(connectionString);
         Guid portfolioId;
-        using (var factory = CustomWebApplicationFactory.CreatePostgres(connectionString))
+        using (var factory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString))
         using (var client = factory.CreateClient())
         {
             portfolioId = await InvestmentPositionFlowTests.ExecutePositionFlowAsync(client);
         }
 
-        using var restartedFactory = CustomWebApplicationFactory.CreatePostgres(connectionString);
+        using var restartedFactory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString);
         using var restartedClient = restartedFactory.CreateClient();
         restartedClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", FakeAuthProvider.GenerateJwt(FakeAuthProvider.TestEmail));

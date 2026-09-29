@@ -75,6 +75,8 @@ Foco em remover os mocks e usar o Backend.
 
 ## Próximos passos — estado em 29/09/2026
 
+O plano vigente para remover mocks de produto e fechar a integração frontend/backend está em [real-data-integration.md](real-data-integration.md). A CI de `df2bae7` falhou por migrations concorrentes no banco de testes. A correção preliminar isola PostgreSQL por teste e passou localmente; aguardar CI corretiva antes de homologação.
+
 - [x] Renomear o helper local e confirmar que os nomes legados não aparecem em `src/` e `frontend/src/`.
 - [x] Executar o fluxo de ledger contra PostgreSQL 15 em Compose efêmero: migrations, compra idempotente, venda parcial, sobre-venda, histórico incompleto e persistência entre hosts.
 - [x] Validar Compose: `/health/ready` retornou 200 e o proxy frontend → API retornou 401 sem token, conforme esperado; containers e volume temporários removidos.

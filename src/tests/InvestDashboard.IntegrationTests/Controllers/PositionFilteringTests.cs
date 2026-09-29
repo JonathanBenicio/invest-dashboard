@@ -22,7 +22,8 @@ public sealed class PositionFilteringTests
     public async Task CombinedFiltersAndPagination_ReturnExpectedPositions_Postgres()
     {
         var connectionString = Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!;
-        using var factory = CustomWebApplicationFactory.CreatePostgres(connectionString);
+        await using var database = await IsolatedPostgresDatabase.CreateAsync(connectionString);
+        using var factory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString);
         await AssertPositionFiltersAsync(factory);
     }
 
