@@ -21,6 +21,15 @@ public sealed class FakeRefreshTokenSessionRepository : IRefreshTokenSessionRepo
             new string('A', 64),
             now.AddMinutes(-1),
             now.AddDays(7));
+        _sessions[FakeAuthProvider.SecondTestSessionId] = new RefreshTokenSession(
+            FakeAuthProvider.SecondTestSessionId,
+            FakeAuthProvider.SecondTestUserId,
+            FakeAuthProvider.SecondTestEmail,
+            FakeAuthProvider.SecondTestName,
+            "user",
+            new string('B', 64),
+            now.AddMinutes(-1),
+            now.AddDays(7));
     }
 
     public Task<RefreshTokenSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)

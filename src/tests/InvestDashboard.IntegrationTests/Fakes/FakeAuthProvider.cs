@@ -19,6 +19,10 @@ public sealed class FakeAuthProvider : IAuthProvider
     public static readonly Guid TestSessionId = Guid.Parse("bbbbbbbb-cccc-dddd-eeee-ffffffff0001");
     public const string TestEmail = "test@investdashboard.com";
     public const string TestName = "Test User";
+    public static readonly Guid SecondTestUserId = Guid.Parse("cccccccc-dddd-eeee-ffff-aaaaaaaa0002");
+    public static readonly Guid SecondTestSessionId = Guid.Parse("dddddddd-eeee-ffff-aaaa-bbbbbbbb0002");
+    public const string SecondTestEmail = "other@investdashboard.com";
+    public const string SecondTestName = "Other Test User";
 
     private static readonly ConcurrentDictionary<string, (string Password, string Name)> Users = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -55,16 +59,24 @@ public sealed class FakeAuthProvider : IAuthProvider
     };
 
     public static string GenerateJwt(string email, int expiresInMinutes = 15)
+        => GenerateJwtForUser(TestUserId, TestSessionId, email, TestName, expiresInMinutes);
+
+    public static string GenerateJwtForUser(
+        Guid userId,
+        Guid sessionId,
+        string email,
+        string name,
+        int expiresInMinutes = 15)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestSecret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new[]
         {
-            new Claim("sub", TestUserId.ToString()),
+            new Claim("sub", userId.ToString()),
             new Claim("email", email),
-            new Claim("name", TestName),
+            new Claim("name", name),
             new Claim("role", "user"),
-            new Claim("sid", TestSessionId.ToString("N"))
+            new Claim("sid", sessionId.ToString("N"))
         };
 
         var token = new JwtSecurityToken(

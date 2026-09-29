@@ -96,13 +96,13 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 
 ### Próxima etapa de acompanhamento de posições
 
-1. Validar autenticação Supabase e isolamento entre usuários em homologação; confirmar operação sustentada de cotações Brapi, limites aplicáveis e indisponibilidade sem dado inventado. Uma consulta pública PETR4 sem token foi bem-sucedida; credenciais Supabase continuam ausentes.
+1. Adiada para a fase final por orientação do usuário: validar autenticação Supabase e comunicação sustentada com Brapi/outros serviços externos. A consulta pública Brapi e os contratos locais já foram verificados; não iniciar nova comunicação externa antes de concluir os demais testes locais.
 2. [x] Integrar o carregamento de posições com a API de cotações: exibir origem e horário da observação Brapi/SignalR; se o provedor não retornar preço, conservar o último valor persistido e avisar que está indisponível. CI local/remota do commit `df2bae7` validou essa etapa.
 3. [x] Cobrir filtros combinados de classe, subtipo, setor, status e busca, além de ordenação/paginação, com testes InMemory e PostgreSQL; CI do commit `a9ad5ac` passou.
 4. [x] Cobrir o contrato de importação até o PostgreSQL: compra de ação e renda fixa, replay idempotente, rejeição de linha inválida e persistência após reinício do host.
 5. [x] E2E Playwright sem MSW para importar CSV pela interface contra API/PostgreSQL reais; sessão de teste controlada e operações financeiras reais. Os quatro jobs passaram na CI de `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654).
 6. [x] Corrigir o lint padrão do frontend; `bun run lint` passa sem erros e mantém 10 avisos Fast Refresh em componentes existentes.
-7. Preparar homologação para validar autenticação Supabase e isolamento multiusuário, além de continuidade/limites de cotações Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
+7. Na fase final, validar homologação de autenticação Supabase e comunicação/limites de Brapi e demais serviços terceiros; só então avaliar deploy. Fluxo de caixa e proventos seguem fora desta etapa.
 
 ### Próximos passos de acompanhamento
 
@@ -116,7 +116,7 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 **Aceite:** nenhuma série financeira de demonstração permanece em componente frontend órfão e a aplicação compila e passa os E2E atuais.
 1. Validar parsing com extratos reais anonimizados de corretoras e documentar formatos aceitos; manter isso separado do contrato atual.
 2. [x] Corrigir o lint padrão do frontend; `bun run lint` passa sem erros e mantém 10 avisos Fast Refresh em componentes existentes.
-3. Preparar homologação para autenticação Supabase, isolamento multiusuário e continuidade/limites Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
+3. Fase final: após concluir as tarefas locais, validar autenticação Supabase e comunicação com Brapi e demais serviços externos; deploy depende dessa homologação.
 4. Manter a coleta e visualização do Tesouro Transparente na fase futura descrita em `real-data-integration.md`.
 
 
@@ -137,3 +137,10 @@ A documentação do [schema oficial Brapi](https://brapi.dev/docs/openapi) defin
 3. [x] Suíte .NET Release passou com 23 unitários e 28 integrações PostgreSQL, sem skips; o endpoint/UI já mantêm o último valor e indicam indisponibilidade quando a API não retorna observação válida.
 
 **Aceite:** nenhum preço sem horário de observação válido é apresentado como cotação atual. A validação Supabase ponta a ponta permanece pendente.
+### Cobertura de isolamento multiusuário (concluída)
+
+- [x] Adicionadas ao ambiente de teste uma segunda identidade e sessão JWT independentes.
+- [x] Cenário executado em InMemory e PostgreSQL isolado: usuário B não lista/lê carteira, resumo, histórico, posições ou transações de A; tentativa de registrar, reavaliar ou excluir dados alheios retorna NotFound e não altera os dados do proprietário.
+- [x] Suíte .NET Release completa: 23 unitários e 30 integrações PostgreSQL, sem skips.
+
+**Aceite:** isolamento de tenant provado com tokens de teste; autenticação e claims reais Supabase permanecem para a fase final de serviços terceiros.

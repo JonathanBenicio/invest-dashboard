@@ -2,11 +2,11 @@
 
 ## Escopo desta revisão
 
-Revisado em 29/09/2026. O commit `605bbc5` integrou análise real e importação CSV, e sua CI passou em backend/PostgreSQL, frontend e Docker smoke. A execução local em Release passou em 21 testes unitários e 28 testes de integração PostgreSQL, sem skips. Os 5 E2E existentes usam MSW; um E2E sem MSW validou localmente a importação contra API/PostgreSQL, controlando apenas a sessão. A correção do lint e tipagem MSW passou localmente e os quatro jobs do commit `919e79a` passaram na CI (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36546811301). O client Brapi agora exige horário do mercado válido; consulta pública PETR4 sem token respondeu com timestamp. Validação Supabase e operação Brapi sustentada em homologação continuam pendentes. O lint conclui sem erros e mantém 10 avisos de Fast Refresh. Fluxo de caixa/proventos continuam adiados.
+Revisado em 29/09/2026. O commit `605bbc5` integrou análise real e importação CSV, e sua CI passou em backend/PostgreSQL, frontend e Docker smoke. A execução local em Release passou em 23 testes unitários e 30 testes de integração PostgreSQL, sem skips, incluindo proteção de timestamp Brapi e isolamento de carteira/posição entre duas identidades. Os 5 E2E existentes usam MSW; um E2E sem MSW validou importação contra API/PostgreSQL, controlando apenas sessão. Os quatro jobs do commit `919e79a` passaram na CI (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36546811301). Nova validação de Supabase, Brapi e terceiros foi adiada para a fase final a pedido do usuário. Lint sem erros, com 10 avisos Fast Refresh. Fluxo de caixa/proventos continuam adiados.
 
 | ID estável | História | Estado observado no código | Evidência e gap principal |
 |---|---|---|---|
-| US-AUTH-001 | Autenticação segura | Implementada; testes de API passaram | JWT próprio de curta duração e refresh rotativo com cookie HttpOnly; testes de controller usam provedor de identidade fake. SSO e validação de ponta a ponta com Supabase/PostgreSQL continuam pendentes. |
+| US-AUTH-001 | Autenticação segura | JWT/autorização cobertos; Supabase real pendente | JWT próprio curto e refresh rotativo; testes de API usam provedor fake. Teste InMemory/PostgreSQL com dois usuários prova que carteira/posições não atravessam tenants. Falta login/claims reais Supabase e validação de homologação, reservados à fase final de terceiros. |
 | US-CONFIG-001 | Indicadores e taxas | Parcial; não validada | [TaxasController](../src/InvestDashboard.WebAPI/Controllers/TaxasController.cs), [modelo de taxa](../src/InvestDashboard.Domain/Aggregates/MarketData/TaxaEconomica.cs), [tela de taxas](../frontend/src/pages/tools/Taxas.tsx). CRUD genérico existe; atualização automática e uso integrado em projeções/cálculos não foram comprovados. |
 | US-INV-001 | Compra e venda | Implementada; fluxo validado em InMemory e PostgreSQL | Teste integrado cobre compra idempotente, venda parcial, excesso de unidades e historico incompleto. O mesmo fluxo passou contra PostgreSQL 15 local e na CI, incluindo persistência entre hosts de API. |
 | US-INV-002 | Vencimentos | Parcial; a transição descrita não foi evidenciada | [RendaFixa](../src/InvestDashboard.Domain/Aggregates/MarketData/RendaFixa.cs) armazena data de vencimento e a UI mostra projeções. Não localizei transição automática de estado para “Vencido” nem liquidação do principal/juros. |
@@ -22,7 +22,7 @@ Revisado em 29/09/2026. O commit `605bbc5` integrou análise real e importação
 
 **Como** investidor, **quero** realizar login seguro via e-mail/senha ou SSO, **para** acessar meus dados financeiros com privacidade.
 
-**Gap:** SSO não faz parte da entrega atual; integração real com Supabase e isolamento contra PostgreSQL ainda precisam de validação em ambiente configurado.
+**Gap:** Teste multiusuário confirma isolamento de carteira/posição em InMemory e PostgreSQL. Login real, refresh e claims Supabase seguem pendentes para a etapa final de integração com terceiros.
 
 ## US-CONFIG-001 — Indicadores e taxas
 
