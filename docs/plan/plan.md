@@ -141,6 +141,6 @@ A documentação do [schema oficial Brapi](https://brapi.dev/docs/openapi) defin
 
 - [x] Adicionadas ao ambiente de teste uma segunda identidade e sessão JWT independentes.
 - [x] Cenário executado em InMemory e PostgreSQL isolado: usuário B não lista/lê carteira, resumo, histórico, posições ou transações de A; tentativa de registrar, reavaliar ou excluir dados alheios retorna NotFound e não altera os dados do proprietário.
-- [x] Suíte .NET Release completa: 23 unitários e 30 integrações PostgreSQL, sem skips.
+- [x] Suíte .NET Release completa: 23 unitários e 30 integrações PostgreSQL, sem skips. Os quatro jobs da CI de `1a4215a` passaram (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36549005452).
 
 **Aceite:** isolamento de tenant provado com tokens de teste; autenticação e claims reais Supabase permanecem para a fase final de serviços terceiros.

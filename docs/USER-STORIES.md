@@ -2,7 +2,7 @@
 
 ## Escopo desta revisão
 
-Revisado em 29/09/2026. O commit `605bbc5` integrou análise real e importação CSV, e sua CI passou em backend/PostgreSQL, frontend e Docker smoke. A execução local em Release passou em 23 testes unitários e 30 testes de integração PostgreSQL, sem skips, incluindo proteção de timestamp Brapi e isolamento de carteira/posição entre duas identidades. Os 5 E2E existentes usam MSW; um E2E sem MSW validou importação contra API/PostgreSQL, controlando apenas sessão. Os quatro jobs do commit `919e79a` passaram na CI (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36546811301). Nova validação de Supabase, Brapi e terceiros foi adiada para a fase final a pedido do usuário. Lint sem erros, com 10 avisos Fast Refresh. Fluxo de caixa/proventos continuam adiados.
+Revisado em 29/09/2026. O commit `605bbc5` integrou análise real e importação CSV, e sua CI passou em backend/PostgreSQL, frontend e Docker smoke. A execução local em Release passou em 23 testes unitários e 30 de integração PostgreSQL, sem skips, incluindo verificação temporal de cotações e isolamento de carteira/posição entre duas identidades. Os 5 E2E existentes usam MSW; um E2E sem MSW validou a importação contra API/PostgreSQL, controlando apenas a sessão. Os quatro jobs passaram na CI de `1a4215a` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36549005452). A comunicação com Supabase/Brapi/terceiros foi deixada para a fase final por orientação do usuário. Lint sem erros, 10 avisos de Fast Refresh. Fluxo de caixa/proventos continuam adiados.
 
 | ID estável | História | Estado observado no código | Evidência e gap principal |
 |---|---|---|---|
