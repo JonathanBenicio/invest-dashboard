@@ -1,96 +1,104 @@
 import { create } from 'zustand'
-import { api } from '@/api/client'
-import { supabase } from '@/lib/supabase'
-import type { UserDto } from '@/api/dtos'
+import { authService } from '@/api/services/auth.service'
+import type { AuthenticatedUserDto, AuthSessionDto, LoginRequest, RegisterRequest } from '@/api/dtos'
+import { queryClient } from '@/lib/query-client'
 
 interface AuthState {
-  user: UserDto | null
+  user: AuthenticatedUserDto | null
+  accessToken: string | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (credentials: any) => Promise<void>
+  login: (credentials: LoginRequest) => Promise<AuthSessionDto>
+  register: (request: RegisterRequest) => Promise<AuthSessionDto>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
+  clearSession: () => void
+  setAccessToken: (token: string | null) => void
   hasPermission: (permission: 'view' | 'edit' | 'admin') => boolean
+}
+
+function storeSession(
+  session: AuthSessionDto,
+  set: (partial: Partial<AuthState>) => void,
+  currentUser: AuthenticatedUserDto | null,
+) {
+  if (currentUser?.id !== session.user.id) queryClient.clear()
+  set({
+    user: session.user,
+    accessToken: session.accessToken,
+    isAuthenticated: true,
+    isLoading: false,
+  })
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
+  accessToken: null,
   isAuthenticated: false,
   isLoading: true,
+
+  setAccessToken: (accessToken) => set({ accessToken }),
+
+  clearSession: () => {
+    queryClient.clear()
+    set({ user: null, accessToken: null, isAuthenticated: false, isLoading: false })
+  },
 
   login: async (credentials) => {
     set({ isLoading: true })
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-      })
-
-      if (error) throw error
-
-      const user = data.user
-      if (!user) throw new Error('User not found')
-
-      const userDto: UserDto = {
-        id: user.id,
-        email: user.email || '',
-        name: user.user_metadata.full_name || '',
-        role: 'user', // Default role
-      }
-
-      set({ user: userDto, isAuthenticated: true, isLoading: false })
+      const session = (await authService.login(credentials)).data
+      if (!session?.accessToken) throw new Error('Login response did not include an access token.')
+      storeSession(session, set, get().user)
+      return session
     } catch (error) {
-      set({ isLoading: false })
+      get().clearSession()
+      throw error
+    }
+  },
+
+  register: async (request) => {
+    set({ isLoading: true })
+    try {
+      const session = (await authService.register(request)).data
+      if (!session) throw new Error('Registration response is invalid.')
+      if (session.requiresEmailConfirmation || !session.accessToken) {
+        get().clearSession()
+        return session
+      }
+      storeSession(session, set, get().user)
+      return session
+    } catch (error) {
+      get().clearSession()
       throw error
     }
   },
 
   logout: async () => {
     try {
-      await supabase.auth.signOut()
+      await authService.logout()
     } catch (error) {
-      console.error('Logout failed', error)
+      console.error('Logout request failed.', error)
     } finally {
-      // Always clear local state
-      set({ user: null, isAuthenticated: false })
+      get().clearSession()
     }
   },
 
   checkAuth: async () => {
     set({ isLoading: true })
     try {
-      const { data, error } = await supabase.auth.getUser()
-      if (error) throw error
-
-      const user = data.user
-      if (!user) throw new Error('User not found')
-
-      const userDto: UserDto = {
-        id: user.id,
-        email: user.email || '',
-        name: user.user_metadata.full_name || '',
-        role: 'user', // Default role
-      }
-
-      set({ user: userDto, isAuthenticated: true, isLoading: false })
-    } catch (error) {
-      set({ user: null, isAuthenticated: false, isLoading: false })
+      const session = (await authService.refresh()).data
+      if (!session?.accessToken) throw new Error('Refresh response did not include an access token.')
+      storeSession(session, set, get().user)
+    } catch {
+      get().clearSession()
     }
   },
 
-  hasPermission: (requiredRole) => {
-    const { user } = get()
-    if (!user) return false
-
-    const role = user.role as string
-
-    // Admin has all permissions
-    if (role === 'admin') return true
-
-    // Edit has edit and view permissions
-    if (requiredRole === 'edit' && role === 'edit') return true
-    if (requiredRole === 'view' && (role === 'edit' || role === 'view' || role === 'user')) return true
-
-    return false
+  hasPermission: (permission) => {
+    const role = get().user?.role
+    if (!role) return false
+    if (permission === 'admin') return role === 'admin'
+    return permission === 'view' || role === 'admin' || role === 'user'
   },
 }))

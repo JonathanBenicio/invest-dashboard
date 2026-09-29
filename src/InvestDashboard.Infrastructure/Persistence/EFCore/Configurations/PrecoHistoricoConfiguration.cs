@@ -27,6 +27,17 @@ public class PrecoHistoricoConfiguration : IEntityTypeConfiguration<PrecoHistori
             .HasColumnName("date")
             .IsRequired();
 
+        builder.Property(hp => hp.Source)
+            .HasColumnName("source")
+            .HasMaxLength(20)
+            .HasDefaultValue("legacy")
+            .IsRequired();
+
+        builder.Property(hp => hp.IsAdjusted)
+            .HasColumnName("is_adjusted")
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.HasIndex(hp => new { hp.AtivoId, hp.Date })
             .HasDatabaseName("idx_historical_prices_asset_date");
 

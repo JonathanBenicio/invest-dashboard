@@ -11,6 +11,8 @@ export type {
 export type {
   LoginRequest,
   RegisterRequest,
+  AuthenticatedUserDto,
+  AuthSessionDto,
   UserDto,
   AuthResponse,
   TokenResponse,
@@ -52,6 +54,8 @@ export type {
   BrapiHistoricalData,
   BrapiHistoricalResponse,
 } from './brapi.dto'
+
+export type { MarketQuoteDto, MarketSearchResultDto, MarketHistoryPointDto } from './market-data.dto'
 
 // Taxes DTOs
 export type {

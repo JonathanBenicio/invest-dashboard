@@ -1,169 +1,111 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
+using InvestDashboard.Application.Interfaces;
+using InvestDashboard.Domain.Aggregates.MarketData;
+using InvestDashboard.Domain.Repository;
+using InvestDashboard.Infrastructure.Realtime.SignalR;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using InvestDashboard.Domain.Repository;
-using InvestDashboard.Application.Interfaces;
-using InvestDashboard.Infrastructure.Persistence;
-using InvestDashboard.Infrastructure.Realtime.SignalR;
 
-namespace InvestDashboard.Infrastructure.BackgroundWorkers
+namespace InvestDashboard.Infrastructure.BackgroundWorkers;
+
+public sealed class AtualizadorDadosMercadoWorker(
+    IServiceScopeFactory scopeFactory,
+    IHubContext<DadosMercadoHub> hubContext,
+    IConfiguration configuration,
+    IMarketDataProvider marketData,
+    ILogger<AtualizadorDadosMercadoWorker> logger) : BackgroundService
 {
-    public class AtualizadorDadosMercadoWorker : BackgroundService
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        private readonly IServiceScopeFactory _scopeFactory;
-        private readonly IHubContext<DadosMercadoHub> _hubContext;
-        private readonly IConfiguration _configuration;
-        private readonly HttpClient _httpClient;
-        private readonly ILogger<AtualizadorDadosMercadoWorker> _logger;
-        private readonly Random _random = new();
+        var intervalSeconds = Math.Clamp(configuration.GetValue("MarketData:IntervalSeconds", 60), 30, 3600);
+        logger.LogInformation("Market quote worker started. Polling interval: {IntervalSeconds} seconds.", intervalSeconds);
 
-        public AtualizadorDadosMercadoWorker(
-            IServiceScopeFactory scopeFactory,
-            IHubContext<DadosMercadoHub> hubContext,
-            IConfiguration configuration,
-            HttpClient httpClient,
-            ILogger<AtualizadorDadosMercadoWorker> logger)
+        while (!stoppingToken.IsCancellationRequested)
         {
-            _scopeFactory = scopeFactory;
-            _hubContext = hubContext;
-            _configuration = configuration;
-            _httpClient = httpClient;
-            _logger = logger;
-        }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            var intervalSeconds = _configuration.GetValue<int>("MarketData:IntervalSeconds", 10);
-            if (intervalSeconds <= 0) intervalSeconds = 10;
-
-            _logger.LogInformation("AtualizadorDadosMercadoWorker started with interval: {Interval} seconds", intervalSeconds);
-
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    await UpdateMarketDataAsync(stoppingToken);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error occurred in AtualizadorDadosMercadoWorker during cotação update.");
-                }
-
-                await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken);
-            }
-        }
-
-        private async Task UpdateMarketDataAsync(CancellationToken cancellationToken)
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var assetRepository = scope.ServiceProvider.GetRequiredService<IAtivoRepository>();
-            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-
-            var assets = await assetRepository.GetAllAsync(cancellationToken);
-            if (!assets.Any())
-            {
-                _logger.LogInformation("No tracked assets found in local database to update.");
-                return;
-            }
-
-            var useBrapi = _configuration.GetValue<bool>("MarketData:UseBrapi", false);
-            var brapiToken = _configuration["MarketData:BrapiToken"];
-
-            Dictionary<string, decimal> newPrices = new(StringComparer.OrdinalIgnoreCase);
-
-            if (useBrapi && !string.IsNullOrEmpty(brapiToken))
-            {
-                _logger.LogInformation("Updating cotações using Brapi API for {Count} assets.", assets.Count);
-                newPrices = await FetchPricesFromBrapiAsync(assets.Select(a => a.Ticker), brapiToken, cancellationToken);
-            }
-
-            // Fallback or default simulation if Brapi is off or failed to return prices
-            foreach (var asset in assets)
-            {
-                decimal updatedPrice;
-                if (newPrices.TryGetValue(asset.Ticker, out var price))
-                {
-                    updatedPrice = price;
-                }
-                else
-                {
-                    // Random Walk simulation (default flutuação)
-                    var changePercent = (_random.NextDouble() - 0.49) * 0.02; // slight upward bias
-                    updatedPrice = asset.CurrentPrice * (1.0m + (decimal)changePercent);
-                    if (updatedPrice < 0.01m) updatedPrice = 0.01m; // Price cannot drop below 1 cent
-                }
-
-                asset.UpdatePrice(updatedPrice, DateTime.UtcNow);
-                assetRepository.Update(asset);
-
-                // Broadcast to SignalR client group subscribed to this ticker
-                await _hubContext.Clients.Group(asset.Ticker).SendAsync("OnPriceUpdate", new
-                {
-                    ticker = asset.Ticker,
-                    price = Math.Round(updatedPrice, 2),
-                    updatedAt = DateTime.UtcNow
-                }, cancellationToken);
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Cotações successfully updated and broadcasted.");
-        }
-
-        private async Task<Dictionary<string, decimal>> FetchPricesFromBrapiAsync(
-            IEnumerable<string> tickers, 
-            string token, 
-            CancellationToken cancellationToken)
-        {
-            var results = new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase);
             try
             {
-                // Join tickers comma separated
-                var tickerList = string.Join(",", tickers.Select(Uri.EscapeDataString));
-                var url = $"https://brapi.dev/api/quote/{tickerList}?token={token}";
-
-                var response = await _httpClient.GetFromJsonAsync<BrapiResponse>(url, cancellationToken);
-                if (response?.Results != null)
-                {
-                    foreach (var item in response.Results)
-                    {
-                        if (!string.IsNullOrEmpty(item.Symbol) && item.RegularMarketPrice.HasValue)
-                        {
-                            results[item.Symbol.ToUpperInvariant()] = item.RegularMarketPrice.Value;
-                        }
-                    }
-                }
+                await UpdateMarketDataAsync(stoppingToken);
             }
-            catch (Exception ex)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                _logger.LogError(ex, "Failed to fetch prices from Brapi. Falling back to Random Walk simulation.");
+                throw;
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(exception, "Market data update failed; the last stored prices were kept.");
             }
 
-            return results;
+            await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken);
         }
+    }
 
-        private class BrapiResponse
+    private async Task UpdateMarketDataAsync(CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var assetsRepository = scope.ServiceProvider.GetRequiredService<IAtivoRepository>();
+        var pricesRepository = scope.ServiceProvider.GetRequiredService<IPrecoHistoricoRepository>();
+        var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var assets = await assetsRepository.GetAllAsync(cancellationToken);
+        var marketAssets = assets.Where(asset => asset.TipoAtivo != TipoAtivo.RendaFixa).ToList();
+        if (marketAssets.Count == 0) return;
+
+        var quotes = await marketData.GetQuotesAsync(
+            marketAssets.Select(asset => asset.Ticker).ToArray(),
+            cancellationToken);
+        var quotesBySymbol = quotes.ToDictionary(quote => quote.Symbol, StringComparer.OrdinalIgnoreCase);
+        var nowUtc = DateTime.UtcNow;
+        var pricesAlreadyStored = await pricesRepository.GetByAtivoIdsAsync(
+            marketAssets.Select(asset => asset.Id).ToArray(),
+            nowUtc.AddDays(-30).Date,
+            cancellationToken);
+        var historicalDays = pricesAlreadyStored
+            .Select(price => (price.AtivoId, DateOnly.FromDateTime(price.Date)))
+            .ToHashSet();
+        var priceUpdates = new List<(string Ticker, decimal Price, DateTime UpdatedAt)>();
+
+        foreach (var asset in marketAssets)
         {
-            [JsonPropertyName("results")]
-            public List<BrapiResult> Results { get; set; } = new();
+            if (!quotesBySymbol.TryGetValue(asset.Ticker, out var quote) || quote.Price <= 0)
+            {
+                logger.LogInformation("No valid quote was returned for {Ticker}; retaining its last price.", asset.Ticker);
+                continue;
+            }
+            if (quote.ObservedAtUtc > nowUtc.AddMinutes(5))
+            {
+                logger.LogWarning("The provider returned a future observation for {Ticker}; ignoring it.", asset.Ticker);
+                continue;
+            }
+            if (quote.ObservedAtUtc <= asset.LastUpdatedUtc)
+                continue;
+
+            asset.UpdatePrice(quote.Price, quote.ObservedAtUtc);
+            assetsRepository.Update(asset);
+            var observationDate = DateOnly.FromDateTime(quote.ObservedAtUtc);
+            if (historicalDays.Add((asset.Id, observationDate)))
+            {
+                await pricesRepository.AddAsync(new PrecoHistorico(
+                    Guid.NewGuid(),
+                    asset.Id,
+                    quote.Price,
+                    quote.ObservedAtUtc,
+                    "brapi"));
+            }
+            priceUpdates.Add((asset.Ticker, quote.Price, quote.ObservedAtUtc));
         }
 
-        private class BrapiResult
+        if (priceUpdates.Count == 0) return;
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        foreach (var update in priceUpdates)
         {
-            [JsonPropertyName("symbol")]
-            public string Symbol { get; set; } = string.Empty;
-
-            [JsonPropertyName("regularMarketPrice")]
-            public decimal? RegularMarketPrice { get; set; }
+            await hubContext.Clients.Group(update.Ticker).SendAsync(
+                "OnPriceUpdate",
+                new { ticker = update.Ticker, price = decimal.Round(update.Price, 4), updatedAt = update.UpdatedAt },
+                cancellationToken);
         }
+
+        logger.LogInformation("Stored and broadcast {QuoteCount} real market quotes.", priceUpdates.Count);
     }
 }

@@ -27,6 +27,12 @@ public class AtivoConfiguration : IEntityTypeConfiguration<Ativo>
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(a => a.Subtype)
+            .HasColumnName("subtype")
+            .HasMaxLength(20)
+            .HasDefaultValue("OUTRO")
+            .IsRequired();
+
         builder.Property(a => a.TipoAtivo)
             .HasColumnName("asset_type")
             .HasConversion<string>()

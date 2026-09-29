@@ -1,7 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
+using InvestDashboard.WebAPI.Health;
+using System.Threading.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using InvestDashboard.Infrastructure.Persistence.EFCore;
 using InvestDashboard.Infrastructure.Persistence;
@@ -12,6 +16,7 @@ using InvestDashboard.Infrastructure.Services;
 using InvestDashboard.Application.Services;
 using InvestDashboard.Infrastructure.Realtime.SignalR;
 using InvestDashboard.Infrastructure.BackgroundWorkers;
+using InvestDashboard.WebAPI.Services;
 using InvestDashboard.WebAPI.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,6 +41,52 @@ builder.Services.AddScoped<ITaxaEconomicaRepository, TaxaEconomicaRepository>();
 builder.Services.AddScoped<ICarteiraAppService, CarteiraAppService>();
 builder.Services.AddScoped<ITransacaoAppService, TransacaoAppService>();
 builder.Services.AddScoped<ITaxasAppService, TaxasAppService>();
+builder.Services.AddScoped<IAuthProvider, SupabaseAuthProvider>();
+builder.Services.AddHttpClient<IMarketDataProvider, BrapiMarketDataClient>(client =>
+    client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddScoped<IAuthenticationAppService, AuthenticationAppService>();
+builder.Services.AddScoped<IRefreshTokenSessionRepository, RefreshTokenSessionRepository>();
+builder.Services.AddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
+builder.Services.AddSingleton<IAuthRoleProvider, ConfigurationAuthRoleProvider>();
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+
+// CORS configuration
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DefaultCors", policy =>
+    {
+        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ??
+        [
+            "http://localhost:5000",
+            "http://localhost:5173",
+            "http://localhost:8080",
+            "capacitor://localhost",
+            "http://localhost"
+        ];
+
+        policy.WithOrigins(origins)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("authentication", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 30,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
+});
+
+builder.Services.AddHealthChecks()
+    .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 
 // HttpContext and Identity services
 builder.Services.AddHttpContextAccessor();
@@ -45,9 +96,19 @@ builder.Services.AddScoped<IUsuarioAtualService, UsuarioAtualService>();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
 
-// Configure JWT Authentication (Supabase Auth Integration)
+// The API issues its own short-lived access tokens after validating credentials with Supabase.
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secret = jwtSettings["Secret"] ?? "default_very_long_fallback_secret_for_security_compliance";
+var secret = jwtSettings["Secret"];
+if (string.IsNullOrWhiteSpace(secret) || Encoding.UTF8.GetByteCount(secret) < 32)
+{
+    if (!builder.Environment.IsEnvironment("Testing"))
+        throw new InvalidOperationException("Jwt:Secret must be configured with at least 32 bytes.");
+
+    secret = "test-only-key-for-integration-tests-00000000000000000000000000000000";
+}
+
+if (string.IsNullOrWhiteSpace(jwtSettings["Issuer"]) || string.IsNullOrWhiteSpace(jwtSettings["Audience"]))
+    throw new InvalidOperationException("Jwt:Issuer and Jwt:Audience must be configured.");
 
 builder.Services.AddAuthentication(options =>
 {
@@ -64,24 +125,53 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtSettings["Audience"],
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
+        NameClaimType = "name",
+        RoleClaimType = "role",
+        ClockSkew = TimeSpan.FromSeconds(30)
     };
+    options.MapInboundClaims = false;
 
     // Configure token extraction for SignalR WebSocket connections
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
-            var accessToken = context.Request.Query["access_token"];
+            var authorization = context.Request.Headers.Authorization.ToString();
+            if (authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Token = authorization["Bearer ".Length..].Trim();
+                return Task.CompletedTask;
+            }
 
-            // If the request is for our SignalR Hub...
+            var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
             if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/market-data"))
             {
-                // Assign token to context so JwtBearer middleware can validate it
                 context.Token = accessToken;
             }
             return Task.CompletedTask;
+        },
+        OnTokenValidated = async context =>
+        {
+            var sessionClaim = context.Principal?.FindFirst("sid")?.Value;
+            if (!Guid.TryParseExact(sessionClaim, "N", out var sessionId))
+            {
+                context.Fail("Access token is missing a valid session.");
+                return;
+            }
+
+            var userClaim = context.Principal?.FindFirst("sub")?.Value
+                ?? context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!Guid.TryParse(userClaim, out var userId))
+            {
+                context.Fail("Access token is missing a valid user.");
+                return;
+            }
+
+            var sessionRepository = context.HttpContext.RequestServices.GetRequiredService<IRefreshTokenSessionRepository>();
+            if (!await sessionRepository.IsActiveAsync(sessionId, userId, DateTime.UtcNow, context.HttpContext.RequestAborted))
+                context.Fail("Access token session is no longer active.");
         }
     };
 });
@@ -113,10 +203,21 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseHttpsRedirection();
 
+app.UseCors("DefaultCors");
+app.UseRateLimiter();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = _ => false
+});
+app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready")
+});
 
 // Map SignalR Realtime Hubs
 app.MapHub<DadosMercadoHub>("/hubs/market-data");
@@ -127,7 +228,18 @@ app.Run();
 
 static void ApplyMigrations(WebApplication app)
 {
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
-    db.Database.Migrate();
+    // Skip relational migrations in test environments (InMemory provider)
+    if (app.Environment.IsEnvironment("Testing"))
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+        db.Database.EnsureCreated();
+        return;
+    }
+
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+        db.Database.Migrate();
+    }
 }

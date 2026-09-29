@@ -6,6 +6,7 @@
 import { api } from '../client'
 import type {
   PosicaoInvestimentoDto,
+  PrecoHistoricoDto,
   RendaFixaDto,
   RendaVariavelDto,
   CriarRendaFixaRequest,
@@ -13,6 +14,7 @@ import type {
   AtualizarInvestimentoRequest,
   InvestimentoFiltros,
   ResumoInvestimentoDto,
+  ProventoDto,
   ApiResponse,
   PaginatedResponse,
 } from '../dtos'
@@ -41,14 +43,17 @@ export const investmentService = {
   /**
    * Get dividends history
    */
-  getDividends: (): Promise<PaginatedResponse<any>> =>
+  getDividends: (): Promise<PaginatedResponse<ProventoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.DIVIDENDS),
 
   /**
    * Get investment transactions
    */
-  getTransactions: (id: string): Promise<PaginatedResponse<any>> =>
+  getTransactions: (id: string): Promise<PaginatedResponse<import('@/api/dtos').TransacaoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.TRANSACTIONS(id)),
+
+  getPriceHistory: (id: string, fromDate?: string): Promise<ApiResponse<PrecoHistoricoDto[]>> =>
+    api.get(`/investments/${id}/history`, { params: fromDate ? { fromDate } : undefined }),
 
   /**
    * Get investments by portfolio
@@ -84,7 +89,7 @@ export const investmentService = {
    * Update an existing investment
    */
   update: (id: string, data: AtualizarInvestimentoRequest): Promise<ApiResponse<PosicaoInvestimentoDto>> =>
-    api.patch(INVESTMENT_ENDPOINTS.DETAIL(id), data),
+    api.post(`/investments/${id}/valuations`, data),
 
   /**
    * Delete an investment

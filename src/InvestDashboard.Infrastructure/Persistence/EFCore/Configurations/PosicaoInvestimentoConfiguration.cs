@@ -54,13 +54,16 @@ public class PosicaoInvestimentoConfiguration : IEntityTypeConfiguration<Posicao
             .HasColumnType("numeric(18,4)")
             .IsRequired();
 
+        builder.Property(ap => ap.PurchaseDateUtc)
+            .HasColumnName("purchase_date_utc");
+
         builder.HasIndex(ap => ap.CarteiraId)
             .HasDatabaseName("idx_asset_positions_portfolio_id");
 
         builder.HasIndex(ap => ap.AtivoId)
             .HasDatabaseName("idx_asset_positions_asset_id");
 
-        builder.HasOne<Ativo>()
+        builder.HasOne(ap => ap.Ativo)
             .WithMany()
             .HasForeignKey(ap => ap.AtivoId)
             .OnDelete(DeleteBehavior.Restrict);

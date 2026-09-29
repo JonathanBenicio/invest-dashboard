@@ -6,8 +6,8 @@ public class Acao : Ativo
 {
     public string Sector { get; private set; }
 
-    public Acao(Guid id, string ticker, string name, decimal currentPrice, DateTime lastUpdatedUtc, string sector)
-        : base(id, ticker, name, TipoAtivo.Acao, currentPrice, lastUpdatedUtc)
+    public Acao(Guid id, string ticker, string name, decimal currentPrice, DateTime lastUpdatedUtc, string sector, string subtype = "ACAO")
+        : base(id, ticker, name, TipoAtivo.Acao, currentPrice, lastUpdatedUtc, subtype)
     {
         if (string.IsNullOrWhiteSpace(sector))
             throw new ArgumentException("Sector cannot be null or empty", nameof(sector));

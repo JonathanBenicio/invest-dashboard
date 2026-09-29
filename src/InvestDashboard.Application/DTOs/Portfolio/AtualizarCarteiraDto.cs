@@ -1,9 +1,12 @@
-namespace InvestDashboard.Application.DTOs.Portfolio
+using System.ComponentModel.DataAnnotations;
+
+namespace InvestDashboard.Application.DTOs.Portfolio;
+
+public sealed class AtualizarCarteiraDto
 {
-    public class AtualizarCarteiraDto
-    {
-        public string? Name { get; set; }
-        public string? Description { get; set; }
-        public bool? IsActive { get; set; }
-    }
+    [StringLength(100, MinimumLength = 1)]
+    public string? Name { get; set; }
+
+    [StringLength(500)]
+    public string? Description { get; set; }
 }

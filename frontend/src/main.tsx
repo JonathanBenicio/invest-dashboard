@@ -1,23 +1,11 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import App from "./App.tsx"
 import "./index.css"
 import { Capacitor } from '@capacitor/core'
 import { StatusBar, Style } from '@capacitor/status-bar'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { defineCustomElements } from '@ionic/pwa-elements/loader'
-
-// Create QueryClient instance
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 1,
-      refetchOnWindowFocus: false,
-    },
-  },
-})
 
 // Initialize Capacitor plugins
 async function initCapacitor() {
@@ -42,13 +30,9 @@ export async function enableMocking() {
   const useByFlag = import.meta.env.VITE_USE_MSW === 'true'
   const useByDev = import.meta.env.DEV
 
-  // ✅ Web dev: ON (sempre em DEV)
-  // ✅ Web prod com flag: ON (GitHub Pages com VITE_USE_MSW=true)
-  // ✅ Android nativo com flag: ON
-  // ❌ iOS: OFF (evita falha de SW no empacotado)
-  const shouldUseMSW =
-    (platform === 'web' && (useByDev || useByFlag)) ||
-    (platform === 'android' && useByFlag)
+  // ✅ MSW is disabled by default in development and production.
+  // ✅ It will only activate when explicitly enabled via VITE_USE_MSW=true.
+  const shouldUseMSW = useByFlag
 
   console.log('[MSW] Configuration:', {
     platform,
@@ -140,9 +124,7 @@ async function startApp() {
 
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
+      <App />
     </StrictMode>
   )
 }

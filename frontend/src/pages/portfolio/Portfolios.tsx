@@ -1,496 +1,226 @@
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Plus,
-  Wallet,
-  User,
-  MoreHorizontal,
-  Eye,
-  Pencil,
-  Trash2,
-  TrendingUp,
-  Briefcase
-} from "lucide-react"
-import { useNavigate } from "@tanstack/react-router"
-import { useToast } from "@/hooks/use-toast"
-import { mockBanks, mockUsers } from "@/lib/mock-data"
-import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
-import { EditPortfolioDialog } from "@/components/dialogs/EditPortfolioDialog"
-import { usePortfolios } from "@/hooks/use-portfolios"
-import { portfolioService } from "@/api/services/portfolio.service"
-import type { CarteiraDto } from "@/api/dtos"
-import { useAuthStore } from "@/store/authStore"
+import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { MoreHorizontal, Plus, Wallet } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DeleteConfirmDialog } from '@/components/dialogs/DeleteConfirmDialog'
+import { EditPortfolioDialog } from '@/components/dialogs/EditPortfolioDialog'
+import { useToast } from '@/hooks/use-toast'
+import { usePortfolios } from '@/hooks/use-portfolios'
+import { portfolioService } from '@/api/services/portfolio.service'
+import { formatCurrency } from '@/lib/utils'
+import type { AtualizarCarteiraRequest, CarteiraDto } from '@/api/dtos'
 
-const Portfolios = () => {
+const PAGE_SIZE = 10
+
+export default function Portfolios() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { hasPermission } = useAuthStore()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    bankId: "",
-    userId: "",
-    description: "",
-  })
+  const [page, setPage] = useState(1)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [editing, setEditing] = useState<CarteiraDto | null>(null)
+  const [deleting, setDeleting] = useState<CarteiraDto | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const { data: portfoliosResponse, isLoading, refetch } = usePortfolios()
-  const portfolios = portfoliosResponse?.data || []
+  const { data, isLoading, isError, refetch } = usePortfolios({ page, pageSize: PAGE_SIZE })
+  const portfolios = data?.data ?? []
+  const totalValue = portfolios.reduce((sum, portfolio) => sum + portfolio.totalValue, 0)
+  const totalInvested = portfolios.reduce((sum, portfolio) => sum + portfolio.totalInvested, 0)
+  const totalGain = portfolios.reduce((sum, portfolio) => sum + portfolio.totalGain, 0)
+  const totalCount = data?.pagination.totalCount ?? 0
+  const pageCount = data?.pagination.totalPages ?? 0
 
-  // Edit/Delete state
-  const [editingPortfolio, setEditingPortfolio] = useState<CarteiraDto | null>(null)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [deletingPortfolio, setDeletingPortfolio] = useState<CarteiraDto | null>(null)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const bank = mockBanks.find(b => b.id === formData.bankId)
-    const user = mockUsers.find(u => u.id === formData.userId)
-
-    // Using CreatePortfolioRequest structure but adding extra fields for Mock to simulate rich data
-    const newPortfolioData: any = {
-      name: formData.name,
-      description: formData.description,
-      // Extra fields for mock UI
-      bankId: formData.bankId,
-      bankName: bank?.name || "",
-      bankLogo: bank?.logo || "",
-      userId: formData.userId,
-      userName: user?.name || "",
-      userEmail: user?.email || "",
-    }
-
+  const createPortfolio = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setIsSaving(true)
     try {
-      await portfolioService.create(newPortfolioData)
-      setFormData({ name: "", bankId: "", userId: "", description: "" })
-      setIsDialogOpen(false)
-      toast({
-        title: "Carteira criada",
-        description: `A carteira "${formData.name}" foi criada com sucesso.`,
-      })
-      refetch()
+      await portfolioService.create({ name: name.trim(), description: description.trim() || undefined })
+      setName('')
+      setDescription('')
+      setPage(1)
+      await refetch()
+      setIsCreateOpen(false)
+      toast({ title: 'Carteira criada', description: 'A carteira foi salva.' })
     } catch (error) {
       toast({
-        title: "Erro ao criar",
-        description: "Falha ao criar a carteira.",
-        variant: "destructive",
+        title: 'Não foi possível criar a carteira',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  const handleEditPortfolio = (portfolio: CarteiraDto) => {
-    setEditingPortfolio(portfolio)
-    setIsEditDialogOpen(true)
-  }
-
-  const handleSaveEdit = async (updatedPortfolio: CarteiraDto) => {
+  const updatePortfolio = async (id: string, update: AtualizarCarteiraRequest) => {
+    setIsSaving(true)
     try {
-      // Pass the whole updated object so mock handler can persist extra fields
-      await portfolioService.update(updatedPortfolio.id, updatedPortfolio as any)
-      setIsEditDialogOpen(false)
-      toast({
-        title: "Carteira atualizada",
-        description: `A carteira "${updatedPortfolio.name}" foi atualizada com sucesso.`,
-      })
-      refetch()
+      await portfolioService.update(id, update)
+      await refetch()
+      toast({ title: 'Carteira atualizada', description: 'As alterações foram salvas.' })
     } catch (error) {
       toast({
-        title: "Erro ao atualizar",
-        description: "Falha ao atualizar.",
-        variant: "destructive",
+        title: 'Não foi possível atualizar a carteira',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  const handleDeleteClick = (portfolio: CarteiraDto) => {
-    setDeletingPortfolio(portfolio)
-    setIsDeleteDialogOpen(true)
-  }
-
-  const handleConfirmDelete = async () => {
-    if (deletingPortfolio) {
-      try {
-        await portfolioService.delete(deletingPortfolio.id)
-        toast({
-          title: "Carteira excluída",
-          description: `A carteira "${deletingPortfolio.name}" foi excluída com sucesso.`,
-          variant: "destructive",
-        })
-        setIsDeleteDialogOpen(false)
-        setDeletingPortfolio(null)
-        refetch()
-      } catch (error) {
-        toast({
-          title: "Erro ao excluir",
-          description: "Falha ao excluir.",
-          variant: "destructive",
-        })
-      }
+  const deletePortfolio = async () => {
+    if (!deleting) return
+    setIsDeleting(true)
+    try {
+      await portfolioService.delete(deleting.id)
+      if (portfolios.length === 1 && page > 1) setPage(current => current - 1)
+      await refetch()
+      setDeleting(null)
+      toast({ title: 'Carteira excluída', description: 'A carteira e suas movimentações foram removidas.' })
+    } catch (error) {
+      toast({
+        title: 'Não foi possível excluir a carteira',
+        description: error instanceof Error ? error.message : 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
     }
-  }
-
-  const totalPatrimony = portfolios.reduce((acc, p) => acc + p.totalValue, 0)
-  const totalInvested = portfolios.reduce((acc, p) => acc + p.totalInvested, 0)
-  const totalProfit = totalPatrimony - totalInvested
-  const avgProfitability = portfolios.length > 0
-    ? portfolios.reduce((acc, p) => acc + (p.profitability || p.gainPercentage), 0) / portfolios.length
-    : 0
-
-  if (isLoading) {
-    return <div className="flex justify-center p-8">Carregando carteiras...</div>
   }
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Carteiras</h1>
-          <p className="text-muted-foreground">Gerencie suas carteiras de investimentos</p>
+          <p className="text-muted-foreground">Acompanhe suas posições por carteira.</p>
         </div>
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          {hasPermission('edit') && (
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Nova Carteira
-              </Button>
-            </DialogTrigger>
-          )}
+        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="mr-2 h-4 w-4" />Nova carteira</Button>
+          </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Criar Nova Carteira</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <DialogHeader><DialogTitle>Criar carteira</DialogTitle></DialogHeader>
+            <form onSubmit={createPortfolio} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome da Carteira</Label>
+                <Label htmlFor="portfolio-name">Nome</Label>
                 <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Ex: Carteira Principal"
+                  id="portfolio-name"
+                  value={name}
+                  onChange={event => setName(event.target.value)}
+                  maxLength={100}
                   required
                 />
               </div>
-
               <div className="space-y-2">
-                <Label htmlFor="bank">Banco/Corretora</Label>
-                <Select
-                  value={formData.bankId}
-                  onValueChange={(value) => setFormData({ ...formData, bankId: value })}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o banco" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockBanks.map((bank) => (
-                      <SelectItem key={bank.id} value={bank.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{bank.logo}</span>
-                          <span>{bank.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="user">Titular</Label>
-                <Select
-                  value={formData.userId}
-                  onValueChange={(value) => setFormData({ ...formData, userId: value })}
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o titular" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mockUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        <div className="flex flex-col">
-                          <span>{user.name}</span>
-                          <span className="text-xs text-muted-foreground">{user.email}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Descrição (opcional)</Label>
+                <Label htmlFor="portfolio-description">Descrição (opcional)</Label>
                 <Input
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descrição da carteira"
+                  id="portfolio-description"
+                  value={description}
+                  onChange={event => setDescription(event.target.value)}
+                  maxLength={500}
                 />
               </div>
-
-              <div className="flex gap-2 justify-end">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit">Criar Carteira</Button>
+              <div className="flex justify-end">
+                <Button type="submit" disabled={isSaving}>{isSaving ? 'Salvando…' : 'Criar carteira'}</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Patrimônio Total
-            </CardTitle>
-            <Wallet className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totalPatrimony.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Investido
-            </CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {totalInvested.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Lucro/Prejuízo
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${totalProfit >= 0 ? "text-success" : "text-destructive"}`}>
-              {totalProfit.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Rentabilidade Média
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${avgProfitability >= 0 ? "text-success" : "text-destructive"}`}>
-              {avgProfitability.toFixed(2)}%
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Patrimônio acompanhado</p><p className="mt-2 text-2xl font-bold">{formatCurrency(totalValue)}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Custo das posições abertas</p><p className="mt-2 text-2xl font-bold">{formatCurrency(totalInvested)}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Resultado não realizado</p><p className="mt-2 text-2xl font-bold">{formatCurrency(totalGain)}</p></CardContent></Card>
       </div>
 
-      {/* Portfolios Table */}
-      <Card className="hidden lg:block">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wallet className="h-5 w-5" />
-            Minhas Carteiras
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Carteira</TableHead>
-                <TableHead>Banco/Corretora</TableHead>
-                <TableHead>Titular</TableHead>
-                <TableHead className="text-right">Valor Total</TableHead>
-                <TableHead className="text-right">Investido</TableHead>
-                <TableHead className="text-right">Rentabilidade</TableHead>
-                <TableHead className="text-center">Ativos</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {portfolios.map((portfolio) => (
-                <TableRow key={portfolio.id} className="cursor-pointer hover:bg-muted/50">
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{portfolio.name}</span>
-                      {portfolio.description && (
-                        <span className="text-xs text-muted-foreground">{portfolio.description}</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{portfolio.bankLogo}</span>
-                      <span>{portfolio.bankName}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm">{portfolio.userName}</span>
-                        <span className="text-xs text-muted-foreground">{portfolio.userEmail}</span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {portfolio.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {portfolio.totalInvested.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant={(portfolio.profitability || portfolio.gainPercentage) >= 0 ? "default" : "destructive"}>
-                      {(portfolio.profitability || portfolio.gainPercentage) >= 0 ? "+" : ""}{(portfolio.profitability || portfolio.gainPercentage).toFixed(2)}%
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="outline">{portfolio.assetsCount}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => navigate({ to: '/carteira/$id', params: { id: portfolio.id } })}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          Ver Detalhes
-                        </DropdownMenuItem>
-                        {hasPermission('edit') && (
-                          <>
-                            <DropdownMenuItem onClick={() => handleEditPortfolio(portfolio)}>
-                              <Pencil className="h-4 w-4 mr-2" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleDeleteClick(portfolio)}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Excluir
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Portfolio Cards Grid (Mobile-friendly alternative view) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:hidden">
-        {portfolios.map((portfolio) => (
-          <Card key={portfolio.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate({ to: '/carteira/$id', params: { id: portfolio.id } })}>
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{portfolio.bankLogo}</span>
-                  <div>
-                    <CardTitle className="text-lg">{portfolio.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{portfolio.bankName}</p>
-                  </div>
+      {isLoading ? (
+        <p className="py-12 text-center text-muted-foreground">Carregando carteiras…</p>
+      ) : isError ? (
+        <Card><CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+          <p>Não foi possível carregar suas carteiras.</p>
+          <Button variant="outline" onClick={() => void refetch()}>Tentar novamente</Button>
+        </CardContent></Card>
+      ) : portfolios.length === 0 ? (
+        <Card><CardContent className="flex flex-col items-center gap-4 py-14 text-center">
+          <Wallet className="h-10 w-10 text-muted-foreground" />
+          <div>
+            <h2 className="text-lg font-semibold">Nenhuma carteira cadastrada</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Crie sua primeira carteira para começar a acompanhar posições.</p>
+          </div>
+          <Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Criar carteira</Button>
+        </CardContent></Card>
+      ) : (
+        <div className="space-y-3">
+          {portfolios.map(portfolio => (
+            <Card key={portfolio.id}>
+              <CardContent className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => navigate({ to: '/carteira/$id', params: { id: portfolio.id } })}
+                >
+                  <span className="block truncate font-semibold">{portfolio.name}</span>
+                  {portfolio.description && <span className="mt-1 block truncate text-sm text-muted-foreground">{portfolio.description}</span>}
+                </button>
+                <div className="min-w-28">
+                  <p className="text-xs text-muted-foreground">Patrimônio</p>
+                  <p className="font-semibold">{formatCurrency(portfolio.totalValue)}</p>
                 </div>
-                <Badge variant={(portfolio.profitability || portfolio.gainPercentage) >= 0 ? "default" : "destructive"}>
-                  {(portfolio.profitability || portfolio.gainPercentage) >= 0 ? "+" : ""}{(portfolio.profitability || portfolio.gainPercentage).toFixed(2)}%
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <User className="h-4 w-4" />
-                <span>{portfolio.userName}</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted-foreground">Valor Total</p>
-                  <p className="font-semibold">
-                    {portfolio.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Ativos</p>
+                <div className="min-w-28">
+                  <p className="text-xs text-muted-foreground">Posições</p>
                   <p className="font-semibold">{portfolio.assetsCount}</p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <Button variant="outline" onClick={() => navigate({ to: '/carteira/$id', params: { id: portfolio.id } })}>Abrir</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" aria-label={`Ações da carteira ${portfolio.name}`}>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setEditing(portfolio)}>Editar</DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onClick={() => setDeleting(portfolio)}>Excluir</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {/* Edit Portfolio Dialog */}
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">{totalCount} carteiras · Página {page} de {pageCount}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" disabled={page <= 1} onClick={() => setPage(current => current - 1)}>Anterior</Button>
+            <Button variant="outline" disabled={page >= pageCount} onClick={() => setPage(current => current + 1)}>Próxima</Button>
+          </div>
+        </div>
+      )}
+
       <EditPortfolioDialog
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        portfolio={editingPortfolio}
-        onSave={handleSaveEdit}
+        open={editing !== null}
+        onOpenChange={open => { if (!open) setEditing(null) }}
+        portfolio={editing}
+        onSave={(id, update) => { void updatePortfolio(id, update) }}
       />
-
-      {/* Delete Confirmation Dialog */}
       <DeleteConfirmDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="Excluir Carteira"
-        description={`Tem certeza que deseja excluir a carteira "${deletingPortfolio?.name}"? Esta ação não pode ser desfeita e todos os investimentos associados serão removidos.`}
-        onConfirm={handleConfirmDelete}
+        open={deleting !== null}
+        onOpenChange={open => { if (!open && !isDeleting) setDeleting(null) }}
+        title="Excluir carteira?"
+        description="A carteira e suas movimentações associadas serão removidas. Esta ação não pode ser desfeita."
+        onConfirm={() => { void deletePortfolio() }}
       />
     </div>
   )
 }
-
-export default Portfolios

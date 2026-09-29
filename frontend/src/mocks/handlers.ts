@@ -20,6 +20,7 @@ import {
 // MSW matches paths relative to the current origin automatically
 // '/api/v1/...' will be intercepted on any domain (localhost, GitHub Pages, Capacitor)
 const BASE_URL = API_CONFIG.VERSION
+let activeMockUserId: string | null = null
 
 /**
  * Helper to create API response
@@ -65,19 +66,18 @@ function createPaginatedResponse<T>(
  */
 function checkPermission(request: Request, requiredRole?: 'edit' | 'admin') {
   const cookies = request.headers.get('cookie') || ''
-  console.log(cookies.split(';'))
   let userId = ''
 
-  const token = cookies.split(';').find(c => c.trim().startsWith('auth_token='))
-  if (token) {
-    userId = token.split('=')[1]
-  }
+  const authorization = request.headers.get('authorization') || ''
+  const accessToken = authorization.match(/^Bearer\s+mock-access-token-(.+)$/i)?.[1]
+  if (accessToken) userId = accessToken
+
+  const refreshCookie = cookies.split(';').find(cookie => cookie.trim().startsWith('refresh_token='))
+  if (!userId && refreshCookie) userId = refreshCookie.split('=').slice(1).join('=')
+  if (!userId) userId = activeMockUserId ?? ''
 
   if (!userId) {
-    // FALLBACK FOR DEVELOPMENT: If no token is found, act as the first mock user (Admin)
-    // to prevent annoying 401s when the user just wants to test the UI.
-    console.warn('MSW: No auth_token found, falling back to mock admin user.')
-    return { authorized: true, user: mockUsers[0] }
+    return { authorized: false, status: 401, message: 'Authentication is required.' }
   }
 
   const user = mockUsers.find(u => u.id === userId)
@@ -119,17 +119,76 @@ export const handlers = [
     }
 
     // Set cookie
-    return HttpResponse.json(createResponse(user), {
+    return HttpResponse.json(createResponse({
+      accessToken: `mock-access-token-${user.id}`,
+      expiresIn: 900,
+      user,
+      requiresEmailConfirmation: false,
+    }), {
       headers: {
-        'Set-Cookie': `auth_token=${user.id}; HttpOnly; Path=/; SameSite=Strict`,
+        'Set-Cookie': `refresh_token=${user.id}; HttpOnly; Path=/api/v1/auth; SameSite=Lax`,
       }
     })
   }),
 
+  http.post(`${BASE_URL}/auth/register`, async ({ request }) => {
+    const body = await request.json() as { name?: string; email?: string; password?: string }
+    await delay(300)
+
+    if (!body.name || !body.email || !body.password || mockUsers.some(user => user.email === body.email)) {
+      return HttpResponse.json(
+        { success: false, message: 'Não foi possível criar esta conta.' },
+        { status: 409 }
+      )
+    }
+
+    activeMockUserId = user.id
+
+    const now = new Date().toISOString()
+    const user: UserDto = {
+      id: `user-${Date.now()}`,
+      name: body.name,
+      email: body.email,
+      role: 'user',
+      isEmailVerified: true,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    }
+    mockUsers.push(user)
+    activeMockUserId = user.id
+
+    return HttpResponse.json(createResponse({
+      accessToken: `mock-access-token-${user.id}`,
+      expiresIn: 900,
+      user,
+      requiresEmailConfirmation: false,
+    }), {
+      headers: {
+        'Set-Cookie': `refresh_token=${user.id}; HttpOnly; Path=/api/v1/auth; SameSite=Lax`,
+      }
+    })
+  }),
+
+  http.post(`${BASE_URL}/auth/refresh`, async ({ request }) => {
+    const check = checkPermission(request)
+    if (!check.authorized || !check.user) {
+      return HttpResponse.json({ success: false, message: check.message }, { status: check.status })
+    }
+
+    return HttpResponse.json(createResponse({
+      accessToken: `mock-access-token-${check.user.id}`,
+      expiresIn: 900,
+      user: check.user,
+      requiresEmailConfirmation: false,
+    }))
+  }),
+
   http.post(`${BASE_URL}/auth/logout`, async () => {
+    activeMockUserId = null
     return HttpResponse.json(createResponse(null), {
       headers: {
-        'Set-Cookie': 'auth_token=; HttpOnly; Path=/; Max-Age=0',
+        'Set-Cookie': 'refresh_token=; HttpOnly; Path=/api/v1/auth; SameSite=Lax; Max-Age=0',
       }
     })
   }),
@@ -145,6 +204,9 @@ export const handlers = [
     }
     return HttpResponse.json(createResponse(check.user))
   }),
+
+  http.get(`${BASE_URL}/market-data/history`, async () =>
+    HttpResponse.json(createResponse([]))),
 
   http.patch(`${BASE_URL}/auth/me`, async ({ request }) => {
     await delay(500)
@@ -322,6 +384,9 @@ export const handlers = [
 
     return HttpResponse.json(createResponse(mockPortfolioSummary))
   }),
+
+  http.get(`${BASE_URL}/portfolios/:id/history`, async () =>
+    HttpResponse.json(createResponse([]))),
 
   http.post(`${BASE_URL}/portfolios`, async ({ request }) => {
     const check = checkPermission(request, 'edit')

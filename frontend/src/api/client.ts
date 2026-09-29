@@ -1,7 +1,7 @@
 import { API_CONFIG, getApiUrl } from './env'
-import { ApiError, UnauthorizedError, ValidationError, NotFoundError } from './errors'
+import { ApiError, NotFoundError, UnauthorizedError, ValidationError } from './errors'
+import type { ApiResponse, AuthSessionDto } from './dtos'
 import { useAuthStore } from '@/store/authStore'
-import type { ApiResponse } from './dtos'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -9,57 +9,53 @@ interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
   params?: Record<string, string | number | boolean | undefined>
 }
 
-/**
- * Build URL with query parameters
- */
+interface ApiProblem {
+  message?: string
+  title?: string
+  detail?: string
+  code?: string
+  errors?: Record<string, string[]>
+}
+
+let refreshPromise: Promise<string | null> | null = null
+
 const buildUrl = (endpoint: string, params?: RequestOptions['params']): string => {
   const apiPath = getApiUrl(endpoint)
-
-  // When BASE_URL is empty (MSW mode), apiPath is relative like "/api/v1/..."
-  // We need to provide a base for the URL constructor
   const url = apiPath.startsWith('http')
     ? new URL(apiPath)
     : new URL(apiPath, window.location.origin)
 
-  if (params) {
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) {
-        url.searchParams.append(key, String(value))
-      }
-    })
-  }
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== undefined) url.searchParams.append(key, String(value))
+  })
 
   return url.toString()
 }
 
-/**
- * Get default headers for requests
- */
-const getDefaultHeaders = (): HeadersInit => {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  }
+const getDefaultHeaders = (): HeadersInit => ({
+  'Content-Type': 'application/json',
+  Accept: 'application/json',
+})
 
-  return headers
-}
+const readProblem = async (response: Response): Promise<ApiProblem> =>
+  response.json().catch(() => ({} as ApiProblem))
 
-/**
- * Handle API response and errors
- */
+const errorMessage = (error: ApiProblem, statusText: string) =>
+  error.detail || error.message || error.title || statusText
+
 const handleResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    const message = errorData.message || response.statusText
+    const errorData = await readProblem(response)
+    const message = errorMessage(errorData, response.statusText)
 
     switch (response.status) {
       case 400:
         throw new ValidationError(message, errorData.errors)
       case 401:
-        useAuthStore.getState().logout()
+        useAuthStore.getState().clearSession()
         throw new UnauthorizedError(message)
       case 403:
-        throw new ApiError(message || 'Access Forbidden', 403, 'FORBIDDEN')
+        throw new ApiError(message, 403, 'FORBIDDEN')
       case 404:
         throw new NotFoundError(message)
       default:
@@ -67,45 +63,75 @@ const handleResponse = async <T>(response: Response): Promise<T> => {
     }
   }
 
-  // Handle empty responses (204 No Content)
-  if (response.status === 204) {
-    return {} as T
-  }
-
+  if (response.status === 204) return {} as T
   return response.json()
 }
 
-/**
- * Make HTTP request
- */
+const refreshAccessToken = (): Promise<string | null> => {
+  if (!refreshPromise) {
+    const refreshUrl = buildUrl('/auth/refresh')
+    refreshPromise = fetch(refreshUrl, {
+      method: 'POST',
+      headers: getDefaultHeaders(),
+      credentials: 'include',
+      signal: AbortSignal.timeout(API_CONFIG.TIMEOUT),
+    })
+      .then(async (response) => {
+        if (!response.ok) return null
+
+        const result = await response.json() as ApiResponse<AuthSessionDto>
+        const token = result.data?.accessToken
+        if (token) useAuthStore.getState().setAccessToken(token)
+        return token ?? null
+      })
+      .catch(() => null)
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+
+  return refreshPromise
+}
+
 const request = async <T>(
   method: HttpMethod,
   endpoint: string,
   data?: unknown,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
 ): Promise<T> => {
   const { params, ...fetchOptions } = options
   const url = buildUrl(endpoint, params)
-
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT)
 
-  try {
-    const response = await fetch(url, {
-      method,
-      headers: {
-        ...getDefaultHeaders(),
-        ...fetchOptions.headers,
-      },
-      credentials: 'include',
-      body: data ? JSON.stringify(data) : undefined,
-      signal: controller.signal,
-      ...fetchOptions,
-    })
+  const send = (token: string | null) => fetch(url, {
+    method,
+    headers: {
+      ...getDefaultHeaders(),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...fetchOptions.headers,
+    },
+    credentials: 'include',
+    body: data === undefined ? undefined : JSON.stringify(data),
+    ...fetchOptions,
+    signal: controller.signal,
+  })
 
-    return handleResponse<T>(response)
+  try {
+    const token = useAuthStore.getState().accessToken
+    let response = await send(token)
+
+    if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+      const refreshedToken = await refreshAccessToken()
+      if (refreshedToken) response = await send(refreshedToken)
+    }
+
+    return await handleResponse<T>(response)
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError('Request timeout', 408, 'TIMEOUT')
+    }
+    if (error instanceof Error && error.name === 'TimeoutError') {
       throw new ApiError('Request timeout', 408, 'TIMEOUT')
     }
     throw error
@@ -114,37 +140,15 @@ const request = async <T>(
   }
 }
 
-/**
- * API Client with typed methods
- */
 export const api = {
-  /**
-   * GET request
-   */
   get: <T>(endpoint: string, options?: RequestOptions): Promise<T> =>
     request<T>('GET', endpoint, undefined, options),
-
-  /**
-   * POST request
-   */
   post: <T>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> =>
     request<T>('POST', endpoint, data, options),
-
-  /**
-   * PUT request
-   */
   put: <T>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> =>
     request<T>('PUT', endpoint, data, options),
-
-  /**
-   * PATCH request
-   */
   patch: <T>(endpoint: string, data?: unknown, options?: RequestOptions): Promise<T> =>
     request<T>('PATCH', endpoint, data, options),
-
-  /**
-   * DELETE request
-   */
   delete: <T>(endpoint: string, options?: RequestOptions): Promise<T> =>
     request<T>('DELETE', endpoint, undefined, options),
 }

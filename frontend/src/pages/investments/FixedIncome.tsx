@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { Plus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockPortfolios, formatCurrency, type FixedIncomeAsset } from "@/lib/mock-data"
+import { formatCurrency } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
-import { FixedIncomeProjection } from "@/components/projections/FixedIncomeProjection"
 import { useFixedIncomeInvestments } from "@/hooks/use-investments"
+import { usePortfolios } from "@/hooks/use-portfolios"
 import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
 import { investmentService } from "@/api/services/investment.service"
 import type { RendaFixaDto, InvestimentoFiltros, TipoRendaFixa, CriarRendaFixaRequest } from "@/api/dtos"
@@ -24,6 +24,9 @@ export default function FixedIncome() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedAsset, setSelectedAsset] = useState<RendaFixaDto | null>(null)
   const { toast } = useToast()
+  const { data: portfolioResponse } = usePortfolios({ page: 1, pageSize: 100 })
+  const portfolios = portfolioResponse?.data ?? []
+  const idempotencyKey = useRef(crypto.randomUUID())
 
   // Table State
   const [pagination, setPagination] = useState<PaginationState>({
@@ -78,16 +81,18 @@ export default function FixedIncome() {
       name: formData.get('name') as string,
       subtype: formData.get('type') as TipoRendaFixa,
       issuer: formData.get('institution') as string,
-      quantity: 1, // Defaulting to 1 for simplicity if not in form
-      averagePrice: parseFloat(formData.get('investedValue') as string),
+      principal: Number(formData.get('investedValue')),
+      statementValue: Number(formData.get('statementValue')),
       interestRate: parseFloat(formData.get('rate')?.toString().replace('%', '') || '0'),
-      indexer: formData.get('rateType') as 'CDI' | 'IPCA' | 'PREFIXADO',
-      purchaseDate: formData.get('purchaseDate') as string,
-      maturityDate: formData.get('maturityDate') as string,
+      indexer: formData.get('rateType') as 'CDI' | 'IPCA' | 'SELIC' | 'PREFIXADO',
+      purchaseDate: new Date(`${formData.get('purchaseDate')}T12:00:00`).toISOString(),
+      maturityDate: new Date(`${formData.get('maturityDate')}T12:00:00`).toISOString(),
+      idempotencyKey: idempotencyKey.current,
     }
 
     try {
       await investmentService.createFixedIncome(newAssetData)
+      idempotencyKey.current = crypto.randomUUID()
       setIsDialogOpen(false)
       toast({
         title: "Ativo adicionado",
@@ -103,11 +108,14 @@ export default function FixedIncome() {
     }
   }
 
-  const handleEditAsset = async (updatedAsset: RendaFixaDto) => {
+  const handleEditAsset = async (updatedAsset: RendaFixaDto, valuationDate: string) => {
     if (!selectedAsset) return
 
     try {
-       await investmentService.update(selectedAsset.id, updatedAsset as any)
+       await investmentService.update(selectedAsset.id, {
+         totalValue: updatedAsset.currentValue,
+         date: new Date(`${valuationDate}T12:00:00`).toISOString(),
+       })
 
        setIsEditDialogOpen(false)
         toast({
@@ -159,13 +167,13 @@ export default function FixedIncome() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Renda Fixa</h1>
-          <p className="text-muted-foreground">Gerencie seus ativos de renda fixa</p>
+          <p className="text-muted-foreground">Acompanhe contratos e informe avaliações do extrato.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button disabled={portfolios.length === 0}>
               <Plus className="h-4 w-4 mr-2" />
-              Adicionar Ativo
+              Adicionar contrato
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
@@ -179,12 +187,12 @@ export default function FixedIncome() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="portfolioId">Carteira</Label>
-                  <Select name="portfolioId" defaultValue={mockPortfolios[0]?.id}>
+                  <Select name="portfolioId" required>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a carteira" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockPortfolios.map((portfolio) => (
+                      {portfolios.map((portfolio) => (
                         <SelectItem key={portfolio.id} value={portfolio.id}>
                           {portfolio.name}
                         </SelectItem>
@@ -225,8 +233,11 @@ export default function FixedIncome() {
                     <Input id="rate" name="rate" placeholder="Ex: 120" required />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="statementValue">Valor atual do extrato</Label>
+                  <Input id="statementValue" name="statementValue" type="number" min="0" step="0.01" placeholder="10000" required />
+                </div>
+                <div className="grid gap-2">
                     <Label htmlFor="rateType">Indexador</Label>
                     <Select name="rateType" defaultValue="CDI">
                       <SelectTrigger>
@@ -235,27 +246,15 @@ export default function FixedIncome() {
                       <SelectContent>
                         <SelectItem value="CDI">CDI</SelectItem>
                         <SelectItem value="IPCA">IPCA</SelectItem>
+                        <SelectItem value="SELIC">SELIC</SelectItem>
                         <SelectItem value="PREFIXADO">Prefixado</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="liquidity">Liquidez</Label>
-                    <Select name="liquidity" defaultValue="Diária">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Diária">Diária</SelectItem>
-                        <SelectItem value="No vencimento">No vencimento</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="purchaseDate">Data de Compra</Label>
-                    <Input id="purchaseDate" name="purchaseDate" type="date" required />
+                    <Input id="purchaseDate" name="purchaseDate" type="date" defaultValue={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)} max={new Date().toISOString().slice(0, 10)} required />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="maturityDate">Data de Vencimento</Label>
@@ -304,20 +303,6 @@ export default function FixedIncome() {
         </Card>
       </div>
 
-      <FixedIncomeProjection assets={assets.map(a => ({
-        id: a.id,
-        name: a.name,
-        type: a.subtype,
-        institution: a.issuer,
-        investedValue: a.totalInvested,
-        currentValue: a.currentValue,
-        rate: a.interestRate?.toString() || '0',
-        rateType: a.indexer || 'CDI',
-        purchaseDate: a.purchaseDate,
-        maturityDate: a.maturityDate,
-        liquidity: 'No vencimento'
-      } as unknown as FixedIncomeAsset))} />
-
       {/* Table */}
       <Card>
         <CardHeader>
@@ -347,14 +332,16 @@ export default function FixedIncome() {
         onOpenChange={setIsEditDialogOpen}
         investment={selectedAsset}
         type="fixed"
-        onSave={handleEditAsset}
+        onSave={(updated, date) => {
+          if (updated.type === 'fixed_income') void handleEditAsset(updated as RendaFixaDto, date)
+        }}
       />
 
       <DeleteConfirmDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        title="Excluir Ativo"
-        description={`Tem certeza que deseja excluir "${selectedAsset?.name}"? Esta ação não pode ser desfeita.`}
+        title="Excluir lançamento incorreto?"
+        description={`Isso apagará todas as movimentações e avaliações de ${selectedAsset?.name}. Para retirar o investimento e preservar o histórico, registre um resgate.`}
         onConfirm={() => {
           if (selectedAsset) {
             handleDeleteAsset(selectedAsset.id)

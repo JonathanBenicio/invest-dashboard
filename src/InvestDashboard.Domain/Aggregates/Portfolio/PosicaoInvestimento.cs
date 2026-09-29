@@ -8,14 +8,17 @@ public class PosicaoInvestimento : Entity<Guid>
 {
     public Guid CarteiraId { get; private set; }
     public Guid AtivoId { get; private set; }
+    public Ativo? Ativo { get; private set; }
     public string Ticker { get; private set; }
     public TipoAtivo TipoAtivo { get; private set; }
     public decimal Quantity { get; private set; }
     public decimal AverageCost { get; private set; }
     public decimal TotalCost { get; private set; }
     public decimal CurrentPrice { get; private set; }
+    public DateTime? PurchaseDateUtc { get; private set; }
 
-    public decimal CurrentValue => Quantity * CurrentPrice;
+    public decimal ValuationPrice => TipoAtivo == TipoAtivo.RendaFixa ? CurrentPrice : Ativo?.CurrentPrice ?? CurrentPrice;
+    public decimal CurrentValue => Quantity * ValuationPrice;
     public decimal TotalReturnAmount => CurrentValue - TotalCost;
     public decimal TotalReturnPercentage => TotalCost > 0 ? (TotalReturnAmount / TotalCost) * 100 : 0;
 
@@ -49,7 +52,7 @@ public class PosicaoInvestimento : Entity<Guid>
     private PosicaoInvestimento() { }
 #pragma warning restore CS8618
 
-    public void AddShares(decimal qty, decimal price, decimal fee)
+    public void AddShares(decimal qty, decimal price, decimal fee, DateTime? transactionDateUtc = null)
     {
         if (qty <= 0)
             throw new ArgumentException("Quantity to add must be greater than zero", nameof(qty));
@@ -65,6 +68,7 @@ public class PosicaoInvestimento : Entity<Guid>
         decimal newTotalCost = TotalCost + transactionCost;
 
         AverageCost = newTotalCost / newQuantity;
+        PurchaseDateUtc ??= transactionDateUtc?.ToUniversalTime();
         Quantity = newQuantity;
         TotalCost = newTotalCost;
     }
@@ -107,5 +111,24 @@ public class PosicaoInvestimento : Entity<Guid>
             throw new ArgumentException("Price cannot be negative", nameof(price));
 
         CurrentPrice = price;
+    }
+
+    public void PrepareLedgerRebuild(decimal currentPrice)
+    {
+        if (currentPrice < 0)
+            throw new ArgumentOutOfRangeException(nameof(currentPrice));
+
+        Quantity = 0;
+        AverageCost = 0;
+        TotalCost = 0;
+        CurrentPrice = currentPrice;
+    }
+
+    public void UpdateMarketAsset(Ativo asset)
+    {
+        if (asset.Id != AtivoId)
+            throw new ArgumentException("Market asset does not match this position", nameof(asset));
+
+        Ativo = asset;
     }
 }

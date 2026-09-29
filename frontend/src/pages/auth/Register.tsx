@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { supabase } from "@/lib/supabase"
+import { useAuthStore } from "@/store/authStore"
 
 export default function Register() {
   const [name, setName] = useState("")
@@ -14,6 +14,7 @@ export default function Register() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const register = useAuthStore(state => state.register)
   const navigate = useNavigate()
   const { toast } = useToast()
 
@@ -32,28 +33,22 @@ export default function Register() {
     setIsLoading(true)
 
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name,
-          },
-        },
-      })
+      const session = await register({ name, email, password })
+      if (session.requiresEmailConfirmation) {
+        toast({
+          title: "Confirme seu e-mail",
+          description: "Enviamos um link para confirmar sua conta antes do primeiro acesso.",
+        })
+        navigate({ to: "/login" })
+        return
+      }
 
-      if (error) throw error
-
-      toast({
-        title: "Conta criada com sucesso!",
-        description: "Você já pode fazer login.",
-      })
-
-      navigate({ to: "/login" })
-    } catch (error: any) {
+      toast({ title: "Conta criada", description: "Sua conta está pronta." })
+      navigate({ to: "/dashboard" })
+    } catch (error) {
       toast({
         title: "Erro no cadastro",
-        description: error.message || "Não foi possível criar a conta.",
+        description: error instanceof Error ? error.message : "Não foi possível criar a conta.",
         variant: "destructive",
       })
     } finally {
@@ -123,7 +118,7 @@ export default function Register() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
               </div>
@@ -139,7 +134,7 @@ export default function Register() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                 </div>
               </div>

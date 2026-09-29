@@ -14,6 +14,11 @@ public class CarteiraConfiguration : IEntityTypeConfiguration<Carteira>
         builder.Property(p => p.Id)
             .HasColumnName("id");
 
+        builder.Property(p => p.Version)
+            .HasColumnName("version")
+            .HasDefaultValue(0)
+            .IsConcurrencyToken();
+
         builder.Property(p => p.UserId)
             .HasColumnName("user_id")
             .HasMaxLength(100)
@@ -24,9 +29,25 @@ public class CarteiraConfiguration : IEntityTypeConfiguration<Carteira>
             .HasMaxLength(100)
             .IsRequired();
 
+        builder.Property(p => p.Description)
+            .HasColumnName("description")
+            .HasMaxLength(500);
+
         builder.Property(p => p.Balance)
             .HasColumnName("balance")
             .HasColumnType("numeric(18,4)")
+            .IsRequired();
+
+        builder.Property(p => p.RealizedGain)
+            .HasColumnName("realized_gain")
+            .HasColumnType("numeric(18,4)")
+            .HasDefaultValue(0m)
+            .IsRequired();
+
+        builder.Property(p => p.RealizedCostBasis)
+            .HasColumnName("realized_cost_basis")
+            .HasColumnType("numeric(18,4)")
+            .HasDefaultValue(0m)
             .IsRequired();
 
         builder.HasIndex(p => p.UserId)

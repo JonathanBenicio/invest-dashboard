@@ -21,7 +21,21 @@ export interface RegisterRequest {
   name: string
   email: string
   password: string
-  confirmPassword: string
+}
+
+export interface AuthenticatedUserDto {
+  id: string
+  name: string
+  email: string
+  role: 'user' | 'admin'
+  avatar?: string
+}
+
+export interface AuthSessionDto {
+  accessToken: string
+  expiresIn: number
+  user: AuthenticatedUserDto
+  requiresEmailConfirmation: boolean
 }
 
 /**

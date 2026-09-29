@@ -67,6 +67,8 @@ export const mockUsers: UserDto[] = [
 export const mockPortfolios: CarteiraDto[] = [
   {
     id: 'portfolio-1',
+    positions: [],
+    assetsCount: 2,
     name: 'Carteira Principal',
     description: 'Carteira de longo prazo',
     totalValue: 175800,
@@ -80,6 +82,8 @@ export const mockPortfolios: CarteiraDto[] = [
   },
   {
     id: 'portfolio-2',
+    positions: [],
+    assetsCount: 5,
     name: 'Renda Variável',
     description: 'Ações e FIIs',
     totalValue: 89500,
@@ -93,6 +97,8 @@ export const mockPortfolios: CarteiraDto[] = [
   },
   {
     id: 'portfolio-3',
+    positions: [],
+    assetsCount: 1,
     name: 'Reserva de Emergência',
     description: 'Liquidez diária',
     totalValue: 42985,
@@ -110,6 +116,9 @@ export const mockPortfolios: CarteiraDto[] = [
 export const mockFixedIncomeInvestments: RendaFixaDto[] = [
   {
     id: 'fixed-1',
+    assetId: 'mock-asset-fixed-1',
+    status: 'open',
+    ticker: 'CDB-INTER',
     portfolioId: 'portfolio-1',
     name: 'CDB Banco Inter',
     type: 'fixed_income',
@@ -132,6 +141,9 @@ export const mockFixedIncomeInvestments: RendaFixaDto[] = [
   },
   {
     id: 'fixed-2',
+    assetId: 'mock-asset-fixed-2',
+    status: 'open',
+    ticker: 'TESOURO-IPCA-2029',
     portfolioId: 'portfolio-1',
     name: 'Tesouro IPCA+ 2029',
     type: 'fixed_income',
@@ -154,6 +166,9 @@ export const mockFixedIncomeInvestments: RendaFixaDto[] = [
   },
   {
     id: 'fixed-3',
+    assetId: 'mock-asset-fixed-3',
+    status: 'open',
+    ticker: 'LCI-CAIXA',
     portfolioId: 'portfolio-3',
     name: 'LCI Caixa',
     type: 'fixed_income',
@@ -180,6 +195,8 @@ export const mockFixedIncomeInvestments: RendaFixaDto[] = [
 export const mockVariableIncomeInvestments: RendaVariavelDto[] = [
   {
     id: 'var-1',
+    assetId: 'mock-asset-var-1',
+    status: 'open',
     portfolioId: 'portfolio-2',
     name: 'Petrobras PN',
     ticker: 'PETR4',
@@ -201,6 +218,8 @@ export const mockVariableIncomeInvestments: RendaVariavelDto[] = [
   },
   {
     id: 'var-2',
+    assetId: 'mock-asset-var-2',
+    status: 'open',
     portfolioId: 'portfolio-2',
     name: 'Vale ON',
     ticker: 'VALE3',
@@ -222,6 +241,8 @@ export const mockVariableIncomeInvestments: RendaVariavelDto[] = [
   },
   {
     id: 'var-3',
+    assetId: 'mock-asset-var-3',
+    status: 'open',
     portfolioId: 'portfolio-2',
     name: 'Itaú Unibanco PN',
     ticker: 'ITUB4',
@@ -243,6 +264,8 @@ export const mockVariableIncomeInvestments: RendaVariavelDto[] = [
   },
   {
     id: 'var-4',
+    assetId: 'mock-asset-var-4',
+    status: 'open',
     portfolioId: 'portfolio-2',
     name: 'CSHG Logística',
     ticker: 'HGLG11',
@@ -264,6 +287,8 @@ export const mockVariableIncomeInvestments: RendaVariavelDto[] = [
   },
   {
     id: 'var-5',
+    assetId: 'mock-asset-var-5',
+    status: 'open',
     portfolioId: 'portfolio-2',
     name: 'iShares Ibovespa',
     ticker: 'BOVA11',

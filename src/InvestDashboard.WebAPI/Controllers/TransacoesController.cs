@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 using InvestDashboard.Application.DTOs.Trading;
+using InvestDashboard.Application.DTOs.Common;
 using InvestDashboard.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -11,7 +12,7 @@ namespace InvestDashboard.WebAPI.Controllers
 {
     [Authorize]
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/v1/transactions")]
     public class TransacoesController : ControllerBase
     {
         private readonly ITransacaoAppService _transacaoAppService;
@@ -26,17 +27,38 @@ namespace InvestDashboard.WebAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Register([FromBody] RegistrarTransacaoDto dto)
+        public async Task<ActionResult<ApiResponse<TransacaoDto>>> Register(
+            [FromBody] RegistrarTransacaoDto dto,
+            CancellationToken cancellationToken)
         {
-            var transacao = await _transacaoAppService.RegisterTransactionAsync(dto);
-            return CreatedAtAction(nameof(GetByPortfolio), new { portfolioId = transacao.CarteiraId }, transacao);
+            var transaction = await _transacaoAppService.RegisterTransactionAsync(dto);
+            return CreatedAtAction(
+                nameof(GetByPortfolio),
+                new { portfolioId = transaction.CarteiraId },
+                new ApiResponse<TransacaoDto>(transaction));
         }
 
         [HttpGet("portfolio/{portfolioId:guid}")]
-        public async Task<IActionResult> GetByPortfolio(Guid portfolioId)
+        public async Task<ActionResult<ApiResponse<List<TransacaoDto>>>> GetByPortfolio(Guid portfolioId)
         {
             var transactions = await _transacaoAppService.GetTransactionsByPortfolioIdAsync(portfolioId);
-            return Ok(transactions);
+            return Ok(new ApiResponse<List<TransacaoDto>>(transactions));
+        }
+
+        [HttpPatch("{id:guid}")]
+        public async Task<ActionResult<ApiResponse<TransacaoDto>>> Update(
+            Guid id,
+            [FromBody] AtualizarTransacaoDto dto)
+        {
+            var transaction = await _transacaoAppService.UpdateTransactionAsync(id, dto);
+            return Ok(new ApiResponse<TransacaoDto>(transaction));
+        }
+
+        [HttpDelete("{id:guid}")]
+        public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id)
+        {
+            await _transacaoAppService.DeleteTransactionAsync(id);
+            return Ok(new ApiResponse<bool>(true));
         }
 
         /// <summary>

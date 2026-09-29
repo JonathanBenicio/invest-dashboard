@@ -4,11 +4,11 @@ import { Input } from '@/components/ui/input'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
-import { brapiService } from '@/api/services/brapi.service'
-import type { BrapiQuote } from '@/api/dtos'
+import { marketDataService } from '@/api/services/market-data.service'
+import type { MarketSearchResultDto } from '@/api/dtos'
 
 interface StockSearchProps {
-  onSelect: (quote: BrapiQuote) => void
+  onSelect: (quote: MarketSearchResultDto) => void
   defaultValue?: string
 }
 
@@ -16,7 +16,7 @@ export function StockSearch({ onSelect, defaultValue = '' }: StockSearchProps) {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState(defaultValue)
   const [search, setSearch] = useState('')
-  const [results, setResults] = useState<string[]>([])
+  const [results, setResults] = useState<MarketSearchResultDto[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -28,8 +28,8 @@ export function StockSearch({ onSelect, defaultValue = '' }: StockSearchProps) {
     const delayDebounceFn = setTimeout(async () => {
       setLoading(true)
       try {
-        const response = await brapiService.getAvailableTickers(search)
-        setResults(response.stocks.slice(0, 10)) // Limit to 10 results
+        const response = await marketDataService.search(search)
+        setResults(response.data.slice(0, 10))
       } catch (error) {
         console.error('Error searching tickers:', error)
       } finally {
@@ -40,21 +40,10 @@ export function StockSearch({ onSelect, defaultValue = '' }: StockSearchProps) {
     return () => clearTimeout(delayDebounceFn)
   }, [search])
 
-  const handleSelect = async (ticker: string) => {
-    setValue(ticker)
+  const handleSelect = (quote: MarketSearchResultDto) => {
+    setValue(quote.symbol)
     setOpen(false)
-    setLoading(true)
-    try {
-      const response = await brapiService.getQuote([ticker])
-      if (response.results && response.results.length > 0) {
-        const quote = response.results[0]
-        onSelect(quote)
-      }
-    } catch (error) {
-      console.error('Error fetching quote:', error)
-    } finally {
-      setLoading(false)
-    }
+    onSelect(quote)
   }
 
   return (
@@ -79,13 +68,15 @@ export function StockSearch({ onSelect, defaultValue = '' }: StockSearchProps) {
           <CommandList>
             <CommandEmpty>Nenhum ativo encontrado.</CommandEmpty>
             <CommandGroup>
-              {results.map((ticker) => (
+              {results.map((quote) => (
                 <CommandItem
-                  key={ticker}
-                  value={ticker}
-                  onSelect={() => handleSelect(ticker)}
+                  key={quote.symbol}
+                  value={quote.symbol}
+                  onSelect={() => handleSelect(quote)}
                 >
-                  {ticker}
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <span>{quote.symbol} · {quote.name}</span>
+                  </div>
                 </CommandItem>
               ))}
             </CommandGroup>

@@ -12,12 +12,14 @@ import type {
   CarteiraFiltros,
   ApiResponse,
   PaginatedResponse,
+  PontoHistoricoCarteiraDto,
 } from '../dtos'
 
 const PORTFOLIO_ENDPOINTS = {
   BASE: '/portfolios',
   DETAIL: (id: string) => `/portfolios/${id}`,
   SUMMARY: (id: string) => `/portfolios/${id}/summary`,
+  HISTORY: (id: string) => `/portfolios/${id}/history`,
 } as const
 
 /**
@@ -41,6 +43,9 @@ export const portfolioService = {
    */
   getSummary: (id: string): Promise<ApiResponse<ResumoCarteiraDto>> =>
     api.get(PORTFOLIO_ENDPOINTS.SUMMARY(id)),
+
+  getHistory: (id: string, fromDate: string, toDate: string): Promise<ApiResponse<PontoHistoricoCarteiraDto[]>> =>
+    api.get(PORTFOLIO_ENDPOINTS.HISTORY(id), { params: { fromDate, toDate } }),
 
   /**
    * Create a new portfolio

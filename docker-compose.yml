@@ -1,46 +1,51 @@
 services:
   db:
     image: supabase/postgres:15.1.1.78
-    container_name: invest-db
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   api:
-    image: invest-api
-    container_name: invest-api
     build:
       context: .
       dockerfile: src/InvestDashboard.WebAPI/Dockerfile
     ports:
-      - "5000:8080"
+      - "127.0.0.1:5000:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=db;Database=postgres;Username=postgres;Password=postgres
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Host=db;Database=${POSTGRES_DB:-postgres};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}
+      Jwt__Secret: ${JWT_SECRET:?Configure JWT_SECRET with at least 32 random bytes in .env}
+      Storage__SupabaseUrl: ${SUPABASE_URL:?Configure SUPABASE_URL in .env}
+      Storage__SupabaseApiKey: ${SUPABASE_ANON_KEY:?Configure SUPABASE_ANON_KEY in .env}
+      MarketData__BrapiToken: ${BRAPI_API_TOKEN:-}
+      Cors__AllowedOrigins__0: http://localhost:8080
     depends_on:
-      - db
-    restart: always
+      db:
+        condition: service_healthy
+    restart: unless-stopped
 
   frontend:
-    image: invest-frontend
-    container_name: invest-frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         VITE_USE_MSW: "false"
-        VITE_API_URL: "http://localhost:5000"
+        VITE_API_URL: /
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     depends_on:
       - api
-    restart: always
+    restart: unless-stopped
 
 volumes:
   postgres_data:

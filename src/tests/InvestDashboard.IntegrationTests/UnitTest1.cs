@@ -1,10 +1,2 @@
-﻿namespace InvestDashboard.IntegrationTests;
-
-public class UnitTest1
-{
-    [Fact]
-    public void Test1()
-    {
-
-    }
-}
+// This file was intentionally left empty.
+// Real integration tests are located in the Controllers/ directory.

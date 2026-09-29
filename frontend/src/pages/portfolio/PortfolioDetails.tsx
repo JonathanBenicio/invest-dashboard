@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { portfolioDetailsRoute } from "../../router"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Wallet, TrendingUp, TrendingDown, PiggyBank, Building2, Plus, Target, Calendar } from "lucide-react"
@@ -13,9 +14,12 @@ import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { usePortfolio, usePortfolioSummary } from "@/hooks/use-portfolios"
 import { useFixedIncomeInvestments } from "@/hooks/use-investments"
 import { useVariableIncomeInvestments } from "@/hooks/use-variable-income"
+import { useSignalR } from "@/hooks/useSignalR"
+import { useMarketDataStore } from "@/store/marketDataStore"
 import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { investmentService } from "@/api/services/investment.service"
+import { portfolioService } from "@/api/services/portfolio.service"
 import type { RendaFixaDto, RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, TipoRendaFixa } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
@@ -28,9 +32,29 @@ export default function PortfolioDetails() {
   // Queries
   const { data: portfolioResponse, isLoading: isLoadingPortfolio } = usePortfolio(id)
   const { data: summaryResponse } = usePortfolioSummary(id)
+  const historyRange = useMemo(() => {
+    const today = new Date()
+    const from = new Date(today)
+    from.setFullYear(from.getFullYear() - 1)
+    return {
+      fromDate: from.toISOString().slice(0, 10),
+      toDate: today.toISOString().slice(0, 10),
+    }
+  }, [])
+  const { data: historyResponse, isLoading: isLoadingHistory, isError: isHistoryError } = useQuery({
+    queryKey: ["portfolio-history", id, historyRange],
+    queryFn: () => portfolioService.getHistory(id, historyRange.fromDate, historyRange.toDate),
+  })
 
   const portfolio = portfolioResponse?.data
   const summary = summaryResponse?.data
+  const completeHistory = historyResponse?.data
+    .filter(point => point.isComplete && point.totalValue !== null)
+    .map(point => ({
+      date: new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(point.date)),
+      value: point.totalValue as number,
+    })) ?? []
+  const hasIncompleteHistory = historyResponse?.data.some(point => !point.isComplete) ?? false
 
   // Fixed Income Table State
   const [fixedPagination, setFixedPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 5 })
@@ -73,7 +97,7 @@ export default function PortfolioDetails() {
     const subtype = variableColumnFilters.find(f => f.id === 'subtype')?.value
     if (subtype) filters.subtype = subtype as TipoRendaVariavel
     const sector = variableColumnFilters.find(f => f.id === 'sector')?.value
-    if (sector) (filters as any).sector = sector
+    if (typeof sector === 'string') filters.sector = sector
     return filters
   }, [id, variablePagination, variableSorting, variableColumnFilters, variableGlobalFilter])
 
@@ -82,7 +106,35 @@ export default function PortfolioDetails() {
   const { data: variableResponse, isLoading: isLoadingVariable, refetch: refetchVariable } = useVariableIncomeInvestments(variableFilters)
 
   const fixedAssets = (fixedResponse?.data || []) as RendaFixaDto[]
-  const variableAssets = (variableResponse?.data || []) as RendaVariavelDto[]
+
+  // Extrair tickers para assinar via SignalR
+  const tickers = useMemo(() => {
+    return (variableResponse?.data || []).map(asset => asset.ticker)
+  }, [variableResponse?.data])
+
+  // Inicializa o SignalR e assina os tickers
+  useSignalR(tickers)
+
+  // Recupera as cotações em tempo real
+  const { prices } = useMarketDataStore()
+
+  // Mapeia os ativos de renda variável injetando os preços em tempo real
+  const variableAssets = useMemo(() => {
+    const originalAssets = (variableResponse?.data || []) as RendaVariavelDto[]
+    return originalAssets.map(asset => {
+      const livePrice = prices[asset.ticker.toUpperCase()]
+      if (livePrice !== undefined) {
+        return {
+          ...asset,
+          currentPrice: livePrice,
+          currentValue: asset.quantity * livePrice,
+          gain: (asset.quantity * livePrice) - asset.totalInvested,
+          gainPercentage: asset.totalInvested > 0 ? (((asset.quantity * livePrice) - asset.totalInvested) / asset.totalInvested) * 100 : 0
+        }
+      }
+      return asset
+    })
+  }, [variableResponse?.data, prices])
 
   // Edit/Delete State
   const [editingInvestment, setEditingInvestment] = useState<RendaFixaDto | RendaVariavelDto | null>(null)
@@ -104,10 +156,13 @@ export default function PortfolioDetails() {
     setIsEditDialogOpen(true)
   }
 
-  const handleSaveInvestment = async (updated: any) => {
+  const handleSaveInvestment = async (updated: RendaFixaDto | RendaVariavelDto, valuationDate: string) => {
     if (!editingInvestment) return
     try {
-        await investmentService.update(editingInvestment.id, updated)
+        await investmentService.update(editingInvestment.id, {
+          totalValue: updated.currentValue,
+          date: new Date(`${valuationDate}T12:00:00`).toISOString(),
+        })
         setIsEditDialogOpen(false)
         toast({ title: "Investimento atualizado", description: "Sucesso." })
         if (editingType === "fixed") refetchFixed()
@@ -152,12 +207,10 @@ export default function PortfolioDetails() {
           </Link>
           <div>
             <div className="flex items-center gap-3">
-              <span className="text-3xl">{portfolio.bankLogo}</span>
               <div>
                 <h1 className="text-2xl font-bold">{portfolio.name}</h1>
                 <p className="text-muted-foreground flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  {portfolio.bankName}
+                  {portfolio.description ?? 'Investimentos desta carteira'}
                 </p>
               </div>
             </div>
@@ -309,36 +362,35 @@ export default function PortfolioDetails() {
             {/* Evolution Chart */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Evolução Patrimonial</CardTitle>
+                <CardTitle className="text-lg">Evolução da carteira</CardTitle>
+                <CardDescription>
+                  {hasIncompleteHistory
+                    ? "O gráfico mostra apenas datas completas; períodos sem preço para algum ativo foram omitidos."
+                    : "Valores históricos calculados com operações e preços armazenados."}
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={summary?.performanceHistory || []}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="date" className="text-xs" />
-                      <YAxis
-                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                        className="text-xs"
-                      />
-                      <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
-                        labelFormatter={(label) => `Data: ${label}`}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        name="Patrimônio"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth={2}
-                        dot={{ fill: 'hsl(var(--primary))' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
+                {isLoadingHistory ? (
+                  <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">Carregando histórico...</div>
+                ) : isHistoryError || completeHistory.length < 2 ? (
+                  <div className="flex h-[300px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
+                    Ainda não há pontos completos suficientes. A série cresce conforme chegam cotações diárias e avaliações de extrato.
+                  </div>
+                ) : (
+                  <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={completeHistory}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis dataKey="date" className="text-xs" />
+                        <YAxis tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} className="text-xs" />
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Line type="monotone" dataKey="value" name="Patrimônio" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </CardContent>
             </Card>
-
             {/* Allocation Chart */}
             <Card>
               <CardHeader>

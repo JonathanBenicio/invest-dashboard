@@ -13,6 +13,9 @@ public class Transacao : AggregateRoot<Guid>
     public decimal Quantity { get; private set; }
     public decimal UnitPrice { get; private set; }
     public decimal BrokerageFee { get; private set; }
+    public Guid? IdempotencyKey { get; private set; }
+    public decimal RealizedGain { get; private set; }
+    public decimal RealizedCostBasis { get; private set; }
     public DateTime TransactionDate { get; private set; }
     public string? Notes { get; private set; }
 
@@ -36,7 +39,8 @@ public class Transacao : AggregateRoot<Guid>
         decimal unitPrice,
         decimal brokerageFee,
         DateTime transactionDate,
-        string? notes = null)
+        string? notes = null,
+        Guid? idempotencyKey = null)
         : base(id)
     {
         if (string.IsNullOrWhiteSpace(userId))
@@ -64,6 +68,9 @@ public class Transacao : AggregateRoot<Guid>
 
             if (unitPrice <= 0)
                 throw new ArgumentException("Unit price must be greater than zero for Buy/Sell transactions", nameof(unitPrice));
+
+            if (type == TipoTransacao.Sell && brokerageFee > quantity * unitPrice)
+                throw new ArgumentException("Fees cannot exceed gross sale proceeds", nameof(brokerageFee));
         }
         else
         {
@@ -82,8 +89,53 @@ public class Transacao : AggregateRoot<Guid>
         Quantity = quantity;
         UnitPrice = unitPrice;
         BrokerageFee = brokerageFee;
+        IdempotencyKey = idempotencyKey;
         TransactionDate = transactionDate.Kind == DateTimeKind.Utc ? transactionDate : transactionDate.ToUniversalTime();
         Notes = notes?.Trim();
+    }
+
+    public void SetRealizedResult(decimal realizedGain, decimal costBasis)
+    {
+        if (Type != TipoTransacao.Sell)
+            throw new InvalidOperationException("Realized results can only be attached to a sale.");
+
+        if (costBasis < 0)
+            throw new ArgumentOutOfRangeException(nameof(costBasis));
+
+        RealizedGain = realizedGain;
+        RealizedCostBasis = costBasis;
+    }
+
+    public void UpdateDetails(
+        TipoTransacao type,
+        decimal quantity,
+        decimal unitPrice,
+        decimal brokerageFee,
+        DateTime transactionDate,
+        string? notes)
+    {
+        var replacement = new Transacao(
+            Id,
+            UserId,
+            CarteiraId,
+            AtivoId,
+            Ticker,
+            type,
+            quantity,
+            unitPrice,
+            brokerageFee,
+            transactionDate,
+            notes,
+            IdempotencyKey);
+
+        Type = replacement.Type;
+        Quantity = replacement.Quantity;
+        UnitPrice = replacement.UnitPrice;
+        BrokerageFee = replacement.BrokerageFee;
+        TransactionDate = replacement.TransactionDate;
+        Notes = replacement.Notes;
+        RealizedGain = 0;
+        RealizedCostBasis = 0;
     }
 
     // Required for EF Core / deserialization

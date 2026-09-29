@@ -1,16 +1,10 @@
-import { useState, useMemo } from "react"
-import { ArrowUpRight, ArrowDownRight, TrendingUp, Calendar, Wallet, PiggyBank } from "lucide-react"
+import { ArrowUpRight, ArrowDownRight, TrendingUp, Wallet } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { investmentService, queryKeys } from "@/api"
 import { formatCurrency } from "@/lib/utils"
-import { ChartPeriodFilter, type ChartPeriod, generatePeriodData } from "@/components/ChartPeriodFilter"
 import {
   ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
   Tooltip,
   PieChart,
   Pie,
@@ -19,8 +13,6 @@ import {
 } from "recharts"
 
 export default function Dashboard() {
-  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>('30d')
-
   // Fetch investment summary
   const { data: summaryData, isLoading } = useQuery({
     queryKey: queryKeys.investments.summary(),
@@ -28,12 +20,6 @@ export default function Dashboard() {
   })
 
   const summary = summaryData?.data
-
-  // Generate chart data based on selected period
-  const portfolioHistory = useMemo(() => {
-    if (!summary) return []
-    return generatePeriodData(chartPeriod, summary.currentValue)
-  }, [chartPeriod, summary])
 
   if (isLoading) {
     return (
@@ -58,10 +44,6 @@ export default function Dashboard() {
     { name: 'Renda Variável', value: summary.variableIncomeTotal, color: 'hsl(145, 65%, 42%)' },
   ]
 
-  // Mock upcoming data (will be replaced with real data later)
-  const upcomingMaturities: any[] = []
-  const upcomingDividends: any[] = []
-
   return (
     <div className="space-y-4 sm:space-y-6">
       <div>
@@ -81,7 +63,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-lg sm:text-2xl font-bold">{formatCurrency(totalPortfolio)}</div>
             <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 hidden sm:block">
-              Atualizado em tempo real
+              Valor calculado pelas cotações registradas
             </p>
           </CardContent>
         </Card>
@@ -139,77 +121,16 @@ export default function Dashboard() {
 
       {/* Charts */}
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        {/* Portfolio Evolution */}
+        {/* History will render only from complete server history data */}
         <Card className="lg:col-span-1">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-start justify-between space-y-2 sm:space-y-0 gap-2">
-            <div>
-              <CardTitle>Evolução Patrimonial</CardTitle>
-              <CardDescription className="text-responsive-sm">Sua Carteira vs Benchmark (CDI)</CardDescription>
-            </div>
-            <ChartPeriodFilter value={chartPeriod} onChange={setChartPeriod} />
+          <CardHeader>
+            <CardTitle>Histórico da carteira</CardTitle>
+            <CardDescription className="text-responsive-sm">A evolução aparece quando há preços históricos suficientes para todas as posições.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[200px] sm:h-[280px] lg:h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={portfolioHistory}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(220, 70%, 50%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(220, 70%, 50%)" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorBenchmark" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(145, 65%, 42%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(145, 65%, 42%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis 
-                    dataKey="date" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    className="text-[10px] sm:text-xs"
-                    tick={{ fontSize: 10 }}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                    className="text-[10px] sm:text-xs"
-                    tick={{ fontSize: 10 }}
-                    width={40}
-                  />
-                  <Tooltip
-                    formatter={(value: number) => formatCurrency(value)}
-                    labelStyle={{ color: 'hsl(220, 20%, 15%)' }}
-                    contentStyle={{
-                      backgroundColor: 'hsl(0, 0%, 100%)',
-                      border: '1px solid hsl(220, 15%, 90%)',
-                      borderRadius: '8px',
-                      fontSize: '12px'
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="hsl(220, 70%, 50%)"
-                    fillOpacity={1}
-                    fill="url(#colorValue)"
-                    name="Sua Carteira"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="benchmark"
-                    stroke="hsl(145, 65%, 42%)"
-                    fillOpacity={1}
-                    fill="url(#colorBenchmark)"
-                    name="CDI"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+          <CardContent className="flex h-[200px] items-center justify-center text-center text-sm text-muted-foreground sm:h-[280px]">
+            O histórico agregado será mostrado aqui quando os preços e valores de extrato permitirem validar cada período.
           </CardContent>
         </Card>
-
         {/* Allocation */}
         <Card>
           <CardHeader>
@@ -256,78 +177,14 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Bottom Cards */}
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-        {/* Upcoming Maturities */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Próximos Vencimentos
-              </CardTitle>
-              <CardDescription>Renda fixa com vencimento próximo</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {upcomingMaturities.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum vencimento próximo</p>
-            ) : (
-              <div className="space-y-4">
-                {upcomingMaturities.map((asset) => (
-                  <div key={asset.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium text-sm">{asset.name}</p>
-                      <p className="text-xs text-muted-foreground">{asset.type} • {asset.rate} {asset.rateType}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-sm">{formatCurrency(asset.currentValue)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(asset.maturityDate).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Dividends */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <PiggyBank className="h-5 w-5" />
-                Próximos Proventos
-              </CardTitle>
-              <CardDescription>Dividendos e rendimentos previstos</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {upcomingDividends.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum provento próximo</p>
-            ) : (
-              <div className="space-y-4">
-                {upcomingDividends.map((dividend) => (
-                  <div key={dividend.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="font-medium text-sm">{dividend.ticker}</p>
-                      <p className="text-xs text-muted-foreground">{dividend.type}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-medium text-sm text-success">{formatCurrency(dividend.value)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(dividend.paymentDate).toLocaleDateString('pt-BR')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Acompanhamento de vencimentos e proventos</CardTitle>
+          <CardDescription>Esse painel entra na etapa futura de fluxo de caixa.</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          A visão atual acompanha saldo investido, cotação e resultado das posições.
+        </CardContent>
+      </Card>    </div>
   )
 }

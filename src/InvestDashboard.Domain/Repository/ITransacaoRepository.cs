@@ -9,6 +9,8 @@ namespace InvestDashboard.Domain.Repository;
 public interface ITransacaoRepository
 {
     Task<Transacao?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Transacao?> GetByIdempotencyKeyAsync(string userId, Guid idempotencyKey, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Transacao>> GetByPortfolioIdAsync(Guid portfolioId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Transacao>> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default);
     Task AddAsync(Transacao transacao, CancellationToken cancellationToken = default);
     void Update(Transacao transacao);

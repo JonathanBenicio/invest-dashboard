@@ -1,7 +1,7 @@
 import { api } from '../client'
 import type { ApiResponse, SimulacaoResponse, SimulacaoRequest, SimulacaoEstrategia } from '../dtos'
 
-const BASE = '/api/v1/simulation'
+const BASE = '/simulation'
 
 export const simulationService = {
   simulate: (data: SimulacaoRequest) =>

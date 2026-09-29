@@ -8,6 +8,11 @@ public class RendaFixaConfiguration : IEntityTypeConfiguration<RendaFixa>
 {
     public void Configure(EntityTypeBuilder<RendaFixa> builder)
     {
+        builder.Property(asset => asset.Issuer)
+            .HasColumnName("issuer")
+            .HasMaxLength(200)
+            .HasDefaultValue("Desconhecido")
+            .IsRequired();
         builder.Property(f => f.Indexer)
             .HasColumnName("indexer")
             .HasMaxLength(50);

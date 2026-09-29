@@ -322,7 +322,7 @@ export function FixedIncomeTable({
                       <p className="text-muted-foreground text-xs mb-1">Vencimento</p>
                       <p className="font-medium flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {formatDate(asset.maturityDate)}
+                        {asset.maturityDate ? formatDate(asset.maturityDate) : 'Sem data'}
                       </p>
                     </div>
                     <div>

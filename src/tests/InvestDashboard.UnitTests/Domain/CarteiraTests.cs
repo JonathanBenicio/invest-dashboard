@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
 using InvestDashboard.Domain.Aggregates.MarketData;
-using InvestDashboard.Domain.Aggregates.Carteira;
-using InvestDashboard.Domain.Aggregates.Transacao;
+using InvestDashboard.Domain.Aggregates.Portfolio;
+using InvestDashboard.Domain.Aggregates.Trading;
 using Xunit;
 
 namespace InvestDashboard.UnitTests.Domain;
@@ -38,7 +39,7 @@ public class CarteiraTests
             Guid.NewGuid(), _userId, _portfolioId, null, null, TipoTransacao.Deposit, 1500m, 1m, 0m, DateTime.UtcNow);
 
         // Act
-        portfolio.ProcessTransaction(deposit, 0m, TipoAtivo.Stock);
+        portfolio.ProcessTransaction(deposit, 0m, TipoAtivo.Acao);
 
         // Assert
         portfolio.Balance.Should().Be(2000m);
@@ -53,7 +54,7 @@ public class CarteiraTests
             Guid.NewGuid(), _userId, _portfolioId, null, null, TipoTransacao.Withdrawal, 500m, 1m, 0m, DateTime.UtcNow);
 
         // Act
-        portfolio.ProcessTransaction(withdrawal, 0m, TipoAtivo.Stock);
+        portfolio.ProcessTransaction(withdrawal, 0m, TipoAtivo.Acao);
 
         // Assert
         portfolio.Balance.Should().Be(1500m);
@@ -68,7 +69,7 @@ public class CarteiraTests
             Guid.NewGuid(), _userId, _portfolioId, null, null, TipoTransacao.Withdrawal, 150m, 1m, 0m, DateTime.UtcNow);
 
         // Act
-        Action action = () => portfolio.ProcessTransaction(withdrawal, 0m, TipoAtivo.Stock);
+        Action action = () => portfolio.ProcessTransaction(withdrawal, 0m, TipoAtivo.Acao);
 
         // Assert
         action.Should().Throw<InvalidOperationException>()
@@ -86,16 +87,16 @@ public class CarteiraTests
             Guid.NewGuid(), _userId, _portfolioId, assetId, ticker, TipoTransacao.Buy, 100m, 35m, 10m, DateTime.UtcNow);
 
         // Act
-        portfolio.ProcessTransaction(buyTx, 35m, TipoAtivo.Stock);
+        portfolio.ProcessTransaction(buyTx, 35m, TipoAtivo.Acao);
 
         // Assert
-        portfolio.Balance.Should().Be(10000m - ((100 * 35) + 10)); // 10000 - 3510 = 6490
+        portfolio.Balance.Should().Be(10000m); // Asset positions do not mutate the legacy cash balance.
         portfolio.Positions.Should().HaveCount(1);
 
         var position = portfolio.Positions.First();
         position.AtivoId.Should().Be(assetId);
         position.Ticker.Should().Be(ticker);
-        position.AssetType.Should().Be(TipoAtivo.Stock);
+        position.TipoAtivo.Should().Be(TipoAtivo.Acao);
         position.Quantity.Should().Be(100m);
         position.AverageCost.Should().Be(35.10m); // 3510 / 100 = 35.10
         position.TotalCost.Should().Be(3510m);
@@ -116,8 +117,8 @@ public class CarteiraTests
         var buy2 = new Transacao(Guid.NewGuid(), _userId, _portfolioId, assetId, ticker, TipoTransacao.Buy, 50m, 40m, 5m, DateTime.UtcNow);
 
         // Act
-        portfolio.ProcessTransaction(buy1, 30m, TipoAtivo.Stock);
-        portfolio.ProcessTransaction(buy2, 40m, TipoAtivo.Stock);
+        portfolio.ProcessTransaction(buy1, 30m, TipoAtivo.Acao);
+        portfolio.ProcessTransaction(buy2, 40m, TipoAtivo.Acao);
 
         // Assert
         // Buy 1: Cost = 3010, Qty = 100. Avg = 30.10
@@ -141,14 +142,12 @@ public class CarteiraTests
         var sell = new Transacao(Guid.NewGuid(), _userId, _portfolioId, assetId, ticker, TipoTransacao.Sell, 40m, 35m, 5m, DateTime.UtcNow);
 
         // Act
-        portfolio.ProcessTransaction(buy, 30m, TipoAtivo.Stock);
-        portfolio.ProcessTransaction(sell, 35m, TipoAtivo.Stock);
+        portfolio.ProcessTransaction(buy, 30m, TipoAtivo.Acao);
+        portfolio.ProcessTransaction(sell, 35m, TipoAtivo.Acao);
 
         // Assert
-        // Buy: Balance becomes 10000 - 3010 = 6990. Position: Qty = 100, Avg = 30.10, TotalCost = 3010.
-        // Sell: Revenue = (40 * 35) - 5 = 1395. Balance becomes 6990 + 1395 = 8385.
-        // Position: Qty becomes 60. Avg remains 30.10. TotalCost = 60 * 30.10 = 1806.
-        portfolio.Balance.Should().Be(8385m);
+        // Buys and sells change the investment position, not the future cash-flow ledger.
+        portfolio.Balance.Should().Be(10000m);
         
         var position = portfolio.Positions.First();
         position.Quantity.Should().Be(60m);
@@ -168,8 +167,8 @@ public class CarteiraTests
         var sell = new Transacao(Guid.NewGuid(), _userId, _portfolioId, assetId, ticker, TipoTransacao.Sell, 100m, 35m, 0m, DateTime.UtcNow);
 
         // Act
-        portfolio.ProcessTransaction(buy, 30m, TipoAtivo.Stock);
-        portfolio.ProcessTransaction(sell, 35m, TipoAtivo.Stock);
+        portfolio.ProcessTransaction(buy, 30m, TipoAtivo.Acao);
+        portfolio.ProcessTransaction(sell, 35m, TipoAtivo.Acao);
 
         // Assert
         var position = portfolio.Positions.First();
@@ -191,21 +190,18 @@ public class CarteiraTests
         var sell = new Transacao(Guid.NewGuid(), _userId, _portfolioId, assetId, ticker, TipoTransacao.Sell, 30m, 45m, 10m, DateTime.UtcNow);
 
         // Act
-        portfolio.ProcessTransaction(buy1, 30m, TipoAtivo.Stock);
-        portfolio.ProcessTransaction(buy2, 40m, TipoAtivo.Stock);
-        portfolio.ProcessTransaction(sell, 45m, TipoAtivo.Stock);
+        portfolio.ProcessTransaction(buy1, 30m, TipoAtivo.Acao);
+        portfolio.ProcessTransaction(buy2, 40m, TipoAtivo.Acao);
+        portfolio.ProcessTransaction(sell, 45m, TipoAtivo.Acao);
 
         var transactions = new List<Transacao> { buy1, buy2, sell };
 
-        // We verify cash balance before revert
-        // Balance = 10000 - ((100 * 30) + 10) - ((50 * 40) + 5) + ((30 * 45) - 10)
-        // Balance = 10000 - 3010 - 2005 + 1340 = 6325
-        portfolio.Balance.Should().Be(6325m);
+        portfolio.Balance.Should().Be(10000m);
         portfolio.Positions.Should().NotBeEmpty();
 
         portfolio.RemovePositionAndRevertTransactions(assetId, transactions);
 
-        // Assert: cash restored back to 10000m and position removed!
+        // Assert: the investment position is removed; legacy cash stays independent.
         portfolio.Balance.Should().Be(10000m);
         portfolio.Positions.Should().BeEmpty();
     }

@@ -34,6 +34,18 @@ public class AtivoRepository : IAtivoRepository
             .FirstOrDefaultAsync(a => a.Ticker == normalizedTicker, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Ativo>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> assetIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (assetIds.Count == 0)
+            return Array.Empty<Ativo>();
+
+        return await _context.Assets
+            .Where(asset => assetIds.Contains(asset.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Ativo>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Assets

@@ -1,7 +1,7 @@
 import { api } from '../client'
 import type { ApiResponse, TaxaEconomicaDto, CriarTaxaEconomicaRequest, AtualizarTaxaEconomicaRequest } from '../dtos'
 
-const BASE = '/api/v1/taxes'
+const BASE = '/taxes'
 
 export const taxesService = {
   getAll: () =>

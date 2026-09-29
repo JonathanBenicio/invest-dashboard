@@ -53,6 +53,19 @@ public class TransacaoConfiguration : IEntityTypeConfiguration<Transacao>
             .HasColumnType("numeric(18,4)")
             .IsRequired();
 
+        builder.Property(t => t.IdempotencyKey)
+            .HasColumnName("idempotency_key");
+
+        builder.Property(t => t.RealizedGain)
+            .HasColumnName("realized_gain")
+            .HasColumnType("numeric(18,4)")
+            .IsRequired();
+
+        builder.Property(t => t.RealizedCostBasis)
+            .HasColumnName("realized_cost_basis")
+            .HasColumnType("numeric(18,4)")
+            .IsRequired();
+
         builder.Property(t => t.TransactionDate)
             .HasColumnName("transaction_date")
             .IsRequired();
@@ -63,6 +76,11 @@ public class TransacaoConfiguration : IEntityTypeConfiguration<Transacao>
 
         builder.HasIndex(t => t.UserId)
             .HasDatabaseName("idx_transactions_user_id");
+
+        builder.HasIndex(t => new { t.UserId, t.IdempotencyKey })
+            .IsUnique()
+            .HasFilter("idempotency_key IS NOT NULL")
+            .HasDatabaseName("ux_transactions_user_idempotency_key");
 
         builder.HasOne<Ativo>()
             .WithMany()

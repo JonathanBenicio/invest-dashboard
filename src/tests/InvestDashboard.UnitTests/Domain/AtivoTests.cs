@@ -1,7 +1,6 @@
 using System;
 using FluentAssertions;
 using InvestDashboard.Domain.Aggregates.MarketData;
-using InvestDashboard.Domain.Aggregates.Ativo;
 using Xunit;
 
 namespace InvestDashboard.UnitTests.Domain;
@@ -20,13 +19,13 @@ public class AtivoTests
         var sector = "Industrials";
 
         // Act
-        var asset = new StockAsset(id, ticker, name, price, now, sector);
+        var asset = new Acao(id, ticker, name, price, now, sector);
 
         // Assert
         asset.Id.Should().Be(id);
         asset.Ticker.Should().Be(ticker);
         asset.Name.Should().Be(name);
-        asset.AssetType.Should().Be(TipoAtivo.Stock);
+        asset.TipoAtivo.Should().Be(TipoAtivo.Acao);
         asset.CurrentPrice.Should().Be(price);
         asset.LastUpdatedUtc.Should().BeCloseTo(now, TimeSpan.FromSeconds(1));
         asset.Sector.Should().Be(sector);
@@ -39,7 +38,7 @@ public class AtivoTests
         string ticker, string name, string sector, string expectedMessage)
     {
         // Act
-        Action action = () => new StockAsset(Guid.NewGuid(), ticker, name, 10m, DateTime.UtcNow, sector);
+        Action action = () => new Acao(Guid.NewGuid(), ticker, name, 10m, DateTime.UtcNow, sector);
 
         // Assert
         action.Should().Throw<ArgumentException>()
@@ -50,7 +49,7 @@ public class AtivoTests
     public void Constructor_ShouldThrowArgumentException_WhenPriceIsNegative()
     {
         // Act
-        Action action = () => new StockAsset(Guid.NewGuid(), "WEGE3", "Weg S.A.", -1.5m, DateTime.UtcNow, "Industrials");
+        Action action = () => new Acao(Guid.NewGuid(), "WEGE3", "Weg S.A.", -1.5m, DateTime.UtcNow, "Industrials");
 
         // Assert
         action.Should().Throw<ArgumentException>()
@@ -61,7 +60,7 @@ public class AtivoTests
     public void UpdatePrice_ShouldModifyPriceAndDate_WhenValid()
     {
         // Arrange
-        var asset = new StockAsset(Guid.NewGuid(), "WEGE3", "Weg", 10m, DateTime.UtcNow, "Industrials");
+        var asset = new Acao(Guid.NewGuid(), "WEGE3", "Weg", 10m, DateTime.UtcNow, "Industrials");
         var newPrice = 12.50m;
         var updateTime = DateTime.UtcNow;
 
@@ -77,7 +76,7 @@ public class AtivoTests
     public void UpdatePrice_ShouldThrowArgumentException_WhenNewPriceIsNegative()
     {
         // Arrange
-        var asset = new StockAsset(Guid.NewGuid(), "WEGE3", "Weg", 10m, DateTime.UtcNow, "Industrials");
+        var asset = new Acao(Guid.NewGuid(), "WEGE3", "Weg", 10m, DateTime.UtcNow, "Industrials");
 
         // Act
         Action action = () => asset.UpdatePrice(-0.01m, DateTime.UtcNow);
@@ -91,7 +90,7 @@ public class AtivoTests
     public void UpdatePrice_ShouldThrowArgumentException_WhenDateIsInTheFuture()
     {
         // Arrange
-        var asset = new StockAsset(Guid.NewGuid(), "WEGE3", "Weg", 10m, DateTime.UtcNow, "Industrials");
+        var asset = new Acao(Guid.NewGuid(), "WEGE3", "Weg", 10m, DateTime.UtcNow, "Industrials");
         var futureDate = DateTime.UtcNow.AddHours(1);
 
         // Act

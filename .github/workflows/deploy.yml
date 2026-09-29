@@ -27,22 +27,29 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
+        working-directory: frontend
         run: bun install
 
+      - name: Require API URL
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: test -n "$VITE_API_URL" || (echo "Configure the VITE_API_URL repository variable before deploying the frontend." && exit 1)
+
       - name: Build
+        working-directory: frontend
         run: |
           bunx msw init public --save
           bun run build
           cp dist/index.html dist/404.html
         env:
           GITHUB_PAGES: "true"
-          VITE_USE_MSW: "true"
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_USE_MSW: "false"
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ./frontend/dist
 
   deploy:
     environment:

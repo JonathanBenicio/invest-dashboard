@@ -1,157 +1,296 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Security.Authentication;
 using InvestDashboard.Application.DTOs.Trading;
+using InvestDashboard.Application.Exceptions;
 using InvestDashboard.Application.Interfaces;
 using InvestDashboard.Domain.Aggregates.MarketData;
+using InvestDashboard.Domain.Aggregates.Portfolio;
 using InvestDashboard.Domain.Aggregates.Trading;
 using InvestDashboard.Domain.Repository;
 
-namespace InvestDashboard.Application.Services
+namespace InvestDashboard.Application.Services;
+
+public sealed class TransacaoAppService(
+    ITransacaoRepository transactions,
+    ICarteiraRepository portfolios,
+    IAtivoRepository assets,
+    IPrecoHistoricoRepository priceHistory,
+    IUnitOfWork unitOfWork,
+    IUsuarioAtualService currentUser) : ITransacaoAppService
 {
-    public class TransacaoAppService : ITransacaoAppService
+    private const int TransactionLimit = 100;
+
+    public async Task<TransacaoDto> RegisterTransactionAsync(RegistrarTransacaoDto dto)
     {
-        private readonly ITransacaoRepository _transacaoRepository;
-        private readonly ICarteiraRepository _carteiraRepository;
-        private readonly IAtivoRepository _ativoRepository;
-        private readonly IUnitOfWork _unitOfWork;
-        private readonly IUsuarioAtualService _usuarioAtualService;
+        var userId = currentUser.UserId?.ToString()
+            ?? throw new AuthenticationException("Authentication is required.");
 
-        public TransacaoAppService(
-            ITransacaoRepository transacaoRepository,
-            ICarteiraRepository carteiraRepository,
-            IAtivoRepository ativoRepository,
-            IUnitOfWork unitOfWork,
-            IUsuarioAtualService usuarioAtualService)
+        if (dto.IdempotencyKey == Guid.Empty)
+            throw new ArgumentException("An idempotency key is required.");
+        if (!Enum.TryParse<TipoTransacao>(dto.Type, true, out var type) ||
+            type is not (TipoTransacao.Buy or TipoTransacao.Sell))
+            throw new ArgumentException("Only buy and sell transactions are supported; cash transactions are not enabled.");
+        if (string.IsNullOrWhiteSpace(dto.Ticker))
+            throw new ArgumentException("Ticker is required for buy and sell transactions.");
+
+        var portfolio = await portfolios.GetByIdForUserAsync(dto.CarteiraId, userId)
+            ?? throw new KeyNotFoundException("Portfolio not found.");
+
+        var priorRequest = await transactions.GetByIdempotencyKeyAsync(userId, dto.IdempotencyKey);
+        if (priorRequest is not null)
         {
-            _transacaoRepository = transacaoRepository;
-            _carteiraRepository = carteiraRepository;
-            _ativoRepository = ativoRepository;
-            _unitOfWork = unitOfWork;
-            _usuarioAtualService = usuarioAtualService;
+            if (priorRequest.CarteiraId != portfolio.Id)
+                throw new TransactionLedgerConflictException();
+            return MapToDto(priorRequest);
         }
 
-        public async Task<TransacaoDto> RegisterTransactionAsync(RegistrarTransacaoDto dto)
+        var ticker = dto.Ticker.Trim().ToUpperInvariant();
+        var asset = dto.AtivoId.HasValue
+            ? await assets.GetByIdAsync(dto.AtivoId.Value)
+            : await assets.GetByTickerAsync(ticker);
+
+        if (asset is not null && !string.Equals(asset.Ticker, ticker, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("The ticker and asset ID do not match.");
+
+        if (asset is not null && !string.IsNullOrWhiteSpace(dto.AssetClass) &&
+            !string.Equals(GetAssetClass(asset), NormalizeAssetClass(dto.AssetClass), StringComparison.OrdinalIgnoreCase))
+            throw new TransactionLedgerConflictException();
+
+        if (asset is null)
         {
-            var userId = _usuarioAtualService.UserId?.ToString() 
-                ?? throw new UnauthorizedAccessException("User is not authenticated");
+            if (type != TipoTransacao.Buy)
+                throw new KeyNotFoundException("Asset not found.");
+            asset = CreateAsset(dto, ticker);
+            await assets.AddAsync(asset);
+        }
+        else if (!string.IsNullOrWhiteSpace(dto.AssetClass) &&
+                 !string.Equals(GetAssetClass(asset), NormalizeAssetClass(dto.AssetClass), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new TransactionLedgerConflictException();
+        }
 
-            var carteira = await _carteiraRepository.GetByIdAsync(dto.CarteiraId)
-                ?? throw new KeyNotFoundException($"Carteira {dto.CarteiraId} not found");
+        var transaction = new Transacao(
+            Guid.NewGuid(),
+            userId,
+            portfolio.Id,
+            asset.Id,
+            asset.Ticker,
+            type,
+            dto.Quantity,
+            dto.UnitPrice,
+            dto.BrokerageFee,
+            dto.TransactionDate,
+            dto.Notes,
+            dto.IdempotencyKey);
 
-            if (carteira.UserId != userId)
-            {
-                throw new UnauthorizedAccessException("You do not own this carteira");
-            }
+        var walletTransactions = await transactions.GetByPortfolioIdAsync(portfolio.Id);
+        var history = walletTransactions.Append(transaction)
+            .OrderBy(item => item.TransactionDate)
+            .ThenBy(item => item.Id)
+            .ToList();
 
-            TipoTransacao tipoTransacao;
-            if (!Enum.TryParse(dto.Type, true, out tipoTransacao))
-            {
-                throw new ArgumentException($"Invalid transaction type '{dto.Type}'. Allowed: Deposit, Withdrawal, Buy, Sell");
-            }
+        try
+        {
+            await RebuildPositionsAsync(portfolio, history, asset);
+        }
+        catch (InvalidOperationException)
+        {
+            throw new TransactionLedgerConflictException();
+        }
+        await transactions.AddAsync(transaction);
 
-            Ativo? ativo = null;
-            if (tipoTransacao == TipoTransacao.Buy || tipoTransacao == TipoTransacao.Sell)
-            {
-                if (string.IsNullOrWhiteSpace(dto.Ticker))
-                {
-                    throw new ArgumentException("Ticker is required for Buy/Sell transactions");
-                }
-
-                var cleanTicker = dto.Ticker.Trim().ToUpperInvariant();
-                ativo = await _ativoRepository.GetByTickerAsync(cleanTicker);
-
-                if (ativo == null)
-                {
-                    ativo = CriarAtivoPorTicker(cleanTicker, dto.UnitPrice);
-                    await _ativoRepository.AddAsync(ativo);
-                    await _unitOfWork.SaveChangesAsync();
-                }
-            }
-
-            var transacao = new Transacao(
+        if (asset is RendaFixa && dto.InitialStatementValue.HasValue)
+        {
+            var unitPrice = dto.InitialStatementValue.Value / dto.Quantity;
+            await priceHistory.AddAsync(new PrecoHistorico(
                 Guid.NewGuid(),
-                userId,
-                dto.CarteiraId,
-                ativo?.Id,
-                ativo?.Ticker,
-                tipoTransacao,
-                dto.Quantity,
-                tipoTransacao == TipoTransacao.Deposit || tipoTransacao == TipoTransacao.Withdrawal ? 1.0m : dto.UnitPrice,
-                dto.BrokerageFee,
+                asset.Id,
+                unitPrice,
                 dto.TransactionDate,
-                dto.Notes
-            );
-
-            carteira.ProcessTransaction(
-                transacao, 
-                ativo?.CurrentPrice ?? 1.0m, 
-                ativo?.TipoAtivo ?? TipoAtivo.Acao
-            );
-
-            await _transacaoRepository.AddAsync(transacao);
-            _carteiraRepository.Update(carteira);
-
-            await _unitOfWork.SaveChangesAsync();
-
-            return MapearParaDto(transacao);
+                "statement"));
         }
 
-        public async Task<List<TransacaoDto>> GetTransactionsByPortfolioIdAsync(Guid portfolioId)
-        {
-            var userId = _usuarioAtualService.UserId?.ToString()
-                ?? throw new UnauthorizedAccessException("User is not authenticated");
-
-            var carteira = await _carteiraRepository.GetByIdAsync(portfolioId);
-            if (carteira == null || carteira.UserId != userId)
-            {
-                return new List<TransacaoDto>();
-            }
-
-            var allTransacoes = await _transacaoRepository.GetByUserIdAsync(userId);
-            return allTransacoes
-                .Where(t => t.CarteiraId == portfolioId)
-                .Select(MapearParaDto)
-                .ToList();
-        }
-
-        private static TransacaoDto MapearParaDto(Transacao tx)
-        {
-            return new TransacaoDto
-            {
-                Id = tx.Id,
-                CarteiraId = tx.CarteiraId,
-                AtivoId = tx.AtivoId,
-                Ticker = tx.Ticker,
-                Type = tx.Type.ToString(),
-                Quantity = tx.Quantity,
-                UnitPrice = tx.UnitPrice,
-                BrokerageFee = tx.BrokerageFee,
-                TotalAmount = tx.TotalAmount,
-                TransactionDate = tx.TransactionDate,
-                Notes = tx.Notes
-            };
-        }
-
-        private static Ativo CriarAtivoPorTicker(string ticker, decimal price)
-        {
-            var cleanTicker = ticker.Trim().ToUpperInvariant();
-            
-            if ((cleanTicker.Length == 6 || cleanTicker.Length == 5) && cleanTicker.EndsWith("11"))
-            {
-                return new FundoImobiliario(Guid.NewGuid(), cleanTicker, $"{cleanTicker} Fundo Imobiliário", price, DateTime.UtcNow, "Outros");
-            }
-            else if (cleanTicker.EndsWith("3") || cleanTicker.EndsWith("4") || cleanTicker.EndsWith("5") || cleanTicker.EndsWith("6"))
-            {
-                return new Acao(Guid.NewGuid(), cleanTicker, $"{cleanTicker} Ação", price, DateTime.UtcNow, "Outros");
-            }
-            else if (cleanTicker.Length >= 3 && cleanTicker.Length <= 4 && !cleanTicker.Any(char.IsDigit))
-            {
-                return new Criptoativo(Guid.NewGuid(), cleanTicker, $"{cleanTicker} Criptoativo", price, DateTime.UtcNow, "Mainnet");
-            }
-
-            return new Acao(Guid.NewGuid(), cleanTicker, $"{cleanTicker} Ativo", price, DateTime.UtcNow, "Outros");
-        }
+        portfolios.Update(portfolio);
+        await unitOfWork.SaveChangesAsync();
+        return MapToDto(transaction);
     }
+
+    public async Task<List<TransacaoDto>> GetTransactionsByPortfolioIdAsync(Guid portfolioId)
+    {
+        var userId = currentUser.UserId?.ToString()
+            ?? throw new AuthenticationException("Authentication is required.");
+        if (await portfolios.GetByIdForUserAsync(portfolioId, userId) is null)
+            throw new KeyNotFoundException("Portfolio not found.");
+
+        var records = await transactions.GetByPortfolioIdAsync(portfolioId);
+        return records.Select(MapToDto).ToList();
+    }
+
+    public async Task<TransacaoDto> UpdateTransactionAsync(Guid id, AtualizarTransacaoDto dto)
+    {
+        var userId = currentUser.UserId?.ToString()
+            ?? throw new AuthenticationException("Authentication is required.");
+        var transaction = await transactions.GetByIdAsync(id);
+        if (transaction is null || transaction.UserId != userId)
+            throw new KeyNotFoundException("Transaction not found.");
+        if (!Enum.TryParse<TipoTransacao>(dto.Type, true, out var type) ||
+            type is not (TipoTransacao.Buy or TipoTransacao.Sell))
+            throw new ArgumentException("Transaction type must be Buy or Sell.");
+
+        var portfolio = await portfolios.GetByIdForUserAsync(transaction.CarteiraId, userId)
+            ?? throw new KeyNotFoundException("Portfolio not found.");
+        transaction.UpdateDetails(type, dto.Quantity, dto.UnitPrice, dto.BrokerageFee, dto.TransactionDate, dto.Notes);
+
+        var history = await transactions.GetByPortfolioIdAsync(portfolio.Id);
+        try
+        {
+            await RebuildPositionsAsync(portfolio, history, null);
+        }
+        catch (InvalidOperationException)
+        {
+            throw new TransactionLedgerConflictException();
+        }
+
+        transactions.Update(transaction);
+        portfolios.Update(portfolio);
+        await unitOfWork.SaveChangesAsync();
+        return MapToDto(transaction);
+    }
+
+    public async Task DeleteTransactionAsync(Guid id)
+    {
+        var userId = currentUser.UserId?.ToString()
+            ?? throw new AuthenticationException("Authentication is required.");
+        var transaction = await transactions.GetByIdAsync(id);
+        if (transaction is null || transaction.UserId != userId)
+            throw new KeyNotFoundException("Transaction not found.");
+
+        var portfolio = await portfolios.GetByIdForUserAsync(transaction.CarteiraId, userId)
+            ?? throw new KeyNotFoundException("Portfolio not found.");
+        var history = (await transactions.GetByPortfolioIdAsync(portfolio.Id))
+            .Where(item => item.Id != transaction.Id)
+            .ToList();
+
+        try
+        {
+            await RebuildPositionsAsync(portfolio, history, null);
+        }
+        catch (InvalidOperationException)
+        {
+            throw new TransactionLedgerConflictException();
+        }
+
+        transactions.Delete(transaction);
+        portfolios.Update(portfolio);
+        await unitOfWork.SaveChangesAsync();
+    }
+
+    private async Task RebuildPositionsAsync(Carteira portfolio, IReadOnlyList<Transacao> history, Ativo? pendingAsset)
+    {
+        var existingAssetIds = portfolio.Positions.Select(position => position.AtivoId).ToHashSet();
+        var stablePositionIds = portfolio.Positions.ToDictionary(position => position.AtivoId, position => position.Id);
+        var previousFixedIncomePrices = portfolio.Positions
+            .Where(position => position.TipoAtivo == TipoAtivo.RendaFixa)
+            .ToDictionary(position => position.AtivoId, position => position.CurrentPrice);
+        var assetIds = history.Where(item => item.AtivoId.HasValue).Select(item => item.AtivoId!.Value).Distinct().ToArray();
+        var assetMap = (await assets.GetByIdsAsync(assetIds)).ToDictionary(asset => asset.Id);
+        if (pendingAsset is not null)
+            assetMap[pendingAsset.Id] = pendingAsset;
+
+        portfolio.PreparePositionsForRebuild(assetIds, previousFixedIncomePrices);
+        foreach (var item in history)
+        {
+            if (item.Type is TipoTransacao.Deposit or TipoTransacao.Withdrawal)
+                continue;
+
+            if (!item.AtivoId.HasValue || !assetMap.TryGetValue(item.AtivoId.Value, out var asset))
+                throw new InvalidOperationException("Transaction references a missing asset.");
+
+            var marketPrice = asset.TipoAtivo == TipoAtivo.RendaFixa
+                ? previousFixedIncomePrices.GetValueOrDefault(asset.Id, asset.CurrentPrice)
+                : asset.CurrentPrice;
+
+            portfolio.ProcessTransaction(item, marketPrice, asset.TipoAtivo, stablePositionIds);
+        }
+
+        foreach (var position in portfolio.Positions.Where(position => !existingAssetIds.Contains(position.AtivoId)))
+            portfolios.AddPosition(position);
+    }
+
+    private static Ativo CreateAsset(RegistrarTransacaoDto dto, string ticker)
+    {
+        var assetClass = NormalizeAssetClass(dto.AssetClass);
+        var name = string.IsNullOrWhiteSpace(dto.Name) ? ticker : dto.Name.Trim();
+        var now = DateTime.UtcNow;
+
+        return assetClass switch
+        {
+            "ACAO" => new Acao(Guid.NewGuid(), ticker, name, dto.UnitPrice, now, dto.Sector ?? "Outros", "ACAO"),
+            "ETF" => new Acao(Guid.NewGuid(), ticker, name, dto.UnitPrice, now, dto.Sector ?? "ETF", "ETF"),
+            "BDR" => new Acao(Guid.NewGuid(), ticker, name, dto.UnitPrice, now, dto.Sector ?? "BDR", "BDR"),
+            "FII" => new FundoImobiliario(Guid.NewGuid(), ticker, name, dto.UnitPrice, now, dto.Sector ?? "Outros"),
+            "CRYPTO" => new Criptoativo(Guid.NewGuid(), ticker, name, dto.UnitPrice, now, "Mainnet"),
+            "RENDA_FIXA" => CreateFixedIncomeAsset(dto, ticker, name, now),
+            _ => throw new ArgumentException("Select a supported asset class before registering a purchase.")
+        };
+    }
+
+    private static RendaFixa CreateFixedIncomeAsset(RegistrarTransacaoDto dto, string ticker, string name, DateTime now)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Issuer)
+            || string.IsNullOrWhiteSpace(dto.Subtype)
+            || string.IsNullOrWhiteSpace(dto.Indexer)
+            || !dto.MaturityDate.HasValue
+            || !dto.InterestRate.HasValue)
+            throw new ArgumentException("Issuer, product type, rate, indexer, and maturity are required for fixed income.");
+
+        var currentUnitValue = dto.InitialStatementValue.HasValue
+            ? dto.InitialStatementValue.Value / dto.Quantity
+            : dto.UnitPrice;
+
+        return new RendaFixa(
+            Guid.NewGuid(),
+            ticker,
+            name,
+            currentUnitValue,
+            now,
+            dto.Indexer,
+            dto.InterestRate.Value,
+            dto.MaturityDate.Value,
+            dto.Issuer,
+            dto.Subtype);
+    }
+
+    private static string NormalizeAssetClass(string? assetClass) => assetClass?.Trim().ToUpperInvariant() switch
+    {
+        "ACAO" or "STOCK" => "ACAO",
+        "ETF" => "ETF",
+        "BDR" => "BDR",
+        "FII" => "FII",
+        "CRYPTO" or "CRIPTOATIVO" => "CRYPTO",
+        "RENDA_FIXA" or "FIXED_INCOME" => "RENDA_FIXA",
+        _ => string.Empty
+    };
+
+    private static string GetAssetClass(Ativo asset) => asset.TipoAtivo switch
+    {
+        TipoAtivo.RendaFixa => "RENDA_FIXA",
+        _ => asset.Subtype
+    };
+
+    private static TransacaoDto MapToDto(Transacao transaction) => new()
+    {
+        Id = transaction.Id,
+        CarteiraId = transaction.CarteiraId,
+        AtivoId = transaction.AtivoId,
+        Ticker = transaction.Ticker,
+        Type = transaction.Type.ToString(),
+        Quantity = transaction.Quantity,
+        UnitPrice = transaction.UnitPrice,
+        BrokerageFee = transaction.BrokerageFee,
+        TotalAmount = transaction.TotalAmount,
+        RealizedGain = transaction.RealizedGain,
+        RealizedCostBasis = transaction.RealizedCostBasis,
+        TransactionDate = transaction.TransactionDate,
+        Notes = transaction.Notes
+    };
 }

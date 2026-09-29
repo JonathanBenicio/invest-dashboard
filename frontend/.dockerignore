@@ -1,8 +1,8 @@
 node_modules
+android
+ios
 dist
+build
+playwright-report
+test-results
 .git
-.gitignore
-Dockerfile
-docker-compose.yml
-README.md
-.env

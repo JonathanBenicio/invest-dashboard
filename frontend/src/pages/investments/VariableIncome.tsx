@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { Plus, ArrowUpRight, ArrowDownRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -7,29 +7,33 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockPortfolios, formatCurrency, formatDate } from "@/lib/mock-data"
+import { formatCurrency } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
-import { useVariableIncomeInvestments, useDividends } from "@/hooks/use-variable-income"
+import { useVariableIncomeInvestments } from "@/hooks/use-variable-income"
+import { usePortfolios } from "@/hooks/use-portfolios"
+import { useSignalR } from "@/hooks/useSignalR"
+import { useMarketDataStore } from "@/store/marketDataStore"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { StockSearch } from "@/components/investments/StockSearch"
 import { investmentService } from "@/api/services/investment.service"
-import type { RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, CriarRendaVariavelRequest, BrapiQuote } from "@/api/dtos"
+import type { RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, CriarRendaVariavelRequest, MarketSearchResultDto } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Badge } from "@/components/ui/badge"
 
 export default function VariableIncome() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedAsset, setSelectedAsset] = useState<RendaVariavelDto | null>(null)
-  const [selectedQuote, setSelectedQuote] = useState<BrapiQuote | null>(null)
+  const [selectedQuote, setSelectedQuote] = useState<MarketSearchResultDto | null>(null)
   const [ticker, setTicker] = useState("")
   const [name, setName] = useState("")
   const [sector, setSector] = useState("")
+  const idempotencyKey = useRef(crypto.randomUUID())
+  const { data: portfolioResponse } = usePortfolios({ page: 1, pageSize: 100 })
+  const portfolios = portfolioResponse?.data ?? []
   const { toast } = useToast()
 
   // Table State
@@ -56,24 +60,43 @@ export default function VariableIncome() {
       apiFilters.subtype = subtypeFilter as TipoRendaVariavel
     }
 
-    // Add sector filter logic if DTO supported it explicitly or reuse generic filters
-    // Our service mock supports 'sector' query param via loose casting in service or if we add it to DTO.
-    // For now, let's assume we can pass it.
     const sectorFilter = columnFilters.find(f => f.id === 'sector')?.value
-    if (sectorFilter) {
-      (apiFilters as any).sector = sectorFilter
-    }
+    if (typeof sectorFilter === 'string') apiFilters.sector = sectorFilter
 
     return apiFilters
   }, [pagination, sorting, columnFilters, globalFilter])
 
   const { data: investmentsData, isLoading, refetch } = useVariableIncomeInvestments(filters)
-  const { data: dividendsData } = useDividends()
 
-  const assets = (investmentsData?.data || []) as RendaVariavelDto[]
+  // Extrair tickers para assinar via SignalR
+  const tickers = useMemo(() => {
+    return (investmentsData?.data || []).map(asset => asset.ticker)
+  }, [investmentsData?.data])
+
+  // Inicializa o SignalR e assina os tickers
+  useSignalR(tickers)
+
+  // Recupera as cotações em tempo real
+  const { prices } = useMarketDataStore()
+
+  // Mapeia os ativos injetando os preços em tempo real
+  const assets = useMemo(() => {
+    const originalAssets = (investmentsData?.data || []) as RendaVariavelDto[]
+    return originalAssets.map(asset => {
+      const livePrice = prices[asset.ticker.toUpperCase()]
+      if (livePrice !== undefined) {
+        return {
+          ...asset,
+          currentPrice: livePrice,
+          currentValue: asset.quantity * livePrice,
+          gain: (asset.quantity * livePrice) - asset.totalInvested,
+          gainPercentage: asset.totalInvested > 0 ? (((asset.quantity * livePrice) - asset.totalInvested) / asset.totalInvested) * 100 : 0
+        }
+      }
+      return asset
+    })
+  }, [investmentsData?.data, prices])
   const pageCount = investmentsData?.pagination?.totalPages || 0
-
-  const dividends = dividendsData?.data || []
 
   const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvested, 0)
   const totalCurrent = assets.reduce((acc, asset) => acc + asset.currentValue, 0)
@@ -90,16 +113,19 @@ export default function VariableIncome() {
       ticker: ticker.toUpperCase(),
       subtype: formData.get('type') as TipoRendaVariavel,
       quantity: parseInt(formData.get('quantity') as string),
-      averagePrice: parseFloat(formData.get('averagePrice') as string),
-      purchaseDate: new Date().toISOString(),
-      ...({
-        name: name,
-        sector: sector,
-      } as any)
+      unitPrice: Number(formData.get('averagePrice')),
+      fees: Number(formData.get('fees') || 0),
+      transactionDate: new Date(
+        `${formData.get('transactionDate')}T12:00:00`,
+      ).toISOString(),
+      idempotencyKey: idempotencyKey.current,
+      name,
+      sector,
     }
 
     try {
       await investmentService.createVariableIncome(newAssetData)
+      idempotencyKey.current = crypto.randomUUID()
       setIsDialogOpen(false)
       toast({
         title: "Ativo adicionado",
@@ -115,20 +141,22 @@ export default function VariableIncome() {
     }
   }
 
-  const handleStockSelect = (quote: BrapiQuote) => {
+  const handleStockSelect = (quote: MarketSearchResultDto) => {
     setSelectedQuote(quote)
     setTicker(quote.symbol)
-    setName(quote.shortName || quote.longName)
-    // Brapi doesn't always provide sector in the quote, but let's try to infer or leave it
-    // In a real app we might want to fetch more details if needed
+    setName(quote.name)
+    setSector(quote.sector ?? '')
   }
 
-  const handleEditAsset = async (updatedAsset: RendaVariavelDto) => {
+  const handleEditAsset = async (updatedAsset: RendaVariavelDto, valuationDate: string) => {
     if (!selectedAsset) return
 
     try {
       // Since API expects UpdateInvestmentRequest but mock allows any, we pass what we have
-      await investmentService.update(selectedAsset.id, updatedAsset as any)
+      await investmentService.update(selectedAsset.id, {
+        totalValue: updatedAsset.currentValue,
+        date: new Date(`${valuationDate}T12:00:00`).toISOString(),
+      })
 
       setIsEditDialogOpen(false)
       toast({
@@ -183,7 +211,7 @@ export default function VariableIncome() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button disabled={portfolios.length === 0}>
               <Plus className="h-4 w-4 mr-2" />
               Adicionar Ativo
             </Button>
@@ -199,12 +227,12 @@ export default function VariableIncome() {
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
                   <Label htmlFor="portfolioId">Carteira</Label>
-                  <Select name="portfolioId" defaultValue={mockPortfolios[0]?.id}>
+                  <Select name="portfolioId" required>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione a carteira" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockPortfolios.map((portfolio) => (
+                      {portfolios.map((portfolio) => (
                         <SelectItem key={portfolio.id} value={portfolio.id}>
                           {portfolio.name}
                         </SelectItem>
@@ -267,12 +295,26 @@ export default function VariableIncome() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="quantity">Quantidade</Label>
-                    <Input id="quantity" name="quantity" type="number" placeholder="100" required />
+                    <Input id="quantity" name="quantity" type="number" min="0.00000001" step="any" placeholder="100" required />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="averagePrice">Preço Médio</Label>
-                    <Input id="averagePrice" name="averagePrice" type="number" step="0.01" placeholder="32.50" required />
+                    <Input id="averagePrice" name="averagePrice" type="number" min="0.00000001" step="0.0001" placeholder="32.50" required />
                   </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="transactionDate">Data da operação</Label>
+                  <Input
+                    id="transactionDate"
+                    name="transactionDate"
+                    type="date"
+                    max={new Date().toISOString().slice(0, 10)}
+                    defaultValue={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="fees">Taxas da compra</Label>
+                  <Input id="fees" name="fees" type="number" min="0" step="0.01" defaultValue="0" />
                 </div>
               </div>
               <DialogFooter>
@@ -349,38 +391,11 @@ export default function VariableIncome() {
         <TabsContent value="dividends">
           <Card>
             <CardHeader>
-              <CardTitle>Histórico de Proventos</CardTitle>
-              <CardDescription>Dividendos, JCP e rendimentos recebidos</CardDescription>
+              <CardTitle>Proventos</CardTitle>
+              <CardDescription>O histórico de dividendos e rendimentos será incluído na etapa futura de fluxo de caixa.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Ticker</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead className="text-right">Valor/Cota</TableHead>
-                      <TableHead>Data Ex</TableHead>
-                      <TableHead>Pagamento</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dividends.map((dividend: any) => (
-                      <TableRow key={dividend.id}>
-                        <TableCell className="font-medium">{dividend.ticker}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{dividend.type}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right text-success font-medium">
-                          {formatCurrency(dividend.value)}
-                        </TableCell>
-                        <TableCell>{formatDate(dividend.exDate)}</TableCell>
-                        <TableCell>{formatDate(dividend.paymentDate)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            <CardContent className="text-sm text-muted-foreground">
+              Nesta etapa, acompanhe quantidade, custo, cotação e valor atual das posições.
             </CardContent>
           </Card>
         </TabsContent>
@@ -391,14 +406,16 @@ export default function VariableIncome() {
         onOpenChange={setIsEditDialogOpen}
         investment={selectedAsset}
         type="variable"
-        onSave={handleEditAsset}
+        onSave={(updated, date) => {
+          if (updated.type === 'variable_income') void handleEditAsset(updated as RendaVariavelDto, date)
+        }}
       />
 
       <DeleteConfirmDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        title="Excluir Ativo"
-        description={`Tem certeza que deseja excluir "${selectedAsset?.ticker}"? Esta ação não pode ser desfeita.`}
+        title="Excluir lançamento incorreto?"
+        description={`Isso apagará todas as movimentações e avaliações de ${selectedAsset?.ticker}. Para sair da posição e preservar o histórico, registre uma venda.`}
         onConfirm={() => {
           if (selectedAsset) {
             handleDeleteAsset(selectedAsset.id)

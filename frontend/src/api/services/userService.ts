@@ -1,5 +1,5 @@
 import { api } from '@/api/client'
-import type { PaginatedResponse, ApiResponse, UsuarioDto } from '@/api/dtos'
+import type { PaginatedResponse, ApiResponse, UserDto } from '@/api/dtos'
 
 export interface UserFilters {
   page?: number
@@ -7,8 +7,8 @@ export interface UserFilters {
   search?: string
 }
 
-export type CreateUsuarioDto = Partial<UsuarioDto> & { email: string; name: string }
-export type UpdateUsuarioDto = Partial<UsuarioDto>
+export type CreateUsuarioDto = Partial<UserDto> & { email: string; name: string }
+export type UpdateUsuarioDto = Partial<UserDto>
 
 export const userService = {
   getUsers: async (filters?: UserFilters) => {
@@ -17,15 +17,15 @@ export const userService = {
     if (filters?.pageSize) params.append('pageSize', filters.pageSize.toString())
     if (filters?.search) params.append('search', filters.search)
 
-    return api.get<PaginatedResponse<UsuarioDto>>(`/users?${params.toString()}`)
+    return api.get<PaginatedResponse<UserDto>>(`/users?${params.toString()}`)
   },
 
   createUser: async (data: CreateUsuarioDto) => {
-    return api.post<ApiResponse<UsuarioDto>>('/users', data)
+    return api.post<ApiResponse<UserDto>>('/users', data)
   },
 
   updateUser: async (id: string, data: UpdateUsuarioDto) => {
-    return api.patch<ApiResponse<UsuarioDto>>(`/users/${id}`, data)
+    return api.patch<ApiResponse<UserDto>>(`/users/${id}`, data)
   },
 
   deleteUser: async (id: string) => {

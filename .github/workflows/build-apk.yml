@@ -41,30 +41,39 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install dependencies
+        working-directory: frontend
         run: bun install
 
+      - name: Require API URL
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+        run: test -n "$VITE_API_URL" || (echo "Configure the VITE_API_URL secret before building the mobile app." && exit 1)
+
       - name: Build web assets
+        working-directory: frontend
         run: |
           bunx msw init public --save
           bun run build
         env:
-          VITE_USE_MSW: "true"
+          VITE_USE_MSW: "false"
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Sync Capacitor
+        working-directory: frontend
         run: bunx cap sync android
 
       - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+        working-directory: frontend/android
+        run: chmod +x gradlew
 
       - name: Build Debug APK
         if: ${{ github.event.inputs.build_type == 'debug' }}
-        working-directory: android
+        working-directory: frontend/android
         run: ./gradlew assembleDebug
 
       - name: Build Release APK
         if: ${{ github.event.inputs.build_type == 'release' }}
-        working-directory: android
+        working-directory: frontend/android
         run: ./gradlew assembleRelease
 
       - name: Upload Debug APK
@@ -72,11 +81,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload Release APK
         if: ${{ github.event.inputs.build_type == 'release' }}
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          path: frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk

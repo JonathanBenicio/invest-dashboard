@@ -1,194 +1,112 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 using InvestDashboard.Application.DTOs.Common;
 using InvestDashboard.Application.DTOs.Portfolio;
 using InvestDashboard.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace InvestDashboard.WebAPI.Controllers
+namespace InvestDashboard.WebAPI.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/v1/portfolios")]
+public sealed class CarteirasController(ICarteiraAppService portfolioService) : ControllerBase
 {
-    [Authorize]
-    [ApiController]
-    [Route("api/v1/portfolios")]
-    public class CarteirasController : ControllerBase
+    [HttpGet]
+    public async Task<ActionResult<PaginatedResponse<CarteiraDto>>> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
     {
-        private readonly ICarteiraAppService _carteiraAppService;
+        var result = await portfolioService.GetUserPortfoliosAsync(page, pageSize);
+        return Ok(result);
+    }
 
-        public CarteirasController(ICarteiraAppService carteiraAppService)
-        {
-            _carteiraAppService = carteiraAppService;
-        }
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<CarteiraDto>>> GetById(Guid id)
+    {
+        var portfolio = await portfolioService.GetPortfolioByIdAsync(id);
+        return portfolio is null
+            ? NotFound(new ApiResponse<CarteiraDto>(null!, false, "Portfolio not found."))
+            : Ok(new ApiResponse<CarteiraDto>(portfolio));
+    }
 
-        [HttpGet]
-        public async Task<ActionResult<PaginatedResponse<CarteiraDto>>> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
-        {
-            var carteira = await _carteiraAppService.GetUserPortfolioAsync();
-            var list = new List<CarteiraDto>();
-            if (carteira != null)
+    [HttpGet("{id:guid}/summary")]
+    public async Task<ActionResult<ApiResponse<ResumoCarteiraDto>>> GetSummary(Guid id)
+    {
+        var portfolio = await portfolioService.GetPortfolioByIdAsync(id);
+        if (portfolio is null)
+            return NotFound(new ApiResponse<ResumoCarteiraDto>(null!, false, "Portfolio not found."));
+
+        var allocation = portfolio.Positions
+            .GroupBy(position => (position.Type, position.Subtype))
+            .Select(group =>
             {
-                list.Add(carteira);
-            }
-            else
-            {
-                var simulated = new CarteiraDto
+                var value = group.Sum(position => position.CurrentValue);
+                var percentage = portfolio.TotalValue > 0 ? value / portfolio.TotalValue * 100 : 0;
+                return new AlocacaoAtivoDto
                 {
-                    Id = Guid.Parse("98b50e2d-dc99-43ef-b387-052637738f61"),
-                    Name = "Meu Portfólio Simulado",
-                    Balance = 15000.00m,
-                    TotalValue = 85450.00m,
-                    TotalInvested = 72100.00m,
-                    TotalGain = 13350.00m,
-                    GainPercentage = 18.52m,
-                    Currency = "BRL",
-                    IsActive = true,
-                    UserName = "Jonathan Benício",
-                    AssetsCount = 4
+                    Category = group.Key.Subtype,
+                    Value = value,
+                    Percentage = percentage,
+                    Color = group.Key.Type == "fixed_income" ? "#f59e0b" : "#3b82f6"
                 };
-                list.Add(simulated);
-            }
+            })
+            .ToList();
 
-            return Ok(new PaginatedResponse<CarteiraDto>(list, page, pageSize, list.Count));
-        }
-
-        [HttpGet("{id:guid}")]
-        public async Task<ActionResult<ApiResponse<CarteiraDto>>> GetById(Guid id)
+        var summary = new ResumoCarteiraDto
         {
-            var carteira = await _carteiraAppService.GetPortfolioByIdAsync(id);
-            if (carteira == null)
-            {
-                if (id == Guid.Empty || id == Guid.Parse("98b50e2d-dc99-43ef-b387-052637738f61"))
-                {
-                    var simulated = new CarteiraDto
-                    {
-                        Id = id,
-                        Name = "Meu Portfólio Simulado",
-                        Balance = 15000.00m,
-                        TotalValue = 85450.00m,
-                        TotalInvested = 72100.00m,
-                        TotalGain = 13350.00m,
-                        GainPercentage = 18.52m,
-                        Currency = "BRL",
-                        IsActive = true,
-                        UserName = "Jonathan Benício",
-                        AssetsCount = 4
-                    };
-                    return Ok(new ApiResponse<CarteiraDto>(simulated));
-                }
+            Id = portfolio.Id,
+            Name = portfolio.Name,
+            Description = portfolio.Description,
+            TotalValue = portfolio.TotalValue,
+            TotalInvested = portfolio.TotalInvested,
+            TotalGain = portfolio.TotalGain,
+            UnrealizedGain = portfolio.UnrealizedGain,
+            RealizedGain = portfolio.RealizedGain,
+            GainPercentage = portfolio.GainPercentage,
+            Currency = portfolio.Currency,
+            Positions = portfolio.Positions,
+            AssetsCount = portfolio.AssetsCount,
+            AssetAllocation = allocation,
+            PerformanceHistory = []
+        };
 
-                return NotFound(new ApiResponse<CarteiraDto>(null!, false, $"Portfolio with ID {id} was not found."));
-            }
+        return Ok(new ApiResponse<ResumoCarteiraDto>(summary));
+    }
 
-            return Ok(new ApiResponse<CarteiraDto>(carteira));
-        }
+    [HttpGet("{id:guid}/history")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<PontoHistoricoCarteiraDto>>>> GetHistory(
+        Guid id,
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate)
+    {
+        var points = await portfolioService.GetPortfolioHistoryAsync(id, fromDate, toDate);
+        return points is null
+            ? NotFound(new ApiResponse<IReadOnlyList<PontoHistoricoCarteiraDto>>(null!, false, "Portfolio not found."))
+            : Ok(new ApiResponse<IReadOnlyList<PontoHistoricoCarteiraDto>>(points));
+    }
 
-        [HttpGet("{id:guid}/summary")]
-        public async Task<ActionResult<ApiResponse<ResumoCarteiraDto>>> GetSummary(Guid id)
-        {
-            var carteira = await _carteiraAppService.GetPortfolioByIdAsync(id);
-            CarteiraDto carteiraBase;
+    [HttpPost]
+    public async Task<ActionResult<ApiResponse<CarteiraDto>>> Create([FromBody] CriarCarteiraDto request)
+    {
+        var portfolio = await portfolioService.CreatePortfolioAsync(request);
+        return CreatedAtAction(nameof(GetById), new { id = portfolio.Id }, new ApiResponse<CarteiraDto>(portfolio));
+    }
 
-            if (carteira == null)
-            {
-                carteiraBase = new CarteiraDto
-                {
-                    Id = id,
-                    Name = "Meu Portfólio Simulado",
-                    Balance = 15000.00m,
-                    TotalValue = 85450.00m,
-                    TotalInvested = 72100.00m,
-                    TotalGain = 13350.00m,
-                    GainPercentage = 18.52m,
-                    Currency = "BRL",
-                    IsActive = true,
-                    UserName = "Jonathan Benício",
-                    AssetsCount = 4
-                };
-            }
-            else
-            {
-                carteiraBase = carteira;
-            }
+    [HttpPatch("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<CarteiraDto>>> Update(Guid id, [FromBody] AtualizarCarteiraDto request)
+    {
+        var portfolio = await portfolioService.UpdatePortfolioAsync(id, request);
+        return portfolio is null
+            ? NotFound(new ApiResponse<CarteiraDto>(null!, false, "Portfolio not found."))
+            : Ok(new ApiResponse<CarteiraDto>(portfolio));
+    }
 
-            var summary = new ResumoCarteiraDto
-            {
-                Id = carteiraBase.Id,
-                Name = carteiraBase.Name,
-                Balance = carteiraBase.Balance,
-                TotalValue = carteiraBase.TotalValue,
-                TotalInvested = carteiraBase.TotalInvested,
-                TotalGain = carteiraBase.TotalGain,
-                GainPercentage = carteiraBase.GainPercentage,
-                Currency = carteiraBase.Currency,
-                IsActive = carteiraBase.IsActive,
-                Positions = carteiraBase.Positions,
-                UserName = carteiraBase.UserName,
-                AssetsCount = carteiraBase.AssetsCount,
-                AssetAllocation = new List<AlocacaoAtivoDto>
-                {
-                    new() { Category = "Ações", Value = carteiraBase.TotalValue * 0.45m, Percentage = 45m, Color = "#3b82f6" },
-                    new() { Category = "Fundos Imobiliários", Value = carteiraBase.TotalValue * 0.30m, Percentage = 30m, Color = "#10b981" },
-                    new() { Category = "Renda Fixa", Value = carteiraBase.TotalValue * 0.15m, Percentage = 15m, Color = "#f59e0b" },
-                    new() { Category = "Criptoativos", Value = carteiraBase.TotalValue * 0.10m, Percentage = 10m, Color = "#8b5cf6" }
-                },
-                PerformanceHistory = new List<PontoPerformanceDto>
-                {
-                    new() { Date = "Jan", Value = carteiraBase.TotalValue * 0.85m, PercentageChange = -2.5m },
-                    new() { Date = "Fev", Value = carteiraBase.TotalValue * 0.90m, PercentageChange = 5.8m },
-                    new() { Date = "Mar", Value = carteiraBase.TotalValue * 0.93m, PercentageChange = 3.3m },
-                    new() { Date = "Abr", Value = carteiraBase.TotalValue * 0.97m, PercentageChange = 4.1m },
-                    new() { Date = "Mai", Value = carteiraBase.TotalValue, PercentageChange = 3.1m }
-                }
-            };
-
-            return Ok(new ApiResponse<ResumoCarteiraDto>(summary));
-        }
-
-        [HttpPost]
-        public async Task<ActionResult<ApiResponse<CarteiraDto>>> Create([FromBody] CriarCarteiraDto dto)
-        {
-            try
-            {
-                var carteira = await _carteiraAppService.CreatePortfolioAsync(dto);
-                return CreatedAtAction(nameof(GetById), new { id = carteira.Id }, new ApiResponse<CarteiraDto>(carteira));
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new ApiResponse<CarteiraDto>(null!, false, ex.Message));
-            }
-        }
-
-        [HttpPatch("{id:guid}")]
-        public async Task<ActionResult<ApiResponse<CarteiraDto>>> Update(Guid id, [FromBody] CriarCarteiraDto dto)
-        {
-            var carteira = await _carteiraAppService.GetPortfolioByIdAsync(id);
-            if (carteira == null)
-            {
-                carteira = new CarteiraDto
-                {
-                    Id = id,
-                    Name = dto.Name,
-                    Balance = dto.SaldoInicial,
-                    TotalValue = dto.SaldoInicial,
-                    TotalInvested = dto.SaldoInicial,
-                    Currency = "BRL",
-                    IsActive = true
-                };
-            }
-            else
-            {
-                carteira.Name = dto.Name;
-                carteira.Balance = dto.SaldoInicial;
-            }
-
-            return Ok(new ApiResponse<CarteiraDto>(carteira));
-        }
-
-        [HttpDelete("{id:guid}")]
-        public async Task<ActionResult<ApiResponse<object>>> Delete(Guid id)
-        {
-            return Ok(new ApiResponse<object>(null, true, "Portfolio deletado com sucesso."));
-        }
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id)
+    {
+        var deleted = await portfolioService.DeletePortfolioAsync(id);
+        return deleted
+            ? Ok(new ApiResponse<bool>(true, true, "Portfolio deleted."))
+            : NotFound(new ApiResponse<bool>(false, false, "Portfolio not found."));
     }
 }

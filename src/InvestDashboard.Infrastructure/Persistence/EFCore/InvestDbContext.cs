@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using InvestDashboard.Domain.Aggregates.MarketData;
 using InvestDashboard.Domain.Aggregates.Trading;
 using InvestDashboard.Domain.Aggregates.Portfolio;
+using InvestDashboard.Domain.Aggregates.Authentication;
 
 namespace InvestDashboard.Infrastructure.Persistence.EFCore;
 
@@ -17,6 +18,7 @@ public class InvestDbContext : DbContext
     public DbSet<Carteira> Portfolios => Set<Carteira>();
     public DbSet<PosicaoInvestimento> AssetPositions => Set<PosicaoInvestimento>();
     public DbSet<TaxaEconomica> EconomicRates => Set<TaxaEconomica>();
+    public DbSet<RefreshTokenSession> RefreshTokenSessions => Set<RefreshTokenSession>();
 
     public InvestDbContext(DbContextOptions<InvestDbContext> options)
         : base(options)

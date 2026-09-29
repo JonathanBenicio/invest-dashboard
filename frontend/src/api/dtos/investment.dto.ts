@@ -3,7 +3,7 @@
  * Tipos para investimentos de renda fixa e variável
  */
 
-import type { BaseEntity, PaginationParams } from './base.dto'
+import type { PaginationParams } from './base.dto'
 
 /**
  * Tipo de investimento
@@ -23,12 +23,19 @@ export type TipoRendaVariavel = 'ACAO' | 'FII' | 'ETF' | 'BDR' | 'CRYPTO'
 /**
  * Entidade base de investimento
  */
-export interface PosicaoInvestimentoDto extends BaseEntity {
+export interface PosicaoInvestimentoDto {
+  id: string
+  createdAt?: string
+  updatedAt?: string
   portfolioId: string
+  assetId: string
+  status: 'open' | 'closed'
+  purchaseDate?: string
   name: string
-  ticker?: string
+  ticker: string
   type: TipoInvestimento
   subtype: TipoRendaFixa | TipoRendaVariavel
+  sector?: string
   quantity: number
   averagePrice: number
   currentPrice: number
@@ -37,6 +44,18 @@ export interface PosicaoInvestimentoDto extends BaseEntity {
   gain: number
   gainPercentage: number
   currency: string
+  issuer?: string
+  sector?: string
+  interestRate?: number
+  indexer?: string
+  maturityDate?: string
+}
+
+export interface PrecoHistoricoDto {
+  date: string
+  price: number
+  source: string
+  isAdjusted: boolean
 }
 
 /**
@@ -45,11 +64,6 @@ export interface PosicaoInvestimentoDto extends BaseEntity {
 export interface RendaFixaDto extends PosicaoInvestimentoDto {
   type: 'fixed_income'
   subtype: TipoRendaFixa
-  issuer: string
-  interestRate: number
-  indexer?: 'CDI' | 'IPCA' | 'SELIC' | 'PREFIXADO'
-  maturityDate: string
-  purchaseDate: string
 }
 
 /**
@@ -71,12 +85,13 @@ export interface CriarRendaFixaRequest {
   name: string
   subtype: TipoRendaFixa
   issuer: string
-  quantity: number
-  averagePrice: number
+  principal: number
+  statementValue: number
   interestRate: number
-  indexer?: 'CDI' | 'IPCA' | 'SELIC' | 'PREFIXADO'
+  indexer: 'CDI' | 'IPCA' | 'SELIC' | 'PREFIXADO'
   maturityDate: string
   purchaseDate: string
+  idempotencyKey: string
 }
 
 /**
@@ -86,18 +101,21 @@ export interface CriarRendaVariavelRequest {
   portfolioId: string
   ticker: string
   subtype: TipoRendaVariavel
+  name?: string
+  sector?: string
   quantity: number
-  averagePrice: number
-  purchaseDate: string
+  unitPrice: number
+  fees: number
+  transactionDate: string
+  idempotencyKey: string
 }
 
 /**
  * Requisição para atualizar investimento
  */
 export interface AtualizarInvestimentoRequest {
-  quantity?: number
-  averagePrice?: number
-  currentPrice?: number
+  totalValue: number
+  date: string
 }
 
 /**
@@ -125,4 +143,13 @@ export interface ResumoInvestimentoDto {
   variableIncomeTotal: number
   topPerformers: PosicaoInvestimentoDto[]
   worstPerformers: PosicaoInvestimentoDto[]
+}
+
+export interface ProventoDto {
+  id: string
+  ticker: string
+  type: string
+  amount: number
+  exDate?: string
+  paymentDate?: string
 }

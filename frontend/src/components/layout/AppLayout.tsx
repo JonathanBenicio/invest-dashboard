@@ -1,8 +1,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "./AppSidebar"
 import { Outlet } from "@tanstack/react-router"
-import { Bell } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 import { ThemeToggle } from "@/components/ThemeToggle"
 import { useSwipeBack } from "@/hooks/useSwipeBack"
@@ -20,12 +18,6 @@ function LayoutContent() {
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] text-destructive-foreground">
-                3
-              </span>
-            </Button>
           </div>
         </header>
         <main className="flex-1 overflow-auto p-4 sm:p-6">

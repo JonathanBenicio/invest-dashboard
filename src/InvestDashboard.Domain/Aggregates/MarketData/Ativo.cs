@@ -8,10 +8,11 @@ public abstract class Ativo : AggregateRoot<Guid>
     public string Ticker { get; private set; }
     public string Name { get; private set; }
     public TipoAtivo TipoAtivo { get; private set; }
+    public string Subtype { get; private set; } = string.Empty;
     public decimal CurrentPrice { get; private set; }
     public DateTime LastUpdatedUtc { get; private set; }
 
-    protected Ativo(Guid id, string ticker, string name, TipoAtivo tipoAtivo, decimal currentPrice, DateTime lastUpdatedUtc)
+    protected Ativo(Guid id, string ticker, string name, TipoAtivo tipoAtivo, decimal currentPrice, DateTime lastUpdatedUtc, string? subtype = null)
         : base(id)
     {
         if (string.IsNullOrWhiteSpace(ticker))
@@ -26,6 +27,14 @@ public abstract class Ativo : AggregateRoot<Guid>
         Ticker = ticker.Trim().ToUpperInvariant();
         Name = name.Trim();
         TipoAtivo = tipoAtivo;
+        Subtype = string.IsNullOrWhiteSpace(subtype) ? tipoAtivo switch
+        {
+            TipoAtivo.Acao => "ACAO",
+            TipoAtivo.FundoImobiliario => "FII",
+            TipoAtivo.Criptoativo => "CRYPTO",
+            TipoAtivo.RendaFixa => "RENDA_FIXA",
+            _ => "OUTRO"
+        } : subtype.Trim().ToUpperInvariant();
         CurrentPrice = currentPrice;
         LastUpdatedUtc = lastUpdatedUtc.Kind == DateTimeKind.Utc ? lastUpdatedUtc : lastUpdatedUtc.ToUniversalTime();
     }

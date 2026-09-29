@@ -1,31 +1,35 @@
 export interface TransacaoDto {
   id: string
-  carteiraId: string
-  ativoId?: string
+  portfolioId: string
+  assetId?: string
   ticker?: string
-  tipo: 'Buy' | 'Sell' | 'Deposit' | 'Withdrawal'
-  quantidade: number
-  precoUnitario: number
-  taxaCorretagem: number
-  valorTotal: number
-  dataTransacao: string
-  observacoes?: string
+  type: 'Buy' | 'Sell'
+  quantity: number
+  unitPrice: number
+  fees: number
+  totalAmount: number
+  realizedGain: number
+  realizedCostBasis: number
+  transactionDate: string
+  notes?: string
 }
 
 export interface RegistrarTransacaoRequest {
-  carteiraId: string
-  ativoId?: string
+  portfolioId: string
+  assetId?: string
   ticker?: string
-  tipo: 'Buy' | 'Sell' | 'Deposit' | 'Withdrawal'
-  quantidade: number
-  precoUnitario: number
-  taxaCorretagem: number
-  dataTransacao: string
-  observacoes?: string
+  type: 'Buy' | 'Sell'
+  quantity: number
+  unitPrice: number
+  fees: number
+  transactionDate: string
+  idempotencyKey: string
+  assetClass?: string
+  notes?: string
 }
 
 export interface TransacaoFiltros {
-  carteiraId?: string
-  tipo?: string
+  portfolioId?: string
+  type?: string
   ticker?: string
 }

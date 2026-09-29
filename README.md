@@ -31,16 +31,17 @@ A scalable, decoupled backend engine organized around clean architecture and dom
 
 ## 🐳 Running with Docker Compose (Database + API + Frontend)
 
-Launch the entire ecosystem with a single command:
+Copy `.env.example` to `.env`, then configure a PostgreSQL password, a random JWT secret, and your Supabase project URL and anon key. Generate a JWT secret with `openssl rand -hex 32` (or `New-Guid` twice in PowerShell and concatenate the values). Start the stack with:
 
 ```sh
-# Start Postgres, .NET 10 API, and React Frontend simultaneously
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
-- **Vite Frontend:** `http://localhost:8080`
-- **ASP.NET Core Web API:** `http://localhost:5000`
-- **PostgreSQL Database:** `localhost:5432`
+- Frontend: `http://localhost:8080`
+- ASP.NET Core API: `http://localhost:5000`
+- PostgreSQL: `localhost:5432` (bound to localhost)
+
+The frontend container proxies `/api` and `/hubs` to the API, so browser requests and the SignalR connection use the same origin. The API migrates the database on startup. Keep `.env` private and do not commit it.
 
 ---
 
@@ -49,8 +50,8 @@ docker-compose up -d --build
 ### 📁 Frontend Setup
 ```sh
 cd frontend
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 Open `http://localhost:5173` to view the local frontend dev server.
 
@@ -62,7 +63,7 @@ dotnet restore
 dotnet build InvestDashboard.slnx
 dotnet run --project InvestDashboard.WebAPI
 ```
-The API is available locally at `http://localhost:5000` (or `https://localhost:5001`).
+Configure `ConnectionStrings__DefaultConnection`, `Jwt__Secret` (at least 32 random bytes), `Storage__SupabaseUrl`, and `Storage__SupabaseApiKey` in the process environment before starting the API. These values are intentionally not stored in appsettings files.
 
 ---
 

@@ -39,6 +39,28 @@ public class PrecoHistoricoRepository : IPrecoHistoricoRepository
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<PrecoHistorico>> GetByAtivoIdsAsync(
+        IReadOnlyCollection<Guid> assetIds,
+        DateTime? fromDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (assetIds.Count == 0)
+            return Array.Empty<PrecoHistorico>();
+
+        var query = _context.HistoricalPrices.AsNoTracking()
+            .Where(price => assetIds.Contains(price.AtivoId));
+
+        if (fromDate.HasValue)
+        {
+            var utcFromDate = fromDate.Value.Kind == DateTimeKind.Utc
+                ? fromDate.Value
+                : fromDate.Value.ToUniversalTime();
+            query = query.Where(price => price.Date >= utcFromDate);
+        }
+
+        return await query.OrderBy(price => price.Date).ToListAsync(cancellationToken);
+    }
+
     public async Task AddAsync(PrecoHistorico historicalPrice, CancellationToken cancellationToken = default)
     {
         if (historicalPrice is null)

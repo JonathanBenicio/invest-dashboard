@@ -8,8 +8,10 @@ public class PrecoHistorico : Entity<Guid>
     public Guid AtivoId { get; private set; }
     public decimal Price { get; private set; }
     public DateTime Date { get; private set; }
+    public string Source { get; private set; }
+    public bool IsAdjusted { get; private set; }
 
-    public PrecoHistorico(Guid id, Guid ativoId, decimal price, DateTime date)
+    public PrecoHistorico(Guid id, Guid ativoId, decimal price, DateTime date, string source = "legacy", bool isAdjusted = false)
         : base(id)
     {
         if (ativoId == Guid.Empty)
@@ -21,6 +23,8 @@ public class PrecoHistorico : Entity<Guid>
         AtivoId = ativoId;
         Price = price;
         Date = date.Kind == DateTimeKind.Utc ? date : date.ToUniversalTime();
+        Source = string.IsNullOrWhiteSpace(source) ? throw new ArgumentException("Source is required", nameof(source)) : source.Trim();
+        IsAdjusted = isAdjusted;
     }
 
     // Required for EF Core / deserialization

@@ -1,8 +1,12 @@
-namespace InvestDashboard.Application.DTOs.Portfolio
+using System.ComponentModel.DataAnnotations;
+
+namespace InvestDashboard.Application.DTOs.Portfolio;
+
+public sealed class CriarCarteiraDto
 {
-    public class CriarCarteiraDto
-    {
-        public string Name { get; set; } = string.Empty;
-        public decimal SaldoInicial { get; set; }
-    }
+    [Required, StringLength(100, MinimumLength = 1)]
+    public string Name { get; set; } = string.Empty;
+
+    [StringLength(500)]
+    public string? Description { get; set; }
 }

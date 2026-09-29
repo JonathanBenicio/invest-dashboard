@@ -25,6 +25,21 @@ public class TransacaoRepository : ITransacaoRepository
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
+    public Task<Transacao?> GetByIdempotencyKeyAsync(
+        string userId,
+        Guid idempotencyKey,
+        CancellationToken cancellationToken = default) =>
+        _context.Transactions.FirstOrDefaultAsync(
+            transaction => transaction.UserId == userId && transaction.IdempotencyKey == idempotencyKey,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<Transacao>> GetByPortfolioIdAsync(Guid portfolioId, CancellationToken cancellationToken = default) =>
+        await _context.Transactions
+            .Where(transaction => transaction.CarteiraId == portfolioId)
+            .OrderBy(transaction => transaction.TransactionDate)
+            .ThenBy(transaction => transaction.Id)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Transacao>> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(userId))

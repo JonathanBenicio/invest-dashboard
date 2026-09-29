@@ -1,6 +1,6 @@
 using System;
 using FluentAssertions;
-using InvestDashboard.Domain.Aggregates.Transacao;
+using InvestDashboard.Domain.Aggregates.Trading;
 using Xunit;
 
 namespace InvestDashboard.UnitTests.Domain;
@@ -91,7 +91,7 @@ public class TransacaoTests
 
         // Assert
         action.Should().Throw<ArgumentException>()
-            .WithMessage("*Asset Id must be specified*");
+            .WithMessage("*Ativo Id must be specified*");
     }
 
     [Fact]
@@ -103,6 +103,6 @@ public class TransacaoTests
 
         // Assert
         action.Should().Throw<ArgumentException>()
-            .WithMessage("*Asset Id and Ticker must be null for Deposit/Withdrawal*");
+            .WithMessage("*Ativo Id and Ticker must be null for Deposit/Withdrawal*");
     }
 }

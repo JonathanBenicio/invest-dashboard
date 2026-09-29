@@ -9,5 +9,6 @@ namespace InvestDashboard.Domain.Repository;
 public interface IPrecoHistoricoRepository
 {
     Task<IReadOnlyList<PrecoHistorico>> GetByAtivoIdAsync(Guid ativoId, DateTime? fromDate = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PrecoHistorico>> GetByAtivoIdsAsync(IReadOnlyCollection<Guid> assetIds, DateTime? fromDate = null, CancellationToken cancellationToken = default);
     Task AddAsync(PrecoHistorico precoHistorico, CancellationToken cancellationToken = default);
 }
