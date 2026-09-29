@@ -125,6 +125,6 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 - [x] Excluídos artefatos gerados (`android`, `build`, `dist` e `public/mockServiceWorker.js`) da análise ESLint.
 - [x] Tipados os handlers, navegação e callbacks administrativos que usavam `any`; handlers MSW continuam opt-in e compatíveis com os DTOs.
 - [x] Migrado o plugin `tailwindcss-animate` de `require()` para import ESM.
-- [x] `bun run lint` conclui com 0 erros e 10 avisos de Fast Refresh; `bunx tsc --noEmit`, build e 5 E2E passam.
+- [x] `bun run lint` conclui com 0 erros e 10 avisos de Fast Refresh; `bunx tsc --noEmit`, build e 5 E2E passam. Os quatro jobs da CI do commit `919e79a` também passaram (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36546811301).
 
 **Aceite:** lint padrão sem erros; avisos remanescentes não bloqueiam a compilação nem representam valores simulados de negócio.

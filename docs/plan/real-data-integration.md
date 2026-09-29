@@ -20,7 +20,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 - As rotas de usuários administrativos, chat e integrações diretas com corretoras não possuem contratos backend correspondentes ou não estão expostas na navegação. Não podem ser apresentadas como funcionais sem implementação real.
 - O backend retorna lista vazia para proventos. A UI removeu a aba de proventos da tela de posições e o fixture MSW deixa de inventar pagamentos.
 - A CI de `df2bae7` falhou no backend: frontend e `docker-smoke` passaram, enquanto dois testes aplicavam migrations concorrentes no mesmo banco PostgreSQL compartilhado. A falha reproduzida foi SQLSTATE `42701`, coluna `portfolio_id` já existente na tabela `transactions`. O commit `aa31fc9` cria um database efêmero por teste PostgreSQL; os três jobs da CI passaram.
-- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI dos três jobs passaram. A limpeza atual retirou três gráficos mock não roteados e as cinco dependências exclusivas; o novo E2E sem MSW e os quatro jobs da CI `36ccc50` passaram. `bun run lint` local agora conclui com 0 erros e 10 avisos de Fast Refresh; typecheck, build e 5 E2E passaram. CI para a correção de lint está pendente.
+- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI dos três jobs passaram. A limpeza posterior removeu três gráficos mock não roteados e as cinco dependências exclusivas. No commit `919e79a`, lint padrão sem erros (10 avisos Fast Refresh), typecheck, build, 5 E2E e os quatro jobs da CI passaram (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36546811301).
 
 ## Fases de implementação
 
@@ -91,7 +91,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 ## Validação e acompanhamento
 
-- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI dos três jobs passaram. A limpeza atual retirou três gráficos mock não roteados e as cinco dependências exclusivas; o novo E2E sem MSW e os quatro jobs da CI `36ccc50` passaram. `bun run lint` local agora conclui com 0 erros e 10 avisos de Fast Refresh; typecheck, build e 5 E2E passaram. CI para a correção de lint está pendente.
+- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI dos três jobs passaram. A limpeza posterior removeu três gráficos mock não roteados e as cinco dependências exclusivas. No commit `919e79a`, lint padrão sem erros (10 avisos Fast Refresh), typecheck, build, 5 E2E e os quatro jobs da CI passaram (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36546811301).
 - Testes .NET locais em Release com PostgreSQL: 21 unitários e 28 integrações passaram, sem skips; cada teste PostgreSQL criou seu próprio database e foi removido ao final.
 - CI de `a9ad5ac` passou. A CI de `df2bae7` ([execução 36538233870](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36538233870)) teve frontend/Docker smoke verdes e falhou no backend por migrations concorrentes. O corretivo `aa31fc9` isolou os bancos dos testes PostgreSQL; depois, `605bbc5` passou backend/PostgreSQL, frontend e Docker smoke com análise/importação incluídas.
 - Após congelar cada fase, executar a validação correspondente e só então registrar seu aceite neste arquivo e em `docs/USER-STORIES.md`.
