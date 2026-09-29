@@ -24,6 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { RendaVariavelDto } from "@/api/dtos"
 import { formatCurrency } from "@/lib/mock-data"
+import { formatQuoteObservation } from "@/hooks/use-market-quotes"
 
 interface VariableIncomeTableProps {
   data: RendaVariavelDto[]
@@ -120,12 +121,24 @@ export function VariableIncomeTable({
     },
     {
       accessorKey: "currentValue",
-      header: ({ column }) => (
+      header: () => (
         <div className="text-right">
-          Atual
+          Valor atual
         </div>
       ),
-      cell: ({ row }) => <div className="text-right">{formatCurrency(row.original.currentPrice)}</div>,
+      cell: ({ row }) => {
+        const { currentPriceSource, currentPriceObservedAtUtc } = row.original
+        return (
+          <div className="text-right">
+            <p>{formatCurrency(row.original.currentValue)}</p>
+            <p className="text-xs text-muted-foreground">
+              {currentPriceSource && currentPriceObservedAtUtc
+                ? `${formatCurrency(row.original.currentPrice)} · ${formatQuoteObservation(currentPriceSource.toUpperCase(), currentPriceObservedAtUtc)}`
+                : `${formatCurrency(row.original.currentPrice)} por unidade · Último preço salvo`}
+            </p>
+          </div>
+        )
+      },
     },
     {
         id: "totalValue",

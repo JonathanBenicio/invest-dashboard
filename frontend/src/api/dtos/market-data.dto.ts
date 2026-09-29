@@ -6,6 +6,7 @@ export interface MarketQuoteDto {
   currency: string
   sector?: string
   subtype?: string
+  source: string
 }
 
 export interface MarketSearchResultDto {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr'
 import { useAuthStore } from '@/store/authStore'
 import { useMarketDataStore } from '@/store/marketDataStore'
@@ -7,11 +7,14 @@ import { API_CONFIG } from '@/api/env'
 export const useSignalR = (tickers: string[] = []) => {
   const connectionRef = useRef<HubConnection | null>(null)
   const { accessToken, isAuthenticated } = useAuthStore()
-  const { setPrice } = useMarketDataStore()
+  const setObservation = useMarketDataStore(state => state.setObservation)
   const activeTickersRef = useRef<string[]>([])
 
   // Normalize tickers list
-  const cleanTickers = tickers.map(t => t.trim().toUpperCase()).filter(Boolean)
+  const cleanTickers = useMemo(
+    () => tickers.map(ticker => ticker.trim().toUpperCase()).filter(Boolean),
+    [tickers],
+  )
 
   const connect = useCallback(async () => {
     // If MSW is active, or not authenticated, or connection already exists/connecting, skip
@@ -31,9 +34,13 @@ export const useSignalR = (tickers: string[] = []) => {
       .withAutomaticReconnect()
       .build()
 
-    connection.on('OnPriceUpdate', (data: { ticker: string; price: number }) => {
+    connection.on('OnPriceUpdate', (data: { ticker: string; price: number; observedAtUtc?: string; updatedAt?: string; source?: string }) => {
       if (data && data.ticker) {
-        setPrice(data.ticker, data.price)
+        setObservation(data.ticker, {
+          price: data.price,
+          observedAtUtc: data.observedAtUtc ?? data.updatedAt ?? new Date().toISOString(),
+          source: data.source ?? 'brapi',
+        })
       }
     })
 
@@ -49,7 +56,7 @@ export const useSignalR = (tickers: string[] = []) => {
     } catch (err) {
       console.error('[SignalR] Connection failed: ', err)
     }
-  }, [accessToken, isAuthenticated, setPrice])
+  }, [accessToken, isAuthenticated, setObservation])
 
   const disconnect = useCallback(async () => {
     if (connectionRef.current) {
@@ -119,7 +126,7 @@ export const useSignalR = (tickers: string[] = []) => {
         unsubscribe(cleanTickers)
       }
     }
-  }, [JSON.stringify(cleanTickers), subscribe, unsubscribe])
+  }, [cleanTickers, subscribe, unsubscribe])
 
   // Complete cleanup on user logout
   useEffect(() => {

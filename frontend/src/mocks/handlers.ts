@@ -208,6 +208,32 @@ export const handlers = [
   http.get(`${BASE_URL}/market-data/history`, async () =>
     HttpResponse.json(createResponse([]))),
 
+  http.get(`${BASE_URL}/market-data/quotes`, async ({ request }) => {
+    const check = checkPermission(request)
+    if (!check.authorized) {
+      return HttpResponse.json({ success: false, message: check.message }, { status: check.status })
+    }
+
+    const requestedSymbols = new URL(request.url).searchParams.get('symbols')
+      ?.split(',')
+      .map(symbol => symbol.trim().toUpperCase())
+      .filter(Boolean) ?? []
+    const quotes = mockAllInvestments
+      .filter(investment => investment.type === 'variable_income' && requestedSymbols.includes(investment.ticker.toUpperCase()))
+      .map(investment => ({
+        symbol: investment.ticker,
+        name: investment.name,
+        price: investment.currentPrice,
+        observedAtUtc: new Date().toISOString(),
+        currency: investment.currency,
+        sector: investment.sector,
+        subtype: investment.subtype,
+        source: 'demo',
+      }))
+
+    return HttpResponse.json(createResponse(quotes))
+  }),
+
   http.patch(`${BASE_URL}/auth/me`, async ({ request }) => {
     await delay(500)
     const check = checkPermission(request)

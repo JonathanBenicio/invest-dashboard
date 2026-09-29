@@ -63,7 +63,7 @@ public sealed class AtualizadorDadosMercadoWorker(
         var historicalDays = pricesAlreadyStored
             .Select(price => (price.AtivoId, DateOnly.FromDateTime(price.Date)))
             .ToHashSet();
-        var priceUpdates = new List<(string Ticker, decimal Price, DateTime UpdatedAt)>();
+        var priceUpdates = new List<(string Ticker, decimal Price, DateTime UpdatedAt, string Source)>();
 
         foreach (var asset in marketAssets)
         {
@@ -92,7 +92,7 @@ public sealed class AtualizadorDadosMercadoWorker(
                     quote.ObservedAtUtc,
                     "brapi"));
             }
-            priceUpdates.Add((asset.Ticker, quote.Price, quote.ObservedAtUtc));
+            priceUpdates.Add((asset.Ticker, quote.Price, quote.ObservedAtUtc, quote.Source));
         }
 
         if (priceUpdates.Count == 0) return;
@@ -102,7 +102,13 @@ public sealed class AtualizadorDadosMercadoWorker(
         {
             await hubContext.Clients.Group(update.Ticker).SendAsync(
                 "OnPriceUpdate",
-                new { ticker = update.Ticker, price = decimal.Round(update.Price, 4), updatedAt = update.UpdatedAt },
+                new
+                {
+                    ticker = update.Ticker,
+                    price = decimal.Round(update.Price, 4),
+                    observedAtUtc = update.UpdatedAt,
+                    source = update.Source
+                },
                 cancellationToken);
         }
 

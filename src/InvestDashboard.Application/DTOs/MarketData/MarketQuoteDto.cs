@@ -7,4 +7,5 @@ public sealed record MarketQuoteDto(
     DateTime ObservedAtUtc,
     string Currency,
     string? Sector,
-    string? Subtype);
+    string? Subtype,
+    string Source = "brapi");

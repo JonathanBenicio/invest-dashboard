@@ -39,6 +39,8 @@ export interface PosicaoInvestimentoDto {
   quantity: number
   averagePrice: number
   currentPrice: number
+  currentPriceSource?: string
+  currentPriceObservedAtUtc?: string
   totalInvested: number
   currentValue: number
   gain: number

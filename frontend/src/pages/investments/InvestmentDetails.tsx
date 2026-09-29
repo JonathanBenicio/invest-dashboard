@@ -12,6 +12,7 @@ import { ChartPeriodFilter, type ChartPeriod } from "@/components/ChartPeriodFil
 import { useInvestment, useInvestmentTransactions } from "@/hooks/use-investment-details"
 import { investmentService } from "@/api/services/investment.service"
 import { marketDataService } from "@/api/services/market-data.service"
+import { formatQuoteObservation, useMarketQuotes } from "@/hooks/use-market-quotes"
 import { transactionService } from "@/api/services/transaction.service"
 import type { RegistrarTransacaoRequest } from "@/api/dtos/transacao.dto"
 import { formatCurrency } from "@/lib/utils"
@@ -38,7 +39,26 @@ export default function InvestmentDetails() {
 
   const { data: investmentResponse, isLoading, isError } = useInvestment(id)
   const { data: transactionsResponse } = useInvestmentTransactions(id)
-  const asset = investmentResponse?.data
+  const storedAsset = investmentResponse?.data
+  const quoteTickers = useMemo(
+    () => storedAsset?.type === "variable_income" ? [storedAsset.ticker] : [],
+    [storedAsset?.ticker, storedAsset?.type],
+  )
+  const { quotesBySymbol, isLoading: isLoadingQuote } = useMarketQuotes(quoteTickers)
+  const quote = storedAsset ? quotesBySymbol.get(storedAsset.ticker.toUpperCase()) : undefined
+  const asset = useMemo(() => {
+    if (!storedAsset || !quote) return storedAsset
+
+    const currentValue = storedAsset.quantity * quote.price
+    const gain = currentValue - storedAsset.totalInvested
+    return {
+      ...storedAsset,
+      currentPrice: quote.price,
+      currentValue,
+      gain,
+      gainPercentage: storedAsset.totalInvested > 0 ? (gain / storedAsset.totalInvested) * 100 : 0,
+    }
+  }, [quote, storedAsset])
   const transactions = transactionsResponse?.data ?? []
 
   const fromDate = useMemo(() => {
@@ -158,7 +178,7 @@ export default function InvestmentDetails() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric title="Valor da posição" value={money(asset.currentValue)} icon={<Wallet className="h-4 w-4" />} detail={`${asset.quantity} unidades`} />
         <Metric title="Custo da posição" value={money(asset.totalInvested)} icon={<BarChart3 className="h-4 w-4" />} detail={`Preço médio ${money(asset.averagePrice)}`} />
-        <Metric title={isFixedIncome ? "Valor por unidade" : "Cotação atual"} value={money(asset.currentPrice)} icon={<CalendarDays className="h-4 w-4" />} detail={isFixedIncome ? "Atualizado por extrato" : "Última cotação disponível"} />
+        <Metric title={isFixedIncome ? "Valor por unidade" : "Cotação atual"} value={money(asset.currentPrice)} icon={<CalendarDays className="h-4 w-4" />} detail={isFixedIncome ? "Atualizado por extrato" : quote ? formatQuoteObservation(quote.source.toUpperCase(), quote.observedAtUtc) : isLoadingQuote ? "Buscando cotação Brapi..." : "Cotação Brapi indisponível; último preço salvo"} />
         <Metric title="Resultado não realizado" value={money(asset.gain)} icon={asset.gain >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />} detail={`${asset.gainPercentage.toFixed(2)}%`} valueClass={gainClass} />
       </div>
 

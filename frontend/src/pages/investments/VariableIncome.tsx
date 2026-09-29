@@ -13,8 +13,7 @@ import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
 import { useVariableIncomeInvestments } from "@/hooks/use-variable-income"
 import { usePortfolios } from "@/hooks/use-portfolios"
-import { useSignalR } from "@/hooks/useSignalR"
-import { useMarketDataStore } from "@/store/marketDataStore"
+import { useMarketQuotes } from "@/hooks/use-market-quotes"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { StockSearch } from "@/components/investments/StockSearch"
 import { investmentService } from "@/api/services/investment.service"
@@ -73,29 +72,27 @@ export default function VariableIncome() {
     return (investmentsData?.data || []).map(asset => asset.ticker)
   }, [investmentsData?.data])
 
-  // Inicializa o SignalR e assina os tickers
-  useSignalR(tickers)
-
-  // Recupera as cotações em tempo real
-  const { prices } = useMarketDataStore()
+  const { quotesBySymbol, unavailableSymbols, isLoading: isLoadingQuotes } = useMarketQuotes(tickers)
 
   // Mapeia os ativos injetando os preços em tempo real
   const assets = useMemo(() => {
     const originalAssets = (investmentsData?.data || []) as RendaVariavelDto[]
     return originalAssets.map(asset => {
-      const livePrice = prices[asset.ticker.toUpperCase()]
-      if (livePrice !== undefined) {
+      const quote = quotesBySymbol.get(asset.ticker.toUpperCase())
+      if (quote) {
         return {
           ...asset,
-          currentPrice: livePrice,
-          currentValue: asset.quantity * livePrice,
-          gain: (asset.quantity * livePrice) - asset.totalInvested,
-          gainPercentage: asset.totalInvested > 0 ? (((asset.quantity * livePrice) - asset.totalInvested) / asset.totalInvested) * 100 : 0
+          currentPrice: quote.price,
+          currentPriceSource: quote.source,
+          currentPriceObservedAtUtc: quote.observedAtUtc,
+          currentValue: asset.quantity * quote.price,
+          gain: (asset.quantity * quote.price) - asset.totalInvested,
+          gainPercentage: asset.totalInvested > 0 ? (((asset.quantity * quote.price) - asset.totalInvested) / asset.totalInvested) * 100 : 0
         }
       }
       return asset
     })
-  }, [investmentsData?.data, prices])
+  }, [investmentsData?.data, quotesBySymbol])
   const pageCount = investmentsData?.pagination?.totalPages || 0
 
   const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvested, 0)
@@ -369,6 +366,11 @@ export default function VariableIncome() {
         <TabsContent value="assets">
           <Card>
             <CardContent className="pt-6">
+              {!isLoadingQuotes && unavailableSymbols.length > 0 && (
+                <p role="status" className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                  Cotação indisponível para {unavailableSymbols.join(", ")}. O último preço salvo foi mantido.
+                </p>
+              )}
               <VariableIncomeTable
                 data={assets}
                 pageCount={pageCount}

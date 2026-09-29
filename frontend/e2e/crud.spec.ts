@@ -49,4 +49,11 @@ test.describe('Acompanhamento de posições', () => {
 
     await expect(page.getByRole('table').getByText(assetName, { exact: true })).toBeVisible()
   })
+
+  test('exibe a origem e o horário da cotação carregada pela API', async ({ page }) => {
+    await page.getByRole('link', { name: 'Renda Variável' }).click()
+
+    await expect(page.getByText(/Cotação DEMO ·/).first()).toBeVisible()
+    await expect(page.getByRole('status')).toHaveCount(0)
+  })
 })

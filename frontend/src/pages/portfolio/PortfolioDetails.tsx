@@ -14,15 +14,13 @@ import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { usePortfolio, usePortfolioSummary } from "@/hooks/use-portfolios"
 import { useFixedIncomeInvestments } from "@/hooks/use-investments"
 import { useVariableIncomeInvestments } from "@/hooks/use-variable-income"
-import { useSignalR } from "@/hooks/useSignalR"
-import { useMarketDataStore } from "@/store/marketDataStore"
+import { useMarketQuotes } from "@/hooks/use-market-quotes"
 import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { investmentService } from "@/api/services/investment.service"
 import { portfolioService } from "@/api/services/portfolio.service"
 import type { RendaFixaDto, RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, TipoRendaFixa } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
-import { Badge } from "@/components/ui/badge"
 
 export default function PortfolioDetails() {
   const { id } = portfolioDetailsRoute.useParams()
@@ -112,29 +110,27 @@ export default function PortfolioDetails() {
     return (variableResponse?.data || []).map(asset => asset.ticker)
   }, [variableResponse?.data])
 
-  // Inicializa o SignalR e assina os tickers
-  useSignalR(tickers)
-
-  // Recupera as cotações em tempo real
-  const { prices } = useMarketDataStore()
+  const { quotesBySymbol, unavailableSymbols, isLoading: isLoadingQuotes } = useMarketQuotes(tickers)
 
   // Mapeia os ativos de renda variável injetando os preços em tempo real
   const variableAssets = useMemo(() => {
     const originalAssets = (variableResponse?.data || []) as RendaVariavelDto[]
     return originalAssets.map(asset => {
-      const livePrice = prices[asset.ticker.toUpperCase()]
-      if (livePrice !== undefined) {
+      const quote = quotesBySymbol.get(asset.ticker.toUpperCase())
+      if (quote) {
         return {
           ...asset,
-          currentPrice: livePrice,
-          currentValue: asset.quantity * livePrice,
-          gain: (asset.quantity * livePrice) - asset.totalInvested,
-          gainPercentage: asset.totalInvested > 0 ? (((asset.quantity * livePrice) - asset.totalInvested) / asset.totalInvested) * 100 : 0
+          currentPrice: quote.price,
+          currentPriceSource: quote.source,
+          currentPriceObservedAtUtc: quote.observedAtUtc,
+          currentValue: asset.quantity * quote.price,
+          gain: (asset.quantity * quote.price) - asset.totalInvested,
+          gainPercentage: asset.totalInvested > 0 ? (((asset.quantity * quote.price) - asset.totalInvested) / asset.totalInvested) * 100 : 0
         }
       }
       return asset
     })
-  }, [variableResponse?.data, prices])
+  }, [variableResponse?.data, quotesBySymbol])
 
   // Edit/Delete State
   const [editingInvestment, setEditingInvestment] = useState<RendaFixaDto | RendaVariavelDto | null>(null)
@@ -306,6 +302,11 @@ export default function PortfolioDetails() {
 
         {/* Investments Tab */}
         <TabsContent value="investments" className="space-y-4">
+          {!isLoadingQuotes && unavailableSymbols.length > 0 && (
+            <p role="status" className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+              Cotação indisponível para {unavailableSymbols.join(", ")}. O último preço salvo foi mantido.
+            </p>
+          )}
 
           {/* Fixed Income Table */}
           <Card>

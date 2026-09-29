@@ -2,7 +2,7 @@
 
 ## Escopo desta revisão
 
-Revisado em 29/09/2026. A [CI do commit dc82a07](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36534836526) passou: 21 testes unitários, 25 de integração (24 InMemory e 1 PostgreSQL 15, sem testes pulados), 2 E2E, typecheck, build frontend e smoke Docker Compose. Supabase/Brapi ao vivo e produção não foram exercitados. O lint global segue com 30 erros e 18 avisos fora do lint direcionado; o checklist Python não pôde iniciar no ambiente local por falta do interpretador. Fluxo de caixa/proventos continuam adiados.
+Revisado em 29/09/2026. A [CI do commit a9ad5ac](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36536414566) passou com a nova cobertura de filtros; a execução local mais recente passou em 21 testes unitários, 25 de integração InMemory e 3 E2E. Os testes PostgreSQL de posição passaram em execução local anterior e na CI de `a9ad5ac`. Typecheck e build frontend passaram após integrar cotações Brapi/SignalR. Credenciais reais Supabase/Brapi e produção ainda não foram validadas. O lint global tem 30 erros e 16 avisos, todos preexistentes e fora da lógica funcional alterada; lint direcionado dos arquivos funcionais passou. Fluxo de caixa/proventos continuam adiados.
 
 | ID estável | História | Estado observado no código | Evidência e gap principal |
 |---|---|---|---|
@@ -12,8 +12,8 @@ Revisado em 29/09/2026. A [CI do commit dc82a07](https://github.com/JonathanBeni
 | US-INV-002 | Vencimentos | Parcial; a transição descrita não foi evidenciada | [RendaFixa](../src/InvestDashboard.Domain/Aggregates/MarketData/RendaFixa.cs) armazena data de vencimento e a UI mostra projeções. Não localizei transição automática de estado para “Vencido” nem liquidação do principal/juros. |
 | US-TAX-001 | Apuração de lucro e prejuízo | Parcial; testes de domínio passaram | Custo médio e ganho realizado são calculados, mas critérios fiscais completos e testes de casos de borda permanecem pendentes. |
 | US-TAX-002 | Imposto de Renda | Cálculos de domínio presentes; integração e regras pendentes | [CalculoImpostoService](../src/InvestDashboard.Domain/Services/CalculoImpostoService.cs) contém alíquotas/limiar codificados. Não localizei fluxo que aplique o serviço ao registrar venda nem testes específicos no catálogo de testes. As regras fiscais não foram verificadas como orientação vigente. |
-| US-PORT-001 | Historico patrimonial | Implementado com lacunas explicitas | API e interface usam operacoes, precos armazenados e historico Brapi; periodos incompletos sao marcados e nao recebem estimativas. Migrations/persistencia passaram no PostgreSQL 15; cotacao Brapi ao vivo segue pendente. |
-| US-PORT-002 | Visualização e filtragem | Implementada; filtros combinados cobertos em teste | Endpoint oferece tipo, subtipo, emissor, setor, status, busca e paginação. Teste cobre filtros combinados, ordenação e paginação em InMemory e PostgreSQL; execução remota deste incremento pendente. |
+| US-PORT-001 | Historico patrimonial | Implementado com histórico incompleto identificado e cotações ligadas à interface | API e interface usam operações, histórico Brapi e atualização SignalR; listas/detalhe buscam cotações ao abrir, mostram origem/horário e preservam o valor persistido com aviso quando não há retorno. Períodos incompletos não recebem estimativas. Validar com credencial Brapi de homologação ainda pendente. |
+| US-PORT-002 | Visualização e filtragem | Implementada; filtros combinados cobertos em teste | Endpoint oferece tipo, subtipo, emissor, setor, status, busca e paginação. Teste cobre filtros combinados, ordenação e paginação em InMemory e PostgreSQL; CI de `a9ad5ac` passou. |
 | US-SIM-001 | Simulação de investimentos | Fluxo de simulação presente; integração de taxa externa não comprovada | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs), [estratégias](../src/InvestDashboard.Domain/Services/EstrategiaDeterministica.cs) e [tela](../frontend/src/pages/tools/Simulator.tsx). Recebe aportes mensais e taxa informada; ligação com SELIC configurada e validação não foram comprovadas. |
 | US-COMP-001 | Comparação de ativos | Protótipo visual com série fixa; seleção/dados reais não comprovados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) define valores mensais no componente e desenha carteira/Ibovespa/CDI. Não encontrei seleção de ativos nem origem de dados integrada para essa comparação. |
 
@@ -57,13 +57,13 @@ Revisado em 29/09/2026. A [CI do commit dc82a07](https://github.com/JonathanBeni
 
 **Como** investidor, **quero** visualizar evolução histórica do patrimônio e rentabilidade, **para** acompanhar a evolução da carteira.
 
-**Gap:** Histórico e indicação de lacunas estão ligados à interface; Compose aplicou as migrations e o smoke local/remoto verificou API/proxy. Ainda faltam cotações Brapi com credencial real.
+**Gap:** Histórico e indicação de lacunas estão ligados à interface. A posição consulta `/market-data/quotes`, combina o retorno com eventos SignalR usando a observação mais recente e identifica origem/horário. Sem cotação, mantém o valor salvo sem simulá-lo e informa indisponibilidade. Ainda falta validar o fluxo com credencial Brapi de homologação.
 
 ## US-PORT-002 — Visualização e filtragem
 
 **Como** investidor, **quero** visualizar e filtrar ativos por classe, status ou instituição, **para** gerenciar recortes da carteira.
 
-**Gap:** O contrato inclui status e emissor além de tipo/subtipo/setor/busca. Combinação representativa, ordenação e paginação têm teste para InMemory e PostgreSQL; a CI ainda deve confirmar a execução PostgreSQL. Cobertura de todas as combinações permanece pendente.
+**Gap:** O contrato inclui status e emissor além de tipo/subtipo/setor/busca. Combinação representativa, ordenação e paginação têm teste para InMemory e PostgreSQL; ambos passaram em CI. Cobertura de todas as combinações permanece pendente.
 
 ## US-SIM-001 — Simulação de investimentos
 
