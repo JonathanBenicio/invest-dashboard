@@ -106,6 +106,14 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 
 ### Próximos passos de acompanhamento
 
+### Limpeza de gráficos de demonstração sem uso (concluída)
+
+- [x] Confirmado por busca que `ChartJSExamples.tsx`, `LightningChartTrader.tsx` e `TraderChart.tsx` não estavam no roteador nem eram importados.
+- [x] Removidos os três componentes: os dois primeiros geravam preços aleatórios e o terceiro exibia uma série OHLC fixa como gráfico trader.
+- [x] Removidas as dependências `chart.js`, `chartjs-adapter-date-fns`, `chartjs-chart-financial`, `lightweight-charts` e `react-chartjs-2`, exclusivas desses arquivos.
+- [x] `bun install --frozen-lockfile`, `bunx tsc --noEmit`, build e 5 E2E passaram. `Math.random` só permanece no dimensionamento visual do skeleton; dados de negócio continuam nos fixtures MSW opt-in.
+
+**Aceite:** nenhuma série financeira de demonstração permanece em componente frontend órfão e a aplicação compila e passa os E2E atuais.
 1. Validar parsing com extratos reais anonimizados de corretoras e documentar formatos aceitos; manter isso separado do contrato atual.
 2. Tratar o lint global em alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
 3. Preparar a homologação de frontend/API/banco após configurar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
