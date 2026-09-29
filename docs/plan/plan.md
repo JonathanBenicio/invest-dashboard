@@ -94,6 +94,6 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 ### Próxima etapa de acompanhamento de posições
 
 1. Validar autenticação Supabase e dados Brapi em um ambiente de homologação configurado; comprovar isolamento entre usuários, origem e data das cotações, além da indicação de indisponibilidade sem preços simulados.
-2. Cobrir combinações de filtros, paginação e status das posições com PostgreSQL, incluindo fronteiras de datas e quantidades fracionárias.
+2. [x] Cobrir filtros combinados de classe, subtipo, setor, status e busca, além de ordenação/paginação, com teste isolado para InMemory e PostgreSQL. A confirmação CI deste incremento fica pendente.
 3. Tratar o lint global em uma alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
 4. Preparar a homologação de frontend/API/banco após essas validações. Produção, fluxo de caixa e proventos continuam fora desta etapa.

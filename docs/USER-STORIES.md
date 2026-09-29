@@ -13,7 +13,7 @@ Revisado em 29/09/2026. A [CI do commit dc82a07](https://github.com/JonathanBeni
 | US-TAX-001 | Apuração de lucro e prejuízo | Parcial; testes de domínio passaram | Custo médio e ganho realizado são calculados, mas critérios fiscais completos e testes de casos de borda permanecem pendentes. |
 | US-TAX-002 | Imposto de Renda | Cálculos de domínio presentes; integração e regras pendentes | [CalculoImpostoService](../src/InvestDashboard.Domain/Services/CalculoImpostoService.cs) contém alíquotas/limiar codificados. Não localizei fluxo que aplique o serviço ao registrar venda nem testes específicos no catálogo de testes. As regras fiscais não foram verificadas como orientação vigente. |
 | US-PORT-001 | Historico patrimonial | Implementado com lacunas explicitas | API e interface usam operacoes, precos armazenados e historico Brapi; periodos incompletos sao marcados e nao recebem estimativas. Migrations/persistencia passaram no PostgreSQL 15; cotacao Brapi ao vivo segue pendente. |
-| US-PORT-002 | Visualização e filtragem | Implementada; combinações de filtros ainda precisam de cobertura | Endpoint oferece tipo, subtipo, emissor, setor, status, busca e paginação. Acrescentar testes de combinação e validação com PostgreSQL. |
+| US-PORT-002 | Visualização e filtragem | Implementada; filtros combinados cobertos em teste | Endpoint oferece tipo, subtipo, emissor, setor, status, busca e paginação. Teste cobre filtros combinados, ordenação e paginação em InMemory e PostgreSQL; execução remota deste incremento pendente. |
 | US-SIM-001 | Simulação de investimentos | Fluxo de simulação presente; integração de taxa externa não comprovada | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs), [estratégias](../src/InvestDashboard.Domain/Services/EstrategiaDeterministica.cs) e [tela](../frontend/src/pages/tools/Simulator.tsx). Recebe aportes mensais e taxa informada; ligação com SELIC configurada e validação não foram comprovadas. |
 | US-COMP-001 | Comparação de ativos | Protótipo visual com série fixa; seleção/dados reais não comprovados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) define valores mensais no componente e desenha carteira/Ibovespa/CDI. Não encontrei seleção de ativos nem origem de dados integrada para essa comparação. |
 
@@ -63,7 +63,7 @@ Revisado em 29/09/2026. A [CI do commit dc82a07](https://github.com/JonathanBeni
 
 **Como** investidor, **quero** visualizar e filtrar ativos por classe, status ou instituição, **para** gerenciar recortes da carteira.
 
-**Gap:** O contrato agora inclui status e emissor além de tipo/subtipo/setor/busca. Cobertura de todas as combinações de filtros e validação com banco real continuam pendentes.
+**Gap:** O contrato inclui status e emissor além de tipo/subtipo/setor/busca. Combinação representativa, ordenação e paginação têm teste para InMemory e PostgreSQL; a CI ainda deve confirmar a execução PostgreSQL. Cobertura de todas as combinações permanece pendente.
 
 ## US-SIM-001 — Simulação de investimentos
 
