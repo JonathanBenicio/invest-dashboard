@@ -31,7 +31,7 @@ public class CarteirasControllerTests : IClassFixture<CustomWebApplicationFactor
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadFromJsonAsync<PaginatedPortfolioResponse>(JsonOpts);
+        var body = await response.Content.ReadFromJsonAsync<RespostaPaginadaCarteirasDto>(JsonOpts);
         body.Should().NotBeNull();
         body!.Data.Should().NotBeNull();
     }
@@ -87,6 +87,6 @@ public class CarteirasControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     // Local DTO for paginated response deserialization
-    private record PaginatedPortfolioResponse(PortfolioDto[] Data, int Page, int PageSize, int TotalCount);
-    private record PortfolioDto(Guid Id, string Name, decimal Balance, decimal TotalValue);
+    private record RespostaPaginadaCarteirasDto(CarteiraDtoTeste[] Data, int Page, int PageSize, int TotalCount);
+    private record CarteiraDtoTeste(Guid Id, string Name, decimal Balance, decimal TotalValue);
 }
