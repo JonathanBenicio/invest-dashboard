@@ -38,16 +38,16 @@ public sealed class BrapiMarketDataClient(
             var uri = BuildUri("v2/stocks/quote", ("symbols", string.Join(',', stockSymbols)));
             using var request = CreateRequest(uri);
             var response = await SendAsync<BrapiQuoteResponse>(request, cancellationToken);
-            var requestedAt = ParseDate(response.RequestedAt);
             quotes.AddRange(response.Results
-                .Where(result => result.Data?.RegularMarketPrice is not null)
-                .Select(result => new MarketQuoteDto(
-                    result.Symbol,
-                    result.Data!.LongName ?? result.Data.ShortName ?? result.Symbol,
-                    result.Data.RegularMarketPrice!.Value,
-                    ParseDate(result.Data.RegularMarketTime) ?? requestedAt ?? DateTime.UtcNow,
-                    result.Data.Currency ?? "BRL",
-                    result.Data.Sector,
+                .Select(result => (Result: result, ObservedAt: ParseDate(result.Data?.RegularMarketTime)))
+                .Where(item => item.Result.Data?.RegularMarketPrice is not null && item.ObservedAt.HasValue)
+                .Select(item => new MarketQuoteDto(
+                    item.Result.Symbol,
+                    item.Result.Data!.LongName ?? item.Result.Data.ShortName ?? item.Result.Symbol,
+                    item.Result.Data.RegularMarketPrice!.Value,
+                    item.ObservedAt.GetValueOrDefault(),
+                    item.Result.Data.Currency ?? "BRL",
+                    item.Result.Data.Sector,
                     null)));
         }
 
@@ -56,15 +56,15 @@ public sealed class BrapiMarketDataClient(
             var uri = BuildUri("v2/crypto", ("coin", string.Join(',', cryptoSymbols)), ("currency", "BRL"));
             using var request = CreateRequest(uri);
             var response = await SendAsync<BrapiCryptoResponse>(request, cancellationToken);
-            var requestedAt = ParseDate(response.RequestedAt);
             quotes.AddRange(response.Coins
-                .Where(coin => coin.RegularMarketPrice is not null)
-                .Select(coin => new MarketQuoteDto(
-                    coin.Coin,
-                    coin.CoinName ?? coin.Coin,
-                    coin.RegularMarketPrice!.Value,
-                    ParseDate(coin.RegularMarketTime) ?? requestedAt ?? DateTime.UtcNow,
-                    coin.Currency ?? "BRL",
+                .Select(coin => (Coin: coin, ObservedAt: ParseDate(coin.RegularMarketTime)))
+                .Where(item => item.Coin.RegularMarketPrice is not null && item.ObservedAt.HasValue)
+                .Select(item => new MarketQuoteDto(
+                    item.Coin.Coin,
+                    item.Coin.CoinName ?? item.Coin.Coin,
+                    item.Coin.RegularMarketPrice!.Value,
+                    item.ObservedAt.GetValueOrDefault(),
+                    item.Coin.Currency ?? "BRL",
                     null,
                     "CRYPTO")));
         }
@@ -174,8 +174,6 @@ public sealed class BrapiMarketDataClient(
 
     private sealed class BrapiQuoteResponse
     {
-        [JsonPropertyName("requestedAt")]
-        public string? RequestedAt { get; init; }
         [JsonPropertyName("results")]
         public List<BrapiStockResult> Results { get; init; } = [];
     }
@@ -206,8 +204,6 @@ public sealed class BrapiMarketDataClient(
 
     private sealed class BrapiCryptoResponse
     {
-        [JsonPropertyName("requestedAt")]
-        public string? RequestedAt { get; init; }
         [JsonPropertyName("coins")]
         public List<BrapiCoinQuote> Coins { get; init; } = [];
     }

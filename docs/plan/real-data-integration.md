@@ -1,6 +1,6 @@
 # Plano: remover mocks de produto e integrar frontend/backend
 
-Atualizado em 29/09/2026. A implementação de análise real, importação CSV e remoção dos fixtures de produto foi commitada em `605bbc5`; backend/PostgreSQL, frontend e Docker smoke passaram na CI. O E2E de importação pelo navegador contra API/PostgreSQL reais passou localmente sem MSW; apenas a sessão de autenticação é controlada pelo teste. A CI do commit `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654) passou nos quatro jobs. Homologação com credenciais Supabase/Brapi continua pendente.
+Atualizado em 29/09/2026. A implementação de análise real, importação CSV e remoção dos fixtures de produto foi commitada em `605bbc5`; backend/PostgreSQL, frontend e Docker smoke passaram na CI. O E2E de importação pelo navegador contra API/PostgreSQL reais passou localmente sem MSW; apenas a sessão de autenticação é controlada pelo teste. A CI do commit `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654) passou nos quatro jobs. Uma consulta pública Brapi sem token foi bem-sucedida; validação de autenticação Supabase e operação Brapi sustentada em homologação continuam pendentes.
 
 ## Objetivo e limites
 

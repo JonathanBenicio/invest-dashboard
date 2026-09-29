@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\InvestDashboard.Domain\InvestDashboard.Domain.csproj" />
     <ProjectReference Include="..\..\InvestDashboard.Application\InvestDashboard.Application.csproj" />
+    <ProjectReference Include="..\..\InvestDashboard.Infrastructure\InvestDashboard.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

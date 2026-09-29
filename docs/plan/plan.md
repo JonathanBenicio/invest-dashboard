@@ -96,13 +96,13 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 
 ### Próxima etapa de acompanhamento de posições
 
-1. Validar autenticação Supabase e dados Brapi em um ambiente de homologação configurado; comprovar isolamento entre usuários, origem e data das cotações, além da indicação de indisponibilidade sem preços simulados.
+1. Validar autenticação Supabase e isolamento entre usuários em homologação; confirmar operação sustentada de cotações Brapi, limites aplicáveis e indisponibilidade sem dado inventado. Uma consulta pública PETR4 sem token foi bem-sucedida; credenciais Supabase continuam ausentes.
 2. [x] Integrar o carregamento de posições com a API de cotações: exibir origem e horário da observação Brapi/SignalR; se o provedor não retornar preço, conservar o último valor persistido e avisar que está indisponível. CI local/remota do commit `df2bae7` validou essa etapa.
 3. [x] Cobrir filtros combinados de classe, subtipo, setor, status e busca, além de ordenação/paginação, com testes InMemory e PostgreSQL; CI do commit `a9ad5ac` passou.
 4. [x] Cobrir o contrato de importação até o PostgreSQL: compra de ação e renda fixa, replay idempotente, rejeição de linha inválida e persistência após reinício do host.
 5. [x] E2E Playwright sem MSW para importar CSV pela interface contra API/PostgreSQL reais; sessão de teste controlada e operações financeiras reais. Os quatro jobs passaram na CI de `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654).
 6. [x] Corrigir o lint padrão do frontend; `bun run lint` passa sem erros e mantém 10 avisos Fast Refresh em componentes existentes.
-7. Preparar a homologação de frontend/API/banco após configurar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
+7. Preparar homologação para validar autenticação Supabase e isolamento multiusuário, além de continuidade/limites de cotações Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
 
 ### Próximos passos de acompanhamento
 
@@ -116,7 +116,7 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 **Aceite:** nenhuma série financeira de demonstração permanece em componente frontend órfão e a aplicação compila e passa os E2E atuais.
 1. Validar parsing com extratos reais anonimizados de corretoras e documentar formatos aceitos; manter isso separado do contrato atual.
 2. [x] Corrigir o lint padrão do frontend; `bun run lint` passa sem erros e mantém 10 avisos Fast Refresh em componentes existentes.
-3. Preparar a homologação de frontend/API/banco após configurar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
+3. Preparar homologação para autenticação Supabase, isolamento multiusuário e continuidade/limites Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
 4. Manter a coleta e visualização do Tesouro Transparente na fase futura descrita em `real-data-integration.md`.
 
 
@@ -128,3 +128,12 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 - [x] `bun run lint` conclui com 0 erros e 10 avisos de Fast Refresh; `bunx tsc --noEmit`, build e 5 E2E passam. Os quatro jobs da CI do commit `919e79a` também passaram (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36546811301).
 
 **Aceite:** lint padrão sem erros; avisos remanescentes não bloqueiam a compilação nem representam valores simulados de negócio.
+### Integridade do horário de observação das cotações Brapi (concluída)
+
+A documentação do [schema oficial Brapi](https://brapi.dev/docs/openapi) define `requestedAt` como horário da requisição e `regularMarketTime` como horário de mercado do ativo. Não usar o horário da requisição nem o relógio local como substituto de observação.
+
+1. [x] Client descarta preços sem `regularMarketTime` parseável; o endpoint não promove horário de consulta a cotação recente.
+2. [x] Testes HTTP simulados cobrem ações e cripto: timestamp válido usa o horário de mercado e timestamp ausente resulta em lista vazia mesmo com `requestedAt`.
+3. [x] Suíte .NET Release passou com 23 unitários e 28 integrações PostgreSQL, sem skips; o endpoint/UI já mantêm o último valor e indicam indisponibilidade quando a API não retorna observação válida.
+
+**Aceite:** nenhum preço sem horário de observação válido é apresentado como cotação atual. A validação Supabase ponta a ponta permanece pendente.
