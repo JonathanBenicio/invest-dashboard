@@ -151,3 +151,11 @@ A documentação do [schema oficial Brapi](https://brapi.dev/docs/openapi) defin
 - [x] InMemory e PostgreSQL (incluindo recriação do host) passaram; suíte .NET Release: 23 unitários e 32 integrações PostgreSQL, sem skips.
 
 **Aceite:** valor de extrato informado pelo usuário atualiza a posição e persiste no histórico, sem serviço externo nem preço simulado.
+### E2E da avaliação manual pela UI (concluída)
+
+- [x] Usado o harness de API/PostgreSQL real e sessão JWT controlada, sem MSW nem chamadas externas.
+- [x] E2E cria carteira/contrato, altera pela tela de Renda Fixa o valor e data do extrato e valida a confirmação visual.
+- [x] Confirma pela API que valor atual, data e histórico `statement` foram persistidos e que permanece somente a transação original.
+- [x] E2E de importação CSV e avaliação manual passaram juntos (2 testes); avaliação foi repetida após incluir verificação da data. Typecheck/lint direcionado e 5 E2E MSW passaram.
+
+**Aceite:** caminho da tela de Renda Fixa ao endpoint de avaliação grava valor/histórico no PostgreSQL sem adicionar transação e sem depender de terceiros.

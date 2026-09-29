@@ -1,58 +1,13 @@
-import { createHmac } from 'node:crypto'
 import { expect, test } from '@playwright/test'
-
-const apiUrl = process.env.E2E_API_URL ?? 'http://127.0.0.1:5051'
-const authSecret = process.env.E2E_JWT_SECRET
-const issuer = process.env.E2E_JWT_ISSUER ?? 'test-issuer'
-const audience = process.env.E2E_JWT_AUDIENCE ?? 'test-audience'
-const userId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001'
-const sessionId = 'bbbbbbbb-cccc-dddd-eeee-ffffffff0001'
-const userEmail = 'test@investdashboard.com'
-const userName = 'Test User'
-
-function createAccessToken(secret: string) {
-  const nowSeconds = Math.floor(Date.now() / 1000)
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
-  const claims = Buffer.from(JSON.stringify({
-    sub: userId,
-    email: userEmail,
-    name: userName,
-    role: 'user',
-    sid: sessionId.replaceAll('-', ''),
-    iss: issuer,
-    aud: audience,
-    iat: nowSeconds,
-    exp: nowSeconds + 600,
-  })).toString('base64url')
-  const unsignedToken = `${header}.${claims}`
-  const signature = createHmac('sha256', secret).update(unsignedToken).digest('base64url')
-  return `${unsignedToken}.${signature}`
-}
-
-function dateOnly(offsetDays: number) {
-  return new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-}
+import { apiUrl, createAccessToken, dateOnly, jwtSecret, mockRefreshSession, testUser } from './auth'
 
 test('CSV import creates persisted transactions through the real API', async ({ page, request }) => {
-  expect(authSecret, 'E2E_JWT_SECRET must match the test API').toBeTruthy()
-  const token = createAccessToken(authSecret!)
+  expect(jwtSecret, 'E2E_JWT_SECRET must match the test API').toBeTruthy()
+  const token = createAccessToken(jwtSecret!)
   const portfolioName = `CSV E2E ${Date.now()}`
   const authorization = { Authorization: `Bearer ${token}` }
 
-  await page.route(`${apiUrl}/api/v1/auth/refresh`, route => route.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      data: {
-        accessToken: token,
-        expiresIn: 600,
-        user: { id: userId, name: userName, email: userEmail, role: 'user' },
-        requiresEmailConfirmation: false,
-      },
-      success: true,
-      message: null,
-    }),
-  }))
+  await mockRefreshSession(page, token)
 
   const portfolioResponse = await request.post(`${apiUrl}/api/v1/portfolios`, {
     headers: authorization,
