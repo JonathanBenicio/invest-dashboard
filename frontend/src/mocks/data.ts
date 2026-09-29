@@ -309,7 +309,7 @@ export const mockVariableIncomeInvestments: RendaVariavelDto[] = [
 ]
 
 // All investments combined
-export const mockAllInvestments: PosicaoInvestimentoDto[] = [
+export const mockAllInvestments: (RendaFixaDto | RendaVariavelDto)[] = [
   ...mockFixedIncomeInvestments,
   ...mockVariableIncomeInvestments,
 ]

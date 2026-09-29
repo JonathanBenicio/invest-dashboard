@@ -37,11 +37,11 @@ const menuItems = [
   { title: "Análise", url: "/analise", icon: LineChart },
   { title: "Importar operações", url: "/importar", icon: Upload },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
-]
+] as const
 
 const adminItems = [
   { title: "Taxas e Indicadores", url: "/taxas", icon: Percent },
-]
+] as const
 
 export function AppSidebar() {
   const { state } = useSidebar()
@@ -81,7 +81,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink
-                      to={item.url as any}
+                      to={item.url}
                       className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                       activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                     >
@@ -106,7 +106,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild tooltip={item.title}>
                       <NavLink
-                        to={item.url as any}
+                        to={item.url}
                         className="flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
                         activeClassName="bg-sidebar-accent text-sidebar-primary font-medium"
                       >

@@ -83,6 +83,10 @@ const userFormSchema = z.object({
 
 type UserFormValues = z.infer<typeof userFormSchema>
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
 export default function Users() {
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(1)
@@ -111,8 +115,8 @@ export default function Users() {
       form.reset()
       toast.success("Usuário criado com sucesso")
     },
-    onError: (error: any) => {
-       toast.error(error.response?.data?.message || "Erro ao criar usuário")
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Erro ao criar usuário"))
     }
   })
 
@@ -127,8 +131,8 @@ export default function Users() {
       form.reset()
       toast.success("Usuário atualizado com sucesso")
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Erro ao atualizar usuário")
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Erro ao atualizar usuário"))
     }
   })
 
@@ -141,8 +145,8 @@ export default function Users() {
       setUserToDelete(null)
       toast.success("Usuário excluído com sucesso")
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Erro ao excluir usuário")
+    onError: (error: unknown) => {
+      toast.error(getErrorMessage(error, "Erro ao excluir usuário"))
     }
   })
 

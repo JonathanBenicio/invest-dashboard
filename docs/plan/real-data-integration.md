@@ -20,7 +20,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 - As rotas de usuários administrativos, chat e integrações diretas com corretoras não possuem contratos backend correspondentes ou não estão expostas na navegação. Não podem ser apresentadas como funcionais sem implementação real.
 - O backend retorna lista vazia para proventos. A UI removeu a aba de proventos da tela de posições e o fixture MSW deixa de inventar pagamentos.
 - A CI de `df2bae7` falhou no backend: frontend e `docker-smoke` passaram, enquanto dois testes aplicavam migrations concorrentes no mesmo banco PostgreSQL compartilhado. A falha reproduzida foi SQLSTATE `42701`, coluna `portfolio_id` já existente na tabela `transactions`. O commit `aa31fc9` cria um database efêmero por teste PostgreSQL; os três jobs da CI passaram.
-- Na validação local de `605bbc5`: typecheck, build e ESLint direcionado passaram (3 avisos preexistentes em `router.tsx`); 5 E2E passaram, incluindo análise pela API e importação de renda variável/renda fixa com uma linha inválida. A CI passou em backend/PostgreSQL, frontend e Docker smoke. O lint global conhecido falha com 30 erros e 16 avisos em arquivos legados/gerados.
+- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI dos três jobs passaram. A limpeza atual retirou três gráficos mock não roteados e as cinco dependências exclusivas; o novo E2E sem MSW e os quatro jobs da CI `36ccc50` passaram. `bun run lint` local agora conclui com 0 erros e 10 avisos de Fast Refresh; typecheck, build e 5 E2E passaram. CI para a correção de lint está pendente.
 
 ## Fases de implementação
 
@@ -29,7 +29,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 1. Revisar o diff completo e confirmar que os arquivos apagados estavam sem uso e que nenhuma fixture foi removida do Playwright por engano.
 2. [x] Isolar cada teste PostgreSQL em um banco efêmero próprio; a suíte local passou sem skips e a CI de `aa31fc9` passou nos três jobs.
 3. [x] Validar as rotas `/analise` e `/importar`, acesso autenticado, consultas e erros; 5 E2E passaram usando fixtures MSW explícitas.
-4. [x] Executar typecheck, build e lint direcionado; o lint global mantém falhas legadas documentadas.
+4. [x] Executar typecheck, build e lint padrão; sem erros e com 10 avisos de Fast Refresh em módulos existentes.
 5. [x] Fazer commit da implementação frontend (`605bbc5`) e confirmar CI nos três jobs. Testes API/PostgreSQL cobrem ação e renda fixa, replay idempotente, rejeição e persistência após recriar o host. O E2E de navegador/API/PostgreSQL sem MSW também passou na CI de `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654); validar Brapi/Supabase reais continua pendente.
 6. [x] Atualizar este plano e o catálogo de user stories com as evidências. Manter deploy em produção fora desta fase.
 
@@ -91,7 +91,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 ## Validação e acompanhamento
 
-- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI dos três jobs passaram. Na alteração atual: E2E sem MSW passou localmente e os quatro jobs, incluindo `csv-import-e2e`, passaram na CI `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654).
+- No commit `605bbc5`: typecheck, build, lint direcionado (3 avisos existentes no router), 5 E2E com MSW e CI dos três jobs passaram. A limpeza atual retirou três gráficos mock não roteados e as cinco dependências exclusivas; o novo E2E sem MSW e os quatro jobs da CI `36ccc50` passaram. `bun run lint` local agora conclui com 0 erros e 10 avisos de Fast Refresh; typecheck, build e 5 E2E passaram. CI para a correção de lint está pendente.
 - Testes .NET locais em Release com PostgreSQL: 21 unitários e 28 integrações passaram, sem skips; cada teste PostgreSQL criou seu próprio database e foi removido ao final.
 - CI de `a9ad5ac` passou. A CI de `df2bae7` ([execução 36538233870](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36538233870)) teve frontend/Docker smoke verdes e falhou no backend por migrations concorrentes. O corretivo `aa31fc9` isolou os bancos dos testes PostgreSQL; depois, `605bbc5` passou backend/PostgreSQL, frontend e Docker smoke com análise/importação incluídas.
 - Após congelar cada fase, executar a validação correspondente e só então registrar seu aceite neste arquivo e em `docs/USER-STORIES.md`.

@@ -92,7 +92,7 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 
 - **#4 (`develop_jules` → `develop`): não integrar o diff atual.** As cinco alterações usam caminhos anteriores à separação do monorepo, `package-lock.json`, seleção de carteiras mockadas e projeções com CDI/IPCA fixos. Seleção de carteira e compra/venda já estão presentes nas telas atuais com contratos tipados e API. Eventuais projeções devem usar indicadores configurados e ter critérios próprios.
 - **#14 (`develop` → `develop_jules`): encerrado sem merge.** É uma sincronização inversa, com 327 arquivos e conflitos, incluindo configuração local, log e artefatos de build. O usuário confirmou o encerramento dos dois PRs antigos e `develop` como linha de trabalho. As branches foram preservadas.
-- A validação local atual confirmou 21 testes unitários e 24 de integração; o teste PostgreSQL foi pulado sem `INVEST_TEST_POSTGRES_CONNECTION`. Na CI, passaram 21 testes unitários e 25 de integração, sem testes pulados, incluindo o fluxo PostgreSQL. Frontend: typecheck, build e 2 E2E passaram. O smoke Compose confirmou readiness e o proxy com 401 sem token. O checklist Python não pôde iniciar localmente porque o interpretador não está disponível; o lint global ainda tem pendências.
+- Snapshot histórico da revisão dos PRs #4/#14: à época passaram 21 testes unitários e 24 de integração localmente e 21 unitários/25 integrações na CI; os resultados atuais e a contagem de lint estão registrados em `docs/USER-STORIES.md`.
 
 ### Próxima etapa de acompanhamento de posições
 
@@ -101,7 +101,7 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 3. [x] Cobrir filtros combinados de classe, subtipo, setor, status e busca, além de ordenação/paginação, com testes InMemory e PostgreSQL; CI do commit `a9ad5ac` passou.
 4. [x] Cobrir o contrato de importação até o PostgreSQL: compra de ação e renda fixa, replay idempotente, rejeição de linha inválida e persistência após reinício do host.
 5. [x] E2E Playwright sem MSW para importar CSV pela interface contra API/PostgreSQL reais; sessão de teste controlada e operações financeiras reais. Os quatro jobs passaram na CI de `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654).
-6. Tratar o lint global em alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
+6. [x] Corrigir o lint padrão do frontend; `bun run lint` passa sem erros e mantém 10 avisos Fast Refresh em componentes existentes.
 7. Preparar a homologação de frontend/API/banco após configurar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
 
 ### Próximos passos de acompanhamento
@@ -115,6 +115,16 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 
 **Aceite:** nenhuma série financeira de demonstração permanece em componente frontend órfão e a aplicação compila e passa os E2E atuais.
 1. Validar parsing com extratos reais anonimizados de corretoras e documentar formatos aceitos; manter isso separado do contrato atual.
-2. Tratar o lint global em alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
+2. [x] Corrigir o lint padrão do frontend; `bun run lint` passa sem erros e mantém 10 avisos Fast Refresh em componentes existentes.
 3. Preparar a homologação de frontend/API/banco após configurar credenciais Supabase/Brapi. Produção, fluxo de caixa e proventos continuam fora desta etapa.
 4. Manter a coleta e visualização do Tesouro Transparente na fase futura descrita em `real-data-integration.md`.
+
+
+### Correção do lint padrão do frontend (concluída)
+
+- [x] Excluídos artefatos gerados (`android`, `build`, `dist` e `public/mockServiceWorker.js`) da análise ESLint.
+- [x] Tipados os handlers, navegação e callbacks administrativos que usavam `any`; handlers MSW continuam opt-in e compatíveis com os DTOs.
+- [x] Migrado o plugin `tailwindcss-animate` de `require()` para import ESM.
+- [x] `bun run lint` conclui com 0 erros e 10 avisos de Fast Refresh; `bunx tsc --noEmit`, build e 5 E2E passam.
+
+**Aceite:** lint padrão sem erros; avisos remanescentes não bloqueiam a compilação nem representam valores simulados de negócio.

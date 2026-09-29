@@ -5,7 +5,21 @@
 
 import { http, HttpResponse, delay } from 'msw'
 import { API_CONFIG } from '@/api/env'
-import type { ApiResponse, PaginatedResponse, RegistrarTransacaoRequest, TransacaoDto, UserDto } from '@/api/dtos'
+import type {
+  ApiResponse,
+  AtualizarCarteiraRequest,
+  CarteiraDto,
+  CriarCarteiraRequest,
+  CriarRendaFixaRequest,
+  CriarRendaVariavelRequest,
+  PaginatedResponse,
+  PosicaoInvestimentoDto,
+  RegistrarTransacaoRequest,
+  RendaFixaDto,
+  RendaVariavelDto,
+  TransacaoDto,
+  UserDto,
+} from '@/api/dtos'
 import {
   mockCurrentUser,
   mockPortfolios,
@@ -420,20 +434,23 @@ export const handlers = [
     if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     await delay(500)
-    const body = await request.json() as Record<string, unknown>
-
-    const newPortfolio = {
+    const body = await request.json() as CriarCarteiraRequest
+    const now = new Date().toISOString()
+    const newPortfolio: CarteiraDto = {
       id: `portfolio-${Date.now()}`,
-      ...body,
+      name: body.name,
+      description: body.description,
+      positions: [],
+      assetsCount: 0,
       totalValue: 0,
       totalInvested: 0,
       totalGain: 0,
       gainPercentage: 0,
       currency: 'BRL',
       isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } as any
+      createdAt: now,
+      updatedAt: now,
+    }
 
     mockPortfolios.push(newPortfolio)
 
@@ -446,7 +463,7 @@ export const handlers = [
 
     await delay(400)
     const { id } = params
-    const body = await request.json() as Record<string, unknown>
+    const body = await request.json() as AtualizarCarteiraRequest
     const index = mockPortfolios.findIndex(p => p.id === id)
 
     if (index === -1) {
@@ -456,13 +473,13 @@ export const handlers = [
       )
     }
 
-    const updated = {
+    const updated: CarteiraDto = {
       ...mockPortfolios[index],
       ...body,
       updatedAt: new Date().toISOString(),
     }
 
-    mockPortfolios[index] = updated as any
+    mockPortfolios[index] = updated
 
     return HttpResponse.json(createResponse(updated, 'Portfolio atualizado com sucesso'))
   }),
@@ -501,117 +518,40 @@ export const handlers = [
     const issuer = url.searchParams.get('issuer') // Using issuer instead of institution as per DTO
     const sector = url.searchParams.get('sector')
 
-    let investments = mockAllInvestments
+    let investments: (RendaFixaDto | RendaVariavelDto)[] = [...mockAllInvestments]
 
-    // Filter by Type (Fixed/Variable)
-    if (type === 'fixed_income') {
-      investments = mockFixedIncomeInvestments
-    } else if (type === 'variable_income') {
-      investments = mockVariableIncomeInvestments
-    }
+    if (type === 'fixed_income') investments = [...mockFixedIncomeInvestments]
+    if (type === 'variable_income') investments = [...mockVariableIncomeInvestments]
+    if (subtype) investments = investments.filter(investment => investment.subtype === subtype)
+    if (issuer) investments = investments.filter(investment => investment.issuer?.toLowerCase().includes(issuer.toLowerCase()))
+    if (sector) investments = investments.filter(investment => investment.sector?.toLowerCase().includes(sector.toLowerCase()))
 
-    // Filter by Subtype (CDB, LCI, etc.)
-    if (subtype) {
-      investments = investments.filter(inv => inv.subtype === subtype)
-    }
-
-    // Filter by Issuer (Institution)
-    if (issuer) {
-      // Assuming 'issuer' field exists on RendaFixaDto, but it might be 'institution' in mock data
-      // Let's check the mock data structure or cast it safely
-      investments = investments.filter(inv =>
-        ('issuer' in inv && (inv as any).issuer.toLowerCase().includes(issuer.toLowerCase())) ||
-        ('institution' in inv && (inv as any).institution.toLowerCase().includes(issuer.toLowerCase()))
-      )
-    }
-
-    // Filter by Sector
-    if (sector) {
-      investments = investments.filter(inv =>
-        'sector' in inv && (inv as any).sector.toLowerCase().includes(sector.toLowerCase())
-      )
-    }
-
-    // Global Search (Name or Institution/Issuer)
     if (search) {
-      const lowerSearch = search.toLowerCase()
-      investments = investments.filter(inv => {
-        const nameMatch = inv.name.toLowerCase().includes(lowerSearch)
-        const institutionMatch = 'institution' in inv ? (inv as any).institution.toLowerCase().includes(lowerSearch) : false
-        const issuerMatch = 'issuer' in inv ? (inv as any).issuer.toLowerCase().includes(lowerSearch) : false
-        const tickerMatch = 'ticker' in inv ? (inv as any).ticker?.toLowerCase().includes(lowerSearch) : false
-
-        return nameMatch || institutionMatch || issuerMatch || tickerMatch
-      })
+      const query = search.toLowerCase()
+      investments = investments.filter(investment =>
+        investment.name.toLowerCase().includes(query) ||
+        investment.ticker.toLowerCase().includes(query) ||
+        investment.issuer?.toLowerCase().includes(query),
+      )
     }
 
-    // Sorting
     if (sortBy) {
-      investments.sort((a, b) => {
-        const aValue = (a as any)[sortBy]
-        const bValue = (b as any)[sortBy]
+      const sortKey = sortBy as keyof PosicaoInvestimentoDto
+      investments.sort((left, right) => {
+        const leftValue = left[sortKey]
+        const rightValue = right[sortKey]
+        if (leftValue === rightValue) return 0
+        if (leftValue == null) return 1
+        if (rightValue == null) return -1
 
-        if (aValue === bValue) return 0
-
-        // Handle undefined values
-        if (aValue === undefined) return 1
-        if (bValue === undefined) return -1
-
-        const comparison = aValue > bValue ? 1 : -1
+        const comparison = typeof leftValue === 'number' && typeof rightValue === 'number'
+          ? leftValue - rightValue
+          : String(leftValue).localeCompare(String(rightValue), 'pt-BR', { numeric: true, sensitivity: 'base' })
         return sortOrder === 'desc' ? -comparison : comparison
       })
     }
 
-    // Map Legacy Data to DTOs
-    // The UI expects PosicaoInvestimentoDto / RendaFixaDto structure, but mock data has legacy structure.
-    const mappedInvestments = investments.map(inv => {
-      // Check if it's already in DTO format (has totalInvested) or legacy (has investedValue)
-      // Or simply normalize everything.
-
-      const legacy = inv as any
-      const typeStr = inv.type as string
-      const isFixed = typeStr === 'CDB' || typeStr === 'LCI' || typeStr === 'LCA' ||
-        typeStr === 'Tesouro Direto' || typeStr === 'Debênture' ||
-        typeStr === 'CRI' || typeStr === 'CRA' || typeStr === 'fixed_income'
-
-      // Default mapping for Base PosicaoInvestimentoDto fields from legacy
-      const baseDto = {
-        ...inv,
-        portfolioId: legacy.portfolioId || 'portfolio-1', // Default if missing
-        subtype: legacy.subtype || legacy.type, // Map legacy type to subtype
-        quantity: legacy.quantity || 1,
-        averagePrice: legacy.averagePrice || legacy.investedValue || 0,
-        totalInvested: legacy.totalInvested || (legacy.investedValue || (legacy.quantity * legacy.averagePrice)) || 0,
-        currentValue: legacy.currentValue || (legacy.currentPrice ? legacy.currentPrice * legacy.quantity : 0) || 0,
-        // Calculate gain/percentage
-      }
-
-      const gain = baseDto.currentValue - baseDto.totalInvested
-      const gainPercentage = baseDto.totalInvested > 0 ? (gain / baseDto.totalInvested) * 100 : 0
-
-      if (isFixed) {
-        return {
-          ...baseDto,
-          type: 'fixed_income', // Ensure correct high-level type
-          issuer: legacy.issuer || legacy.institution || 'Unknown',
-          interestRate: legacy.interestRate || parseFloat(legacy.rate?.replace('%', '') || '0'),
-          indexer: legacy.indexer || legacy.rateType,
-          gain,
-          gainPercentage
-        }
-      } else {
-        // Variable Income
-        return {
-          ...baseDto,
-          type: 'variable_income',
-          ticker: legacy.ticker || legacy.name, // Use name as ticker if missing for generic
-          gain,
-          gainPercentage
-        }
-      }
-    })
-
-    return HttpResponse.json(createPaginatedResponse(mappedInvestments, page, pageSize))
+    return HttpResponse.json(createPaginatedResponse(investments, page, pageSize))
   }),
 
   http.get(`${BASE_URL}/portfolios/:portfolioId/investments`, async ({ params, request }) => {
@@ -621,52 +561,8 @@ export const handlers = [
     const page = parseInt(url.searchParams.get('page') || '1')
     const pageSize = parseInt(url.searchParams.get('pageSize') || '10')
 
-    // Using the same DTO mapping logic for consistency
-    const investments = mockAllInvestments.filter(inv => inv.portfolioId === portfolioId)
-
-    const mappedInvestments = investments.map(inv => {
-
-      const legacy = inv as any
-      const typeStr2 = inv.type as string
-      const isFixed = typeStr2 === 'CDB' || typeStr2 === 'LCI' || typeStr2 === 'LCA' ||
-        typeStr2 === 'Tesouro Direto' || typeStr2 === 'Debênture' ||
-        typeStr2 === 'CRI' || typeStr2 === 'CRA' || typeStr2 === 'fixed_income'
-
-      const baseDto = {
-        ...inv,
-        portfolioId: legacy.portfolioId || 'portfolio-1',
-        subtype: legacy.subtype || legacy.type,
-        quantity: legacy.quantity || 1,
-        averagePrice: legacy.averagePrice || legacy.investedValue || 0,
-        totalInvested: legacy.totalInvested || (legacy.investedValue || (legacy.quantity * legacy.averagePrice)) || 0,
-        currentValue: legacy.currentValue || (legacy.currentPrice ? legacy.currentPrice * legacy.quantity : 0) || 0,
-      }
-
-      const gain = baseDto.currentValue - baseDto.totalInvested
-      const gainPercentage = baseDto.totalInvested > 0 ? (gain / baseDto.totalInvested) * 100 : 0
-
-      if (isFixed) {
-        return {
-          ...baseDto,
-          type: 'fixed_income',
-          issuer: legacy.issuer || legacy.institution || 'Unknown',
-          interestRate: legacy.interestRate || parseFloat(legacy.rate?.replace('%', '') || '0'),
-          indexer: legacy.indexer || legacy.rateType,
-          gain,
-          gainPercentage
-        }
-      } else {
-        return {
-          ...baseDto,
-          type: 'variable_income',
-          ticker: legacy.ticker || legacy.name,
-          gain,
-          gainPercentage
-        }
-      }
-    })
-
-    return HttpResponse.json(createPaginatedResponse(mappedInvestments, page, pageSize))
+    const investments = mockAllInvestments.filter(investment => investment.portfolioId === portfolioId)
+    return HttpResponse.json(createPaginatedResponse(investments, page, pageSize))
   }),
 
   // Summary MUST come before :id to avoid path collision
@@ -748,24 +644,40 @@ export const handlers = [
     if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     await delay(500)
-    const body = await request.json() as { averagePrice?: number; quantity?: number;[key: string]: unknown }
+    const body = await request.json() as CriarRendaFixaRequest
+    const existing = mockFixedIncomeInvestments.find(
+      investment => investment.id === `fixed-${body.idempotencyKey}`,
+    )
+    if (existing) return HttpResponse.json(createResponse(existing))
 
-    const avgPrice = body.averagePrice ?? 0
-    const qty = body.quantity ?? 0
-
-    const newInvestment = {
-      id: `fixed-${Date.now()}`,
-      type: 'fixed_income' as const,
-      ...body,
-      currentPrice: avgPrice,
-      totalInvested: qty * avgPrice,
-      currentValue: qty * avgPrice,
-      gain: 0,
-      gainPercentage: 0,
+    const now = new Date().toISOString()
+    const currentPrice = body.principal > 0 ? body.statementValue / body.principal : 0
+    const gain = body.statementValue - body.principal
+    const newInvestment: RendaFixaDto = {
+      id: `fixed-${body.idempotencyKey}`,
+      assetId: `asset-fixed-${body.idempotencyKey}`,
+      status: 'open',
+      portfolioId: body.portfolioId,
+      ticker: `RF-${body.idempotencyKey.replaceAll('-', '').slice(0, 12).toUpperCase()}`,
+      name: body.name,
+      type: 'fixed_income',
+      subtype: body.subtype,
+      issuer: body.issuer,
+      quantity: body.principal,
+      averagePrice: 1,
+      currentPrice,
+      totalInvested: body.principal,
+      currentValue: body.statementValue,
+      gain,
+      gainPercentage: body.principal > 0 ? gain / body.principal * 100 : 0,
       currency: 'BRL',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } as any
+      interestRate: body.interestRate,
+      indexer: body.indexer,
+      purchaseDate: body.purchaseDate,
+      maturityDate: body.maturityDate,
+      createdAt: now,
+      updatedAt: now,
+    }
 
     mockFixedIncomeInvestments.push(newInvestment)
     mockAllInvestments.push(newInvestment)
@@ -778,25 +690,37 @@ export const handlers = [
     if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     await delay(500)
-    const body = await request.json() as { ticker?: string; averagePrice?: number; quantity?: number;[key: string]: unknown }
+    const body = await request.json() as CriarRendaVariavelRequest
+    const existing = mockVariableIncomeInvestments.find(
+      investment => investment.id === `var-${body.idempotencyKey}`,
+    )
+    if (existing) return HttpResponse.json(createResponse(existing))
 
-    const avgPrice = body.averagePrice ?? 0
-    const qty = body.quantity ?? 0
-
-    const newInvestment = {
-      id: `var-${Date.now()}`,
-      type: 'variable_income' as const,
-      name: body.ticker ?? '',
-      ...body,
-      currentPrice: avgPrice,
-      totalInvested: qty * avgPrice,
-      currentValue: qty * avgPrice,
-      gain: 0,
-      gainPercentage: 0,
+    const now = new Date().toISOString()
+    const totalInvested = body.quantity * body.unitPrice + body.fees
+    const currentValue = body.quantity * body.unitPrice
+    const gain = currentValue - totalInvested
+    const newInvestment: RendaVariavelDto = {
+      id: `var-${body.idempotencyKey}`,
+      assetId: `asset-var-${body.idempotencyKey}`,
+      status: 'open',
+      portfolioId: body.portfolioId,
+      ticker: body.ticker,
+      name: body.name ?? body.ticker,
+      type: 'variable_income',
+      subtype: body.subtype,
+      sector: body.sector,
+      quantity: body.quantity,
+      averagePrice: body.unitPrice,
+      currentPrice: body.unitPrice,
+      totalInvested,
+      currentValue,
+      gain,
+      gainPercentage: totalInvested > 0 ? gain / totalInvested * 100 : 0,
       currency: 'BRL',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    } as any
+      createdAt: now,
+      updatedAt: now,
+    }
 
     mockVariableIncomeInvestments.push(newInvestment)
     mockAllInvestments.push(newInvestment)
@@ -810,7 +734,7 @@ export const handlers = [
 
     await delay(400)
     const { id } = params
-    const body = await request.json() as Record<string, unknown>
+    const body = await request.json() as Partial<Omit<PosicaoInvestimentoDto, 'id' | 'assetId' | 'type' | 'subtype'>>
     const index = mockAllInvestments.findIndex(inv => inv.id === id)
 
     if (index === -1) {
@@ -820,20 +744,16 @@ export const handlers = [
       )
     }
 
-    const updated = {
-      ...mockAllInvestments[index],
-      ...body,
-      updatedAt: new Date().toISOString(),
-    }
-
-    mockAllInvestments[index] = updated as any
+    const existing = mockAllInvestments[index]
+    const updated = { ...existing, ...body, updatedAt: new Date().toISOString() }
+    mockAllInvestments[index] = updated
 
     // Also update in specific lists
     const fixedIndex = mockFixedIncomeInvestments.findIndex(inv => inv.id === id)
-    if (fixedIndex !== -1) mockFixedIncomeInvestments[fixedIndex] = updated as any
+    if (updated.type === 'fixed_income' && fixedIndex !== -1) mockFixedIncomeInvestments[fixedIndex] = updated
 
     const variableIndex = mockVariableIncomeInvestments.findIndex(inv => inv.id === id)
-    if (variableIndex !== -1) mockVariableIncomeInvestments[variableIndex] = updated as any
+    if (updated.type === 'variable_income' && variableIndex !== -1) mockVariableIncomeInvestments[variableIndex] = updated
 
 
     return HttpResponse.json(createResponse(updated, 'Investimento atualizado com sucesso'))
