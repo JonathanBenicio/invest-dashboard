@@ -228,18 +228,15 @@ app.Run();
 
 static void ApplyMigrations(WebApplication app)
 {
-    // Skip relational migrations in test environments (InMemory provider)
-    if (app.Environment.IsEnvironment("Testing"))
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+
+    // InMemory has no relational migrations; all relational providers apply migrations.
+    if (db.Database.ProviderName == "Microsoft.EntityFrameworkCore.InMemory")
     {
-        using var scope = app.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
         db.Database.EnsureCreated();
         return;
     }
 
-    using (var scope = app.Services.CreateScope())
-    {
-        var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
-        db.Database.Migrate();
-    }
+    db.Database.Migrate();
 }

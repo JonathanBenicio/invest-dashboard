@@ -16,6 +16,11 @@ public sealed class InvestmentPositionFlowTests
     {
         using var factory = new CustomWebApplicationFactory();
         using var client = factory.CreateClient();
+        await ExecutePositionFlowAsync(client);
+    }
+
+    internal static async Task<Guid> ExecutePositionFlowAsync(HttpClient client)
+    {
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", FakeAuthProvider.GenerateJwt(FakeAuthProvider.TestEmail));
 
@@ -105,5 +110,7 @@ public sealed class InvestmentPositionFlowTests
         historyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var historyJson = JsonDocument.Parse(await historyResponse.Content.ReadAsStringAsync());
         historyJson.RootElement.GetProperty("data").GetArrayLength().Should().Be(2);
+
+        return portfolioId;
     }
 }

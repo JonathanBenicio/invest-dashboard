@@ -24,40 +24,56 @@ namespace InvestDashboard.IntegrationTests.Setup;
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbName = $"InvestTestDb_{Guid.NewGuid()}";
+    private readonly string? _postgresConnectionString;
+
+    public CustomWebApplicationFactory()
+    {
+    }
+
+    private CustomWebApplicationFactory(string postgresConnectionString)
+    {
+        _postgresConnectionString = postgresConnectionString;
+    }
+
+    public static CustomWebApplicationFactory CreatePostgres(string postgresConnectionString) =>
+        new(postgresConnectionString);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.ConfigureLogging(logging => logging.ClearProviders());
         builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            var settings = new Dictionary<string, string?>
             {
                 ["Jwt:Secret"] = FakeAuthProvider.TestSecret,
                 ["Jwt:Issuer"] = FakeAuthProvider.TestIssuer,
                 ["Jwt:Audience"] = FakeAuthProvider.TestAudience
-            }));
+            };
+            if (_postgresConnectionString is not null)
+                settings["ConnectionStrings:DefaultConnection"] = _postgresConnectionString;
+            configuration.AddInMemoryCollection(settings);
+        });
 
         builder.ConfigureServices(services =>
         {
-            // Remove ALL EF Core related registrations to avoid dual-provider conflict
-            var efDescriptors = services
-                .Where(d =>
-                    d.ServiceType == typeof(DbContextOptions<InvestDbContext>) ||
-                    d.ServiceType == typeof(DbContextOptions) ||
-                    d.ServiceType.FullName?.Contains("EntityFrameworkCore") == true ||
-                    d.ImplementationType?.FullName?.Contains("Npgsql") == true)
-                .ToList();
-
-            foreach (var descriptor in efDescriptors)
-                services.Remove(descriptor);
-
-            services.RemoveAll(typeof(InvestDbContext));
-
-            // Add InMemory database
-            services.AddDbContext<InvestDbContext>(options =>
+            if (_postgresConnectionString is null)
             {
-                options.UseInMemoryDatabase(_dbName);
-            });
+                // Replace Npgsql only for fast, isolated in-memory tests.
+                var efDescriptors = services
+                    .Where(d =>
+                        d.ServiceType == typeof(DbContextOptions<InvestDbContext>) ||
+                        d.ServiceType == typeof(DbContextOptions) ||
+                        d.ServiceType.FullName?.Contains("EntityFrameworkCore") == true ||
+                        d.ImplementationType?.FullName?.Contains("Npgsql") == true)
+                    .ToList();
+
+                foreach (var descriptor in efDescriptors)
+                    services.Remove(descriptor);
+
+                services.RemoveAll(typeof(InvestDbContext));
+                services.AddDbContext<InvestDbContext>(options => options.UseInMemoryDatabase(_dbName));
+            }
 
             // Replace IAuthProvider with FakeAuthProvider
             services.RemoveAll(typeof(IAuthProvider));

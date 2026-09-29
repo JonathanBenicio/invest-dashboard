@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 permissions:
   contents: read
@@ -11,6 +11,22 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: investdashboard_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d investdashboard_tests"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      INVEST_TEST_POSTGRES_CONNECTION: "Host=localhost;Port=5432;Database=investdashboard_tests;Username=postgres;Password=postgres"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -18,6 +34,37 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet restore src/InvestDashboard.slnx
       - run: dotnet test src/InvestDashboard.slnx --no-restore --configuration Release
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create ephemeral configuration
+        run: |
+          echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+          echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
+          echo "SUPABASE_URL=https://ci.example.com" >> "$GITHUB_ENV"
+          echo "SUPABASE_ANON_KEY=ci-only-placeholder" >> "$GITHUB_ENV"
+      - name: Start stack
+        run: docker compose up -d --build
+      - name: Check readiness and frontend API proxy
+        run: |
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://localhost:5000/health/ready >/dev/null; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "${ready:-false}" = true
+          status=$(curl --silent --output /dev/null --write-out "%{http_code}" http://localhost:8080/api/v1/portfolios)
+          test "$status" = 401
+      - name: Show stack logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail 100
+      - name: Stop stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans
 
   frontend:
     runs-on: ubuntu-latest
