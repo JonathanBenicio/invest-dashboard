@@ -2,13 +2,13 @@
 
 ## Escopo desta revisão
 
-Revisado em 29/09/2026. Evidencias: 21 testes unitarios, 24 testes de integracao com InMemory, 1 fluxo de ledger PostgreSQL 15 em Compose efemero, 2 E2E, typecheck e builds frontend/Docker passaram. O job CI PostgreSQL esta configurado. Supabase/Brapi ao vivo e producao nao foram exercitados. O lint global segue com 30 erros e 18 avisos fora do lint direcionado. Fluxo de caixa/proventos continuam adiados.
+Revisado em 29/09/2026. A [CI do commit dc82a07](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36534836526) passou: 21 testes unitários, 25 de integração (24 InMemory e 1 PostgreSQL 15, sem testes pulados), 2 E2E, typecheck, build frontend e smoke Docker Compose. Supabase/Brapi ao vivo e produção não foram exercitados. O lint global segue com 30 erros e 18 avisos fora do lint direcionado; o checklist Python não pôde iniciar no ambiente local por falta do interpretador. Fluxo de caixa/proventos continuam adiados.
 
 | ID estável | História | Estado observado no código | Evidência e gap principal |
 |---|---|---|---|
 | US-AUTH-001 | Autenticação segura | Implementada; testes de API passaram | JWT próprio de curta duração e refresh rotativo com cookie HttpOnly; testes de controller usam provedor de identidade fake. SSO e validação de ponta a ponta com Supabase/PostgreSQL continuam pendentes. |
 | US-CONFIG-001 | Indicadores e taxas | Parcial; não validada | [TaxasController](../src/InvestDashboard.WebAPI/Controllers/TaxasController.cs), [modelo de taxa](../src/InvestDashboard.Domain/Aggregates/MarketData/TaxaEconomica.cs), [tela de taxas](../frontend/src/pages/tools/Taxas.tsx). CRUD genérico existe; atualização automática e uso integrado em projeções/cálculos não foram comprovados. |
-| US-INV-001 | Compra e venda | Implementada; fluxo validado em InMemory e PostgreSQL | Teste integrado cobre compra idempotente, venda parcial, excesso de unidades e historico incompleto. O mesmo fluxo passou contra PostgreSQL 15 em Compose efemero; CI configurado para repeti-lo. |
+| US-INV-001 | Compra e venda | Implementada; fluxo validado em InMemory e PostgreSQL | Teste integrado cobre compra idempotente, venda parcial, excesso de unidades e historico incompleto. O mesmo fluxo passou contra PostgreSQL 15 local e na CI, incluindo persistência entre hosts de API. |
 | US-INV-002 | Vencimentos | Parcial; a transição descrita não foi evidenciada | [RendaFixa](../src/InvestDashboard.Domain/Aggregates/MarketData/RendaFixa.cs) armazena data de vencimento e a UI mostra projeções. Não localizei transição automática de estado para “Vencido” nem liquidação do principal/juros. |
 | US-TAX-001 | Apuração de lucro e prejuízo | Parcial; testes de domínio passaram | Custo médio e ganho realizado são calculados, mas critérios fiscais completos e testes de casos de borda permanecem pendentes. |
 | US-TAX-002 | Imposto de Renda | Cálculos de domínio presentes; integração e regras pendentes | [CalculoImpostoService](../src/InvestDashboard.Domain/Services/CalculoImpostoService.cs) contém alíquotas/limiar codificados. Não localizei fluxo que aplique o serviço ao registrar venda nem testes específicos no catálogo de testes. As regras fiscais não foram verificadas como orientação vigente. |
@@ -33,7 +33,7 @@ Revisado em 29/09/2026. Evidencias: 21 testes unitarios, 24 testes de integracao
 
 **Como** investidor, **quero** registrar operações de compra ou venda de ativos informando ticker, data, preço e taxas, **para** atualizar a custódia da carteira.
 
-**Gap:** O fluxo também passou contra PostgreSQL 15 local. O job CI deve confirmar migrations e a mesma cobertura em cada PR; regras fiscais e vencimento automático continuam separados.
+**Gap:** O fluxo passou contra PostgreSQL 15 local e na CI, confirmando migrations e persistência. O job repete a cobertura nos PRs e pushes de `main`/`develop`; regras fiscais e vencimento automático continuam separados.
 
 ## US-INV-002 — Vencimentos
 
@@ -57,7 +57,7 @@ Revisado em 29/09/2026. Evidencias: 21 testes unitarios, 24 testes de integracao
 
 **Como** investidor, **quero** visualizar evolução histórica do patrimônio e rentabilidade, **para** acompanhar a evolução da carteira.
 
-**Gap:** Histórico e indicação de lacunas estão ligados à interface; Compose aplicou as migrations e o smoke verificou API/proxy. Ainda falta uma execução CI e cotações Brapi com credencial real.
+**Gap:** Histórico e indicação de lacunas estão ligados à interface; Compose aplicou as migrations e o smoke local/remoto verificou API/proxy. Ainda faltam cotações Brapi com credencial real.
 
 ## US-PORT-002 — Visualização e filtragem
 

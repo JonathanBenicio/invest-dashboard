@@ -80,21 +80,20 @@ Foco em remover os mocks e usar o Backend.
 - [x] Validar Compose: `/health/ready` retornou 200 e o proxy frontend → API retornou 401 sem token, conforme esperado; containers e volume temporários removidos.
 - [x] Atualizar `docs/USER-STORIES.md` com evidências e gaps atuais.
 - [x] Fechar a issue #42 no GitHub usando o PR #43 merged como evidência (concluída em 29/09/2026).
-- [ ] Aguardar a execução remota do job PostgreSQL/smoke após sincronizar as alterações.
-- [ ] Revisar os PRs #14 e #4 separadamente e decidir merge ou fechamento após comparar os diffs com `develop`.
+- [x] Sincronizar `develop` e confirmar a [CI do commit dc82a07](https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36534836526): backend/PostgreSQL, frontend e smoke Compose passaram.
+- [x] Revisar os PRs #14 e #4 separadamente e encerrá-los sem merge em 29/09/2026, conforme decisão do usuário de manter `develop` como linha de trabalho.
 
 Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte desta etapa.
 
 ### Revisão dos PRs antigos
 
 - **#4 (`develop_jules` → `develop`): não integrar o diff atual.** As cinco alterações usam caminhos anteriores à separação do monorepo, `package-lock.json`, seleção de carteiras mockadas e projeções com CDI/IPCA fixos. Seleção de carteira e compra/venda já estão presentes nas telas atuais com contratos tipados e API. Eventuais projeções devem usar indicadores configurados e ter critérios próprios.
-- **#14 (`develop` → `develop_jules`): não integrar o diff atual.** É uma sincronização inversa, com 327 arquivos e conflitos, incluindo configuração local, log e artefatos de build. A branch de destino precisa de um propósito confirmado antes de outra proposta de integração. Recomendação: encerrar os dois PRs antigos sem apagar as branches.
-- A validação local atual confirmou 21 testes unitários e 24 de integração; o teste PostgreSQL foi pulado sem `INVEST_TEST_POSTGRES_CONNECTION`. A execução PostgreSQL anterior em Compose passou. O checklist Python não pôde iniciar neste ambiente porque o interpretador não está disponível.
+- **#14 (`develop` → `develop_jules`): encerrado sem merge.** É uma sincronização inversa, com 327 arquivos e conflitos, incluindo configuração local, log e artefatos de build. O usuário confirmou o encerramento dos dois PRs antigos e `develop` como linha de trabalho. As branches foram preservadas.
+- A validação local atual confirmou 21 testes unitários e 24 de integração; o teste PostgreSQL foi pulado sem `INVEST_TEST_POSTGRES_CONNECTION`. Na CI, passaram 21 testes unitários e 25 de integração, sem testes pulados, incluindo o fluxo PostgreSQL. Frontend: typecheck, build e 2 E2E passaram. O smoke Compose confirmou readiness e o proxy com 401 sem token. O checklist Python não pôde iniciar localmente porque o interpretador não está disponível; o lint global ainda tem pendências.
 
 ### Próxima etapa de acompanhamento de posições
 
-1. Confirmar os jobs remotos de backend/PostgreSQL, frontend e smoke Compose para o commit sincronizado.
-2. Validar autenticação Supabase e dados Brapi em um ambiente de homologação configurado; comprovar isolamento entre usuários, origem e data das cotações, além da indicação de indisponibilidade sem preços simulados.
-3. Cobrir combinações de filtros, paginação e status das posições com PostgreSQL, incluindo fronteiras de datas e quantidades fracionárias.
-4. Tratar o lint global em uma alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
-5. Preparar a homologação de frontend/API/banco após essas validações. Produção, fluxo de caixa e proventos continuam fora desta etapa.
+1. Validar autenticação Supabase e dados Brapi em um ambiente de homologação configurado; comprovar isolamento entre usuários, origem e data das cotações, além da indicação de indisponibilidade sem preços simulados.
+2. Cobrir combinações de filtros, paginação e status das posições com PostgreSQL, incluindo fronteiras de datas e quantidades fracionárias.
+3. Tratar o lint global em uma alteração própria, preservando o foco desta entrega e registrando os checks que ainda falham.
+4. Preparar a homologação de frontend/API/banco após essas validações. Produção, fluxo de caixa e proventos continuam fora desta etapa.
