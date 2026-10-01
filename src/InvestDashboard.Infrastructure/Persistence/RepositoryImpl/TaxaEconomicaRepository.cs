@@ -31,6 +31,19 @@ public class TaxaEconomicaRepository : ITaxaEconomicaRepository
             .ToListAsync(cancellationToken);
     }
 
+    public Task<TaxaEconomica?> GetByIdInGroupAsync(Guid id, Guid groupId, CancellationToken cancellationToken = default) =>
+        _context.EconomicRates.FirstOrDefaultAsync(rate => rate.Id == id && rate.GroupId == groupId, cancellationToken);
+
+    public Task<List<TaxaEconomica>> GetAllInGroupAsync(Guid groupId, CancellationToken cancellationToken = default) =>
+        _context.EconomicRates.Where(rate => rate.GroupId == groupId).OrderBy(rate => rate.Symbol).ToListAsync(cancellationToken);
+
+    public async Task AddHistoryAsync(TaxaEconomicaHistorico history, CancellationToken cancellationToken = default) =>
+        await _context.EconomicRateHistory.AddAsync(history, cancellationToken);
+
+    public Task<List<TaxaEconomicaHistorico>> GetHistoryAsync(Guid rateId, CancellationToken cancellationToken = default) =>
+        _context.EconomicRateHistory.AsNoTracking().Where(item => item.TaxaId == rateId)
+            .OrderByDescending(item => item.AtualizadoEmUtc).ToListAsync(cancellationToken);
+
     public async Task AddAsync(TaxaEconomica rate, CancellationToken cancellationToken = default)
     {
         if (rate is null)

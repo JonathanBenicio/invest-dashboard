@@ -22,7 +22,7 @@ public sealed class SupabaseAuthProvider(
     {
         using var request = CreateRequest(HttpMethod.Post, "token?grant_type=password");
         request.Content = JsonContent.Create(new { email, password }, options: JsonOptions);
-        var response = await httpClient.SendAsync(request, cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -44,7 +44,7 @@ public sealed class SupabaseAuthProvider(
     {
         using var request = CreateRequest(HttpMethod.Post, "signup");
         request.Content = JsonContent.Create(new { email, password, data = new { name } }, options: JsonOptions);
-        var response = await httpClient.SendAsync(request, cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -97,6 +97,43 @@ public sealed class SupabaseAuthProvider(
             logger.LogWarning("Identity provider could not revoke the exchanged login session (status {StatusCode}).", response.StatusCode);
     }
 
+    public async Task<AuthResponseDto> VerifyInvitationAsync(string tokenHash, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(tokenHash) || tokenHash.Length > 512)
+            throw new AuthenticationException("Convite inválido ou expirado.");
+        using var request = CreateRequest(HttpMethod.Post, "verify");
+        request.Content = JsonContent.Create(new { token_hash = tokenHash, type = "invite" }, options: JsonOptions);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning("Supabase rejected an invitation verification with status {StatusCode}.", response.StatusCode);
+            throw new AuthenticationException("Convite inválido ou expirado.");
+        }
+        var result = await response.Content.ReadFromJsonAsync<SupabaseTokenResponse>(JsonOptions, cancellationToken);
+        return ToAuthResponse(result, "O provedor de identidade retornou uma sessão inválida.");
+    }
+
+    public async Task<AuthResponseDto> ValidateAccessTokenAsync(string accessToken, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken) || accessToken.Length > 8192)
+            throw new AuthenticationException("Sessão do convite inválida ou expirada.");
+        using var request = CreateRequest(HttpMethod.Get, "user");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+            throw new AuthenticationException("Sessão do convite inválida ou expirada.");
+        if (!response.IsSuccessStatusCode)
+            throw new IdentityProviderUnavailableException();
+        var user = await response.Content.ReadFromJsonAsync<SupabaseUser>(JsonOptions, cancellationToken);
+        if (user is null || string.IsNullOrWhiteSpace(user.Id) || string.IsNullOrWhiteSpace(user.Email))
+            throw new AuthenticationException("O provedor de identidade retornou um usuário inválido.");
+        return new AuthResponseDto
+        {
+            AccessToken = accessToken,
+            User = MapUser(user)
+        };
+    }
+
     private HttpRequestMessage CreateRequest(HttpMethod method, string path)
     {
         var baseUrl = configuration["Storage:SupabaseUrl"]?.TrimEnd('/');
@@ -131,7 +168,7 @@ public sealed class SupabaseAuthProvider(
         };
     }
 
-    private static UserInfoDto MapUser(SupabaseUser user, string? registrationName = null) => new()
+    private static UsuarioAutenticadoDto MapUser(SupabaseUser user, string? registrationName = null) => new()
     {
         Id = user.Id,
         Email = user.Email,

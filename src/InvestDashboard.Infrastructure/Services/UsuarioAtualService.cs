@@ -31,5 +31,8 @@ namespace InvestDashboard.Infrastructure.Services
         }
 
         public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
+        public string? Email => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Email)
+            ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue("email");
+        public string? Name => _httpContextAccessor.HttpContext?.User?.FindFirstValue("name");
     }
 }

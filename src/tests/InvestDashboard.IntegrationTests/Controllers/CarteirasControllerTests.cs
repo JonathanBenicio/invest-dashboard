@@ -33,7 +33,7 @@ public class CarteirasControllerTests : IClassFixture<CustomWebApplicationFactor
 
         var body = await response.Content.ReadFromJsonAsync<RespostaPaginadaCarteirasDto>(JsonOpts);
         body.Should().NotBeNull();
-        body!.Data.Should().NotBeNull();
+        body!.Dados.Should().NotBeNull();
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class CarteirasControllerTests : IClassFixture<CustomWebApplicationFactor
     [Fact]
     public async Task Create_ValidPortfolio_ReturnsCreated()
     {
-        var payload = new { name = "Minha Carteira Teste", description = "Carteira de teste" };
+        var payload = new { instituicaoFinanceiraId = Guid.Parse("10000000-0000-4000-8000-000000000001"), nome = "Minha Carteira Teste", descricao = "Carteira de teste" };
 
         var response = await _client.PostAsJsonAsync("/api/v1/portfolios", payload);
 
@@ -87,6 +87,6 @@ public class CarteirasControllerTests : IClassFixture<CustomWebApplicationFactor
     }
 
     // Local DTO for paginated response deserialization
-    private record RespostaPaginadaCarteirasDto(CarteiraDtoTeste[] Data, int Page, int PageSize, int TotalCount);
+    private record RespostaPaginadaCarteirasDto(CarteiraDtoTeste[] Dados, int Pagina, int ItensPorPagina, int TotalItens);
     private record CarteiraDtoTeste(Guid Id, string Name, decimal Balance, decimal TotalValue);
 }

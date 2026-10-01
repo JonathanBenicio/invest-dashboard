@@ -1,41 +1,48 @@
 export interface TransacaoDto {
   id: string
-  portfolioId: string
-  assetId?: string
+  carteiraId: string
+  titularId?: string
+  ativoId?: string
   ticker?: string
-  type: 'Buy' | 'Sell'
-  quantity: number
-  unitPrice: number
-  fees: number
-  totalAmount: number
-  realizedGain: number
-  realizedCostBasis: number
-  transactionDate: string
-  notes?: string
+  tipo: 'Buy' | 'Sell'
+  quantidade: number
+  precoUnitario: number
+  taxas: number
+  valorTotal: number
+  ganhoRealizado: number
+  custoBaseRealizado: number
+  modalidadeFiscal: 'NaoInformada' | 'Comum' | 'DayTrade'
+  dataTransacao: string
+  observacoes?: string
 }
 
 export interface RegistrarTransacaoRequest {
-  portfolioId: string
-  assetId?: string
+  carteiraId: string
+  ativoId?: string
   ticker?: string
-  type: 'Buy' | 'Sell'
-  quantity: number
-  unitPrice: number
-  fees: number
-  transactionDate: string
-  idempotencyKey: string
-  assetClass?: string
-  subtype?: string
-  issuer?: string
-  indexer?: string
-  interestRate?: number
-  maturityDate?: string
-  initialStatementValue?: number
-  notes?: string
+  tipo: 'Buy' | 'Sell'
+  quantidade: number
+  precoUnitario: number
+  taxas: number
+  modalidadeFiscal?: 'NaoInformada' | 'Comum' | 'DayTrade'
+  dataTransacao: string
+  chaveIdempotencia: string
+  classeAtivo?: string
+  nome?: string
+  setor?: string
+  subtipo?: string
+  emissor?: string
+  indexador?: string
+  taxaJuros?: number
+  dataVencimento?: string
+  liquidez?: string
+  convencao?: string
+  valorInicialExtrato?: number
+  observacoes?: string
 }
 
 export interface TransacaoFiltros {
-  portfolioId?: string
-  type?: string
+  carteiraId?: string
+  tipo?: string
   ticker?: string
 }

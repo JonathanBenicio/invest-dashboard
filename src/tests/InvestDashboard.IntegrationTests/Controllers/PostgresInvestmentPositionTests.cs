@@ -30,8 +30,8 @@ public sealed class PostgresInvestmentPositionTests
         var response = await restartedClient.GetAsync($"/api/v1/portfolios/{portfolioId}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        var positions = body.RootElement.GetProperty("data").GetProperty("positions");
+        var positions = body.RootElement.GetProperty("dados").GetProperty("posicoes");
         positions.GetArrayLength().Should().Be(1);
-        positions[0].GetProperty("quantity").GetDecimal().Should().Be(6m);
+        positions[0].GetProperty("quantidade").GetDecimal().Should().Be(6m);
     }
 }

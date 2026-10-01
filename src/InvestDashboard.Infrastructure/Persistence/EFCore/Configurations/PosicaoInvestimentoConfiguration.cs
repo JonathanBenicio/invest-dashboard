@@ -57,11 +57,17 @@ public class PosicaoInvestimentoConfiguration : IEntityTypeConfiguration<Posicao
         builder.Property(ap => ap.PurchaseDateUtc)
             .HasColumnName("purchase_date_utc");
 
+        builder.Property(ap => ap.MaturedAtUtc)
+            .HasColumnName("matured_at_utc");
+
         builder.HasIndex(ap => ap.CarteiraId)
             .HasDatabaseName("idx_asset_positions_portfolio_id");
 
         builder.HasIndex(ap => ap.AtivoId)
             .HasDatabaseName("idx_asset_positions_asset_id");
+
+        builder.HasIndex(ap => new { ap.TipoAtivo, ap.MaturedAtUtc })
+            .HasDatabaseName("idx_asset_positions_maturity_scan");
 
         builder.HasOne(ap => ap.Ativo)
             .WithMany()

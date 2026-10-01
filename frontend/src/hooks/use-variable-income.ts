@@ -5,6 +5,6 @@ import { investmentService } from '@/api/services/investment.service'
 export function useVariableIncomeInvestments(filters: InvestimentoFiltros = {}) {
   return useQuery({
     queryKey: ['investments', 'variable-income', filters],
-    queryFn: () => investmentService.getAll({ ...filters, type: 'variable_income' }),
+    queryFn: () => investmentService.getAll({ ...filters, tipo: 'variable_income' }),
   })
 }

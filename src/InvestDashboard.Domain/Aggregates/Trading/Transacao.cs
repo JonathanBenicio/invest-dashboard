@@ -7,6 +7,7 @@ public class Transacao : AggregateRoot<Guid>
 {
     public string UserId { get; private set; }
     public Guid CarteiraId { get; private set; }
+    public Guid? TitularId { get; private set; }
     public Guid? AtivoId { get; private set; }
     public string? Ticker { get; private set; }
     public TipoTransacao Type { get; private set; }
@@ -16,6 +17,7 @@ public class Transacao : AggregateRoot<Guid>
     public Guid? IdempotencyKey { get; private set; }
     public decimal RealizedGain { get; private set; }
     public decimal RealizedCostBasis { get; private set; }
+    public ModalidadeFiscal ModalidadeFiscal { get; private set; }
     public DateTime TransactionDate { get; private set; }
     public string? Notes { get; private set; }
 
@@ -40,7 +42,9 @@ public class Transacao : AggregateRoot<Guid>
         decimal brokerageFee,
         DateTime transactionDate,
         string? notes = null,
-        Guid? idempotencyKey = null)
+        Guid? idempotencyKey = null,
+        ModalidadeFiscal modalidadeFiscal = ModalidadeFiscal.NaoInformada,
+        Guid? titularId = null)
         : base(id)
     {
         if (string.IsNullOrWhiteSpace(userId))
@@ -83,6 +87,7 @@ public class Transacao : AggregateRoot<Guid>
 
         UserId = userId;
         CarteiraId = carteiraId;
+        TitularId = titularId;
         AtivoId = ativoId;
         Ticker = ticker?.Trim().ToUpperInvariant();
         Type = type;
@@ -90,6 +95,7 @@ public class Transacao : AggregateRoot<Guid>
         UnitPrice = unitPrice;
         BrokerageFee = brokerageFee;
         IdempotencyKey = idempotencyKey;
+        ModalidadeFiscal = type == TipoTransacao.Sell ? modalidadeFiscal : ModalidadeFiscal.NaoInformada;
         TransactionDate = transactionDate.Kind == DateTimeKind.Utc ? transactionDate : transactionDate.ToUniversalTime();
         Notes = notes?.Trim();
     }
@@ -126,7 +132,9 @@ public class Transacao : AggregateRoot<Guid>
             brokerageFee,
             transactionDate,
             notes,
-            IdempotencyKey);
+            IdempotencyKey,
+            ModalidadeFiscal,
+            TitularId);
 
         Type = replacement.Type;
         Quantity = replacement.Quantity;
@@ -134,6 +142,8 @@ public class Transacao : AggregateRoot<Guid>
         BrokerageFee = replacement.BrokerageFee;
         TransactionDate = replacement.TransactionDate;
         Notes = replacement.Notes;
+        if (Type != TipoTransacao.Sell)
+            ModalidadeFiscal = global::InvestDashboard.Domain.Aggregates.Trading.ModalidadeFiscal.NaoInformada;
         RealizedGain = 0;
         RealizedCostBasis = 0;
     }

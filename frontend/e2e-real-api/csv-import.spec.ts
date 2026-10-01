@@ -11,10 +11,13 @@ test('CSV import creates persisted transactions through the real API', async ({ 
 
   const portfolioResponse = await request.post(`${apiUrl}/api/v1/portfolios`, {
     headers: authorization,
-    data: { name: portfolioName },
+    data: {
+      nome: portfolioName,
+      instituicaoFinanceiraId: '10000000-0000-4000-8000-000000000001',
+    },
   })
   expect(portfolioResponse.status()).toBe(201)
-  const portfolio = (await portfolioResponse.json()).data as { id: string }
+  const portfolio = (await portfolioResponse.json()).dados as { id: string }
 
   await page.goto('/importar')
   await expect(page.getByRole('heading', { name: 'Importar operações' })).toBeVisible()
@@ -42,20 +45,20 @@ test('CSV import creates persisted transactions through the real API', async ({ 
     { headers: authorization },
   )
   expect(transactionsResponse.status()).toBe(200)
-  const transactions = (await transactionsResponse.json()).data as Array<{ ticker: string }>
+  const transactions = (await transactionsResponse.json()).dados as Array<{ ticker: string }>
   expect(transactions.map(transaction => transaction.ticker).sort()).toEqual(['PETR4', 'RFABC1'])
 
   const positionsResponse = await request.get(
-    `${apiUrl}/api/v1/investments?portfolioId=${portfolio.id}`,
+    `${apiUrl}/api/v1/investments?carteiraId=${portfolio.id}`,
     { headers: authorization },
   )
   expect(positionsResponse.status()).toBe(200)
-  const positions = (await positionsResponse.json()).data as Array<{
+  const positions = (await positionsResponse.json()).dados as Array<{
     ticker: string
-    quantity: number
-    currentValue: number
+    quantidade: number
+    valorAtual: number
   }>
   expect(positions).toHaveLength(2)
-  expect(positions.find(position => position.ticker === 'PETR4')).toMatchObject({ quantity: 10 })
-  expect(positions.find(position => position.ticker === 'RFABC1')).toMatchObject({ currentValue: 1010 })
+  expect(positions.find(position => position.ticker === 'PETR4')).toMatchObject({ quantidade: 10 })
+  expect(positions.find(position => position.ticker === 'RFABC1')).toMatchObject({ valorAtual: 1010 })
 })

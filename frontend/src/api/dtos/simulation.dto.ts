@@ -1,30 +1,30 @@
 export interface SimulacaoRequest {
-  initialAmount: number
-  monthlyContribution: number
-  years: number
-  annualInterestRate: number
-  strategy: 'deterministic' | 'montecarlo'
-  volatility?: number
-  numberOfSimulations?: number
+  valorInicial: number
+  aporteMensal: number
+  anos: number
+  taxaJurosAnual: number
+  estrategia: 'deterministic' | 'montecarlo'
+  volatilidade?: number
+  numeroSimulacoes?: number
 }
 
 export interface SimulacaoPontoDto {
-  month: number
-  invested: number
+  mes: number
+  investido: number
   total: number
-  interest: number
+  juros: number
 }
 
 export interface SimulacaoResponse {
-  points: SimulacaoPontoDto[]
-  finalAmount: number
-  totalInvested: number
-  totalInterest: number
-  strategyName: string
+  pontos: SimulacaoPontoDto[]
+  valorFinal: number
+  totalInvestido: number
+  totalJuros: number
+  nomeEstrategia: string
 }
 
 export interface SimulacaoEstrategia {
-  id: string
-  name: string
-  description: string
+  id: 'deterministic' | 'montecarlo'
+  nome: string
+  descricao: string
 }

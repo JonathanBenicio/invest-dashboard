@@ -5,15 +5,34 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { usePortfolios } from "@/hooks/use-portfolios"
 import { transactionService } from "@/api/services/transaction.service"
+import { localDateInputToISOString } from "@/lib/utils"
 import { ApiError } from "@/api/errors/api-error"
 import { queryKeys } from "@/api/query-keys"
 import { useToast } from "@/hooks/use-toast"
 import type { RegistrarTransacaoRequest } from "@/api/dtos/transacao.dto"
 
-type ImportedRow = Omit<RegistrarTransacaoRequest, "portfolioId"> & {
+type ImportedRow = {
+  ticker: string
+  type: "Buy" | "Sell"
+  quantity: number
+  unitPrice: number
+  fees: number
+  transactionDate: string
+  modalidadeFiscal?: "Comum" | "DayTrade"
+  idempotencyKey: string
+  assetClass?: string
+  subtype?: string
+  issuer?: string
+  indexer?: string
+  interestRate?: number
+  maturityDate?: string
+  initialStatementValue?: number
+  name?: string
+  sector?: string
   rowNumber: number
   status: "pending" | "success" | "error"
   retryable?: boolean
@@ -74,14 +93,24 @@ function parseDate(value: string | undefined): string | undefined {
     ? value
     : dateParts ? `${dateParts[3]}-${dateParts[2]}-${dateParts[1]}` : undefined
   if (!isoDate) return undefined
-  const date = new Date(`${isoDate}T12:00:00.000Z`)
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== isoDate ? undefined : date.toISOString()
+  try {
+    return localDateInputToISOString(isoDate)
+  } catch {
+    return undefined
+  }
 }
 
-function normalizeTransactionType(value: string | undefined): RegistrarTransacaoRequest["type"] | undefined {
+function normalizeTransactionType(value: string | undefined): RegistrarTransacaoRequest["tipo"] | undefined {
   const type = value?.trim().toLowerCase()
   if (type === "buy" || type === "compra") return "Buy"
   if (type === "sell" || type === "venda") return "Sell"
+  return undefined
+}
+
+function normalizeTaxModality(value: string | undefined): "Comum" | "DayTrade" | undefined {
+  const modality = value?.trim().toLowerCase().replace(/[\s_-]/g, "")
+  if (modality === "comum") return "Comum"
+  if (modality === "daytrade") return "DayTrade"
   return undefined
 }
 
@@ -108,6 +137,8 @@ function parseCsv(text: string): ImportedRow[] {
     const fees = rawFees?.trim() ? parseNumber(rawFees) : 0
     const transactionDate = parseDate(value("transactiondate"))
     const assetClass = value("assetclass")?.trim().toUpperCase()
+    const rawTaxModality = value("modalidadefiscal") ?? value("taxmodality")
+    const modalidadeFiscal = normalizeTaxModality(rawTaxModality)
     const subtype = value("subtype")?.trim().toUpperCase()
     const interestRate = parseNumber(value("interestrate"))
     const maturityDate = parseDate(value("maturitydate"))
@@ -122,6 +153,9 @@ function parseCsv(text: string): ImportedRow[] {
     if (fees === undefined) errors.push("Taxas devem ser numéricas.")
     if (fees !== undefined && fees < 0) errors.push("Taxas não podem ser negativas.")
     if (!transactionDate) errors.push("Data deve usar AAAA-MM-DD ou DD/MM/AAAA.")
+    const taxRelevantSale = type === "Sell" && !["RENDA_FIXA", "ETF", "BDR", "CRYPTO"].includes(assetClass ?? "")
+    if (rawTaxModality?.trim() && !modalidadeFiscal) errors.push("Modalidade fiscal deve ser Comum ou DayTrade.")
+    if (taxRelevantSale && !modalidadeFiscal) errors.push("Informe modalidadeFiscal (Comum ou DayTrade) para a venda tributável.")
     if (assetClass && !["ACAO", "STOCK", "FII", "ETF", "BDR", "CRYPTO", "RENDA_FIXA"].includes(assetClass)) {
       errors.push("Classe deve ser ACAO, FII, ETF, BDR, CRYPTO ou RENDA_FIXA.")
     }
@@ -143,6 +177,7 @@ function parseCsv(text: string): ImportedRow[] {
       unitPrice: unitPrice ?? 0,
       fees: fees ?? 0,
       transactionDate: transactionDate ?? "",
+      modalidadeFiscal,
       idempotencyKey: crypto.randomUUID(),
       assetClass: assetClass || undefined,
       subtype,
@@ -160,7 +195,7 @@ function parseCsv(text: string): ImportedRow[] {
 }
 
 function downloadTemplate() {
-  const template = "ticker;type;quantity;unitPrice;fees;transactionDate;assetClass;name;sector;issuer;subtype;indexer;interestRate;maturityDate;initialStatementValue\nPETR4;Buy;100;35,50;0;2026-09-29;ACAO;Petrobras;Petróleo e Gás;;;;;;\nRFPETR4;Buy;1000;1;0;2026-09-29;RENDA_FIXA;CDB;;Banco de teste;CDB;CDI;110;2028-01-15;1010\n"
+  const template = "ticker;type;quantity;unitPrice;fees;transactionDate;assetClass;name;sector;issuer;subtype;indexer;interestRate;maturityDate;initialStatementValue;modalidadeFiscal\nPETR4;Buy;100;35,50;0;2026-09-29;ACAO;Petrobras;Petróleo e Gás;;;;;;\nRFPETR4;Buy;1000;1;0;2026-09-29;RENDA_FIXA;CDB;;Banco de teste;CDB;CDI;110;2028-01-15;1010\n"
   const url = URL.createObjectURL(new Blob([template], { type: "text/csv;charset=utf-8" }))
   const link = document.createElement("a")
   link.href = url
@@ -177,8 +212,8 @@ export default function Import() {
   const [importedData, setImportedData] = useState<ImportedRow[]>([])
   const [fileError, setFileError] = useState("")
   const queryClient = useQueryClient()
-  const { data: portfoliosResponse, isLoading: isLoadingPortfolios } = usePortfolios({ page: 1, pageSize: 100 })
-  const portfolios = portfoliosResponse?.data ?? []
+  const { data: portfoliosResponse, isLoading: isLoadingPortfolios, isError: isPortfolioError, refetch: refetchPortfolios } = usePortfolios({ pagina: 1, itensPorPagina: 100 })
+  const portfolios = portfoliosResponse?.dados ?? []
   const { toast } = useToast()
 
   const handleFiles = async (files: File[]) => {
@@ -218,23 +253,24 @@ export default function Import() {
       const index = updatedRows.findIndex(item => item.rowNumber === row.rowNumber)
       try {
         await transactionService.create({
-          portfolioId: selectedPortfolioId,
+          carteiraId: selectedPortfolioId,
           ticker: row.ticker,
-          type: row.type,
-          quantity: row.quantity,
-          unitPrice: row.unitPrice,
-          fees: row.fees,
-          transactionDate: row.transactionDate,
-          idempotencyKey: row.idempotencyKey,
-          assetClass: row.assetClass,
-          subtype: row.subtype,
-          issuer: row.issuer,
-          indexer: row.indexer,
-          interestRate: row.interestRate,
-          maturityDate: row.maturityDate,
-          initialStatementValue: row.initialStatementValue,
-          name: row.name,
-          sector: row.sector,
+          tipo: row.type,
+          quantidade: row.quantity,
+          precoUnitario: row.unitPrice,
+          taxas: row.fees,
+          modalidadeFiscal: row.modalidadeFiscal,
+          dataTransacao: row.transactionDate,
+          chaveIdempotencia: row.idempotencyKey,
+          classeAtivo: row.assetClass,
+          subtipo: row.subtype,
+          emissor: row.issuer,
+          indexador: row.indexer,
+          taxaJuros: row.interestRate,
+          dataVencimento: row.maturityDate,
+          valorInicialExtrato: row.initialStatementValue,
+          nome: row.name,
+          setor: row.sector,
         })
         updatedRows[index] = { ...row, status: "success", message: "Operação registrada." }
       } catch (error) {
@@ -289,7 +325,7 @@ export default function Import() {
             <label htmlFor="import-portfolio" className="text-sm font-medium">Carteira de destino</label>
             <Select value={selectedPortfolioId} onValueChange={setSelectedPortfolioId} disabled={isLoadingPortfolios || portfolios.length === 0}>
               <SelectTrigger id="import-portfolio"><SelectValue placeholder={isLoadingPortfolios ? "Carregando carteiras..." : "Selecione a carteira"} /></SelectTrigger>
-              <SelectContent>{portfolios.map(portfolio => <SelectItem key={portfolio.id} value={portfolio.id}>{portfolio.name}</SelectItem>)}</SelectContent>
+              <SelectContent>{portfolios.map(portfolio => <SelectItem key={portfolio.id} value={portfolio.id}>{portfolio.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
 
@@ -313,7 +349,8 @@ export default function Import() {
           </div>
 
           {fileError && <p role="alert" className="text-sm text-destructive">{fileError}</p>}
-          {portfolios.length === 0 && !isLoadingPortfolios && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Crie uma carteira antes de importar operações.</p>}
+          {isPortfolioError && <p role="alert" className="text-sm text-destructive">Não foi possível carregar as carteiras. <Button type="button" variant="link" className="h-auto p-0" onClick={() => void refetchPortfolios()}>Tentar novamente</Button></p>}
+          {portfolios.length === 0 && !isLoadingPortfolios && !isPortfolioError && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Crie uma carteira antes de importar operações.</p>}
 
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
             <FileText className="h-4 w-4" />
@@ -331,7 +368,7 @@ export default function Import() {
         <CardContent>
           <div className="overflow-x-auto rounded-lg border">
             <Table>
-              <TableHeader><TableRow><TableHead>Status</TableHead><TableHead>Linha</TableHead><TableHead>Ticker</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Quantidade</TableHead><TableHead className="text-right">Preço</TableHead><TableHead>Data</TableHead><TableHead>Resultado</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Status</TableHead><TableHead>Linha</TableHead><TableHead>Ticker</TableHead><TableHead>Tipo</TableHead><TableHead>Modalidade fiscal</TableHead><TableHead className="text-right">Quantidade</TableHead><TableHead className="text-right">Preço</TableHead><TableHead>Data</TableHead><TableHead>Resultado</TableHead></TableRow></TableHeader>
               <TableBody>{importedData.map(row => <TableRow key={row.rowNumber}>
                 <TableCell>
                   {row.status === "success" ? <CheckCircle aria-label="Importado" className="h-4 w-4 text-success" />
@@ -339,7 +376,7 @@ export default function Import() {
                       : <Badge variant="outline">Pendente</Badge>}
                 </TableCell>
                 <TableCell>{row.rowNumber}</TableCell><TableCell className="font-medium">{row.ticker || "—"}</TableCell>
-                <TableCell>{row.type}</TableCell><TableCell className="text-right">{row.quantity}</TableCell>
+                <TableCell>{row.type}</TableCell><TableCell>{row.type === "Sell" ? row.modalidadeFiscal ?? "Obrigatória" : "—"}</TableCell><TableCell className="text-right">{row.quantity}</TableCell>
                 <TableCell className="text-right">{row.unitPrice.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</TableCell>
                 <TableCell>{row.transactionDate ? new Date(row.transactionDate).toLocaleDateString("pt-BR") : "—"}</TableCell>
                 <TableCell className={row.status === "error" ? "text-destructive" : "text-muted-foreground"}>

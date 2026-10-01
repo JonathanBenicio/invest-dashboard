@@ -23,5 +23,7 @@ public class RendaFixaConfiguration : IEntityTypeConfiguration<RendaFixa>
 
         builder.Property(f => f.MaturityDate)
             .HasColumnName("maturity_date");
+        builder.Property(f => f.Liquidity).HasColumnName("liquidity").HasMaxLength(80);
+        builder.Property(f => f.Convention).HasColumnName("convention").HasMaxLength(80);
     }
 }

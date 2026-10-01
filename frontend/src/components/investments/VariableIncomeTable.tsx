@@ -87,54 +87,54 @@ export function VariableIncomeTable({
       cell: ({ row }) => (
         <div>
           <p className="font-medium">{row.getValue("ticker")}</p>
-          <p className="text-xs text-muted-foreground">{row.original.name}</p>
+          <p className="text-xs text-muted-foreground">{row.original.nome}</p>
         </div>
       ),
     },
     {
-      accessorKey: "subtype",
+      accessorKey: "subtipo",
       header: "Tipo",
-      cell: ({ row }) => <Badge className={getTypeColor(row.getValue("subtype"))} variant="secondary">{row.getValue("subtype")}</Badge>,
+      cell: ({ row }) => <Badge className={getTypeColor(row.getValue("subtipo"))} variant="secondary">{row.getValue("subtipo")}</Badge>,
     },
     {
-        accessorKey: "sector",
+        accessorKey: "setor",
         header: "Setor",
-        cell: ({ row }) => <div className="text-sm">{row.getValue("sector")}</div>,
+        cell: ({ row }) => <div className="text-sm">{row.getValue("setor")}</div>,
     },
     {
-      accessorKey: "quantity",
+      accessorKey: "quantidade",
       header: ({ column }) => (
         <div className="text-right">
             Qtd
         </div>
       ),
-      cell: ({ row }) => <div className="text-right">{row.getValue("quantity")}</div>,
+      cell: ({ row }) => <div className="text-right">{row.getValue("quantidade")}</div>,
     },
     {
-      accessorKey: "averagePrice",
+      accessorKey: "precoMedio",
       header: ({ column }) => (
         <div className="text-right">
           PM
         </div>
       ),
-      cell: ({ row }) => <div className="text-right">{formatCurrency(row.getValue("averagePrice"))}</div>,
+      cell: ({ row }) => <div className="text-right">{formatCurrency(row.getValue("precoMedio"))}</div>,
     },
     {
-      accessorKey: "currentValue",
+      accessorKey: "valorAtual",
       header: () => (
         <div className="text-right">
           Valor atual
         </div>
       ),
       cell: ({ row }) => {
-        const { currentPriceSource, currentPriceObservedAtUtc } = row.original
+        const { origemPrecoAtual, precoObservadoEmUtc } = row.original
         return (
           <div className="text-right">
-            <p>{formatCurrency(row.original.currentValue)}</p>
+            <p>{formatCurrency(row.original.valorAtual)}</p>
             <p className="text-xs text-muted-foreground">
-              {currentPriceSource && currentPriceObservedAtUtc
-                ? `${formatCurrency(row.original.currentPrice)} · ${formatQuoteObservation(currentPriceSource.toUpperCase(), currentPriceObservedAtUtc)}`
-                : `${formatCurrency(row.original.currentPrice)} por unidade · Último preço salvo`}
+              {origemPrecoAtual && precoObservadoEmUtc
+                ? `${formatCurrency(row.original.precoAtual)} · ${formatQuoteObservation(origemPrecoAtual.toUpperCase(), precoObservadoEmUtc)}`
+                : `${formatCurrency(row.original.precoAtual)} por unidade · Último preço salvo`}
             </p>
           </div>
         )
@@ -143,14 +143,14 @@ export function VariableIncomeTable({
     {
         id: "totalValue",
         header: ({ column }) => <div className="text-right">Total</div>,
-        cell: ({ row }) => <div className="text-right font-medium">{formatCurrency(row.original.currentValue)}</div>
+        cell: ({ row }) => <div className="text-right font-medium">{formatCurrency(row.original.valorAtual)}</div>
     },
     {
         id: "profit",
         header: ({ column }) => <div className="text-right">Resultado</div>,
         cell: ({ row }) => {
-            const profit = row.original.gain
-            const profitPercent = row.original.gainPercentage
+            const profit = row.original.ganho
+            const profitPercent = row.original.percentualGanho
             return (
                 <div className={`flex items-center justify-end gap-1 ${profit >= 0 ? 'text-success' : 'text-destructive'}`}>
                     {profit >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
@@ -296,8 +296,8 @@ export function VariableIncomeTable({
         {table.getRowModel().rows?.length ? (
           table.getRowModel().rows.map((row) => {
             const asset = row.original
-            const profit = asset.gain
-            const profitPercent = asset.gainPercentage
+            const profit = asset.ganho
+            const profitPercent = asset.percentualGanho
 
             return (
               <Card key={row.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable' } })}>
@@ -307,18 +307,18 @@ export function VariableIncomeTable({
                       {asset.ticker}
                     </CardTitle>
                     <p className="text-xs text-muted-foreground line-clamp-1">
-                      {asset.name}
+                      {asset.nome}
                     </p>
                   </div>
-                  <Badge className={getTypeColor(asset.subtype)} variant="secondary">
-                    {asset.subtype}
+                  <Badge className={getTypeColor(asset.subtipo)} variant="secondary">
+                    {asset.subtipo}
                   </Badge>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Preço Atual</p>
-                      <p className="font-semibold">{formatCurrency(asset.currentPrice)}</p>
+                      <p className="font-semibold">{formatCurrency(asset.precoAtual)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Resultado</p>
@@ -329,11 +329,11 @@ export function VariableIncomeTable({
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Total</p>
-                      <p className="font-semibold">{formatCurrency(asset.currentValue)}</p>
+                      <p className="font-semibold">{formatCurrency(asset.valorAtual)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Qtd</p>
-                      <p className="font-medium">{asset.quantity}</p>
+                      <p className="font-medium">{asset.quantidade}</p>
                     </div>
                   </div>
                 </CardContent>

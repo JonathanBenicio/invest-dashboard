@@ -15,8 +15,9 @@ import type {
   InvestimentoFiltros,
   ResumoInvestimentoDto,
   ProventoDto,
-  ApiResponse,
-  PaginatedResponse,
+  ProjecaoRendaFixaDto,
+  RespostaApi,
+  RespostaPaginada,
 } from '../dtos'
 
 const INVESTMENT_ENDPOINTS = {
@@ -37,63 +38,66 @@ export const investmentService = {
   /**
    * Get all investments with optional filters
    */
-  getAll: (filters?: InvestimentoFiltros): Promise<PaginatedResponse<PosicaoInvestimentoDto>> =>
+  getAll: (filters?: InvestimentoFiltros): Promise<RespostaPaginada<PosicaoInvestimentoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.BASE, { params: filters as Record<string, string | number | boolean> }),
 
   /**
    * Get dividends history
    */
-  getDividends: (): Promise<PaginatedResponse<ProventoDto>> =>
+  getDividends: (): Promise<RespostaPaginada<ProventoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.DIVIDENDS),
 
   /**
    * Get investment transactions
    */
-  getTransactions: (id: string): Promise<PaginatedResponse<import('@/api/dtos').TransacaoDto>> =>
+  getTransactions: (id: string): Promise<RespostaPaginada<import('@/api/dtos').TransacaoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.TRANSACTIONS(id)),
 
-  getPriceHistory: (id: string, fromDate?: string): Promise<ApiResponse<PrecoHistoricoDto[]>> =>
-    api.get(`/investments/${id}/history`, { params: fromDate ? { fromDate } : undefined }),
+  getPriceHistory: (id: string, fromDate?: string): Promise<RespostaApi<PrecoHistoricoDto[]>> =>
+    api.get(`/investments/${id}/history`, { params: fromDate ? { dataDe: fromDate } : undefined }),
 
   /**
    * Get investments by portfolio
    */
-  getByPortfolio: (portfolioId: string, filters?: InvestimentoFiltros): Promise<PaginatedResponse<PosicaoInvestimentoDto>> =>
+  getByPortfolio: (portfolioId: string, filters?: InvestimentoFiltros): Promise<RespostaPaginada<PosicaoInvestimentoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.BY_PORTFOLIO(portfolioId), { params: filters as Record<string, string | number | boolean> }),
 
   /**
    * Get investment by ID
    */
-  getById: (id: string): Promise<ApiResponse<PosicaoInvestimentoDto>> =>
+  getById: (id: string): Promise<RespostaApi<PosicaoInvestimentoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.DETAIL(id)),
 
   /**
    * Get investment summary for dashboard
    */
-  getSummary: (): Promise<ApiResponse<ResumoInvestimentoDto>> =>
+  getSummary: (): Promise<RespostaApi<ResumoInvestimentoDto>> =>
     api.get(INVESTMENT_ENDPOINTS.SUMMARY),
+
+  getFixedIncomeProjection: (id: string): Promise<RespostaApi<ProjecaoRendaFixaDto>> =>
+    api.get('/investments/' + id + '/projecao-renda-fixa'),
 
   /**
    * Create a fixed income investment
    */
-  createFixedIncome: (data: CriarRendaFixaRequest): Promise<ApiResponse<RendaFixaDto>> =>
+  createFixedIncome: (data: CriarRendaFixaRequest): Promise<RespostaApi<RendaFixaDto>> =>
     api.post(INVESTMENT_ENDPOINTS.FIXED_INCOME, data),
 
   /**
    * Create a variable income investment
    */
-  createVariableIncome: (data: CriarRendaVariavelRequest): Promise<ApiResponse<RendaVariavelDto>> =>
+  createVariableIncome: (data: CriarRendaVariavelRequest): Promise<RespostaApi<RendaVariavelDto>> =>
     api.post(INVESTMENT_ENDPOINTS.VARIABLE_INCOME, data),
 
   /**
    * Update an existing investment
    */
-  update: (id: string, data: AtualizarInvestimentoRequest): Promise<ApiResponse<PosicaoInvestimentoDto>> =>
+  update: (id: string, data: AtualizarInvestimentoRequest): Promise<RespostaApi<PosicaoInvestimentoDto>> =>
     api.post(`/investments/${id}/valuations`, data),
 
   /**
    * Delete an investment
    */
-  delete: (id: string): Promise<ApiResponse<void>> =>
+  delete: (id: string): Promise<RespostaApi<void>> =>
     api.delete(INVESTMENT_ENDPOINTS.DETAIL(id)),
 }

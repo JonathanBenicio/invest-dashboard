@@ -1,21 +1,29 @@
 import { api } from '../client'
-import type { ApiResponse, TaxaEconomicaDto, CriarTaxaEconomicaRequest, AtualizarTaxaEconomicaRequest } from '../dtos'
+import type { RespostaApi, TaxaEconomicaDto, TaxaEconomicaHistoricoDto, CriarTaxaEconomicaRequest, AtualizarTaxaEconomicaRequest, EstimativaImpostoMensalDto } from '../dtos'
 
 const BASE = '/taxes'
 
 export const taxesService = {
-  getAll: () =>
-    api.get<ApiResponse<TaxaEconomicaDto[]>>(BASE),
+  getAll: (grupoId: string) =>
+    api.get<RespostaApi<TaxaEconomicaDto[]>>(BASE, { params: { grupoId } }),
 
-  getById: (id: string) =>
-    api.get<ApiResponse<TaxaEconomicaDto>>(`${BASE}/${id}`),
+  getById: (id: string, grupoId: string) =>
+    api.get<RespostaApi<TaxaEconomicaDto>>(`${BASE}/${id}`, { params: { grupoId } }),
 
-  create: (data: CriarTaxaEconomicaRequest) =>
-    api.post<ApiResponse<TaxaEconomicaDto>>(BASE, data),
+  getHistory: (id: string, grupoId: string) =>
+    api.get<RespostaApi<TaxaEconomicaHistoricoDto[]>>(`${BASE}/${id}/historico`, { params: { grupoId } }),
 
-  update: (id: string, data: AtualizarTaxaEconomicaRequest) =>
-    api.put<ApiResponse<TaxaEconomicaDto>>(`${BASE}/${id}`, data),
+  create: (grupoId: string, data: CriarTaxaEconomicaRequest) =>
+    api.post<RespostaApi<TaxaEconomicaDto>>(BASE, data, { params: { grupoId } }),
 
-  delete: (id: string) =>
-    api.delete<ApiResponse<null>>(`${BASE}/${id}`),
+  update: (id: string, grupoId: string, data: AtualizarTaxaEconomicaRequest) =>
+    api.put<RespostaApi<TaxaEconomicaDto>>(`${BASE}/${id}`, data, { params: { grupoId } }),
+
+  delete: (id: string, grupoId: string) =>
+    api.delete<RespostaApi<null>>(`${BASE}/${id}`, { params: { grupoId } }),
+
+  estimateMonthly: (year: number, month: number, grupoId: string, titular?: string, titularId?: string) =>
+    api.get<RespostaApi<EstimativaImpostoMensalDto>>(`${BASE}/estimativa-mensal`, {
+      params: { ano: year, mes: month, grupoId, titular, titularId },
+    }),
 }

@@ -18,6 +18,7 @@ using InvestDashboard.Infrastructure.Realtime.SignalR;
 using InvestDashboard.Infrastructure.BackgroundWorkers;
 using InvestDashboard.WebAPI.Services;
 using InvestDashboard.WebAPI.Middleware;
+using InvestDashboard.WebAPI.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,12 +36,23 @@ builder.Services.AddScoped<IAtivoRepository, AtivoRepository>();
 builder.Services.AddScoped<IPrecoHistoricoRepository, PrecoHistoricoRepository>();
 builder.Services.AddScoped<ITransacaoRepository, TransacaoRepository>();
 builder.Services.AddScoped<ICarteiraRepository, CarteiraRepository>();
+builder.Services.AddScoped<ITitularCarteiraRepository, TitularCarteiraRepository>();
+builder.Services.AddScoped<IInstituicaoFinanceiraRepository, InstituicaoFinanceiraRepository>();
 builder.Services.AddScoped<ITaxaEconomicaRepository, TaxaEconomicaRepository>();
+builder.Services.AddScoped<IGrupoCarteirasRepository, GrupoCarteirasRepository>();
 
 // Register Application Services
 builder.Services.AddScoped<ICarteiraAppService, CarteiraAppService>();
 builder.Services.AddScoped<ITransacaoAppService, TransacaoAppService>();
 builder.Services.AddScoped<ITaxasAppService, TaxasAppService>();
+builder.Services.AddScoped<IGrupoCarteirasAppService, GrupoCarteirasAppService>();
+builder.Services.AddScoped<IInstituicoesFinanceirasAppService, InstituicoesFinanceirasAppService>();
+builder.Services.AddScoped<TitularesAppService>();
+builder.Services.AddHttpClient<IInvitationEmailSender, SupabaseInvitationEmailSender>(client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddScoped<IEstimativaImpostoAppService, EstimativaImpostoAppService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IBenchmarkCdiProvider, BcbCdiBenchmarkProvider>(client =>
+    client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<IAuthProvider, SupabaseAuthProvider>();
 builder.Services.AddHttpClient<IMarketDataProvider, BrapiMarketDataClient>(client =>
     client.Timeout = TimeSpan.FromSeconds(15));
@@ -49,6 +61,7 @@ builder.Services.AddScoped<IRefreshTokenSessionRepository, RefreshTokenSessionRe
 builder.Services.AddSingleton<IAccessTokenIssuer, JwtAccessTokenIssuer>();
 builder.Services.AddSingleton<IAuthRoleProvider, ConfigurationAuthRoleProvider>();
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddScoped<AtualizadorVencimentosService>();
 
 // CORS configuration
 builder.Services.AddCors(options =>
@@ -179,14 +192,20 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 
 // Add controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.PropertyNamingPolicy = new PortugueseApiJsonNamingPolicy());
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.PropertyNamingPolicy = new PortugueseApiJsonNamingPolicy());
 
 // Add SignalR Realtime services
 builder.Services.AddSignalR();
 
 // Register hosted workers except in test runs, where deterministic API behavior is required.
 if (!builder.Environment.IsEnvironment("Testing"))
+{
     builder.Services.AddHostedService<AtualizadorDadosMercadoWorker>();
+    builder.Services.AddHostedService<AtualizadorVencimentosWorker>();
+}
 
 // Add OpenAPI
 builder.Services.AddOpenApi();

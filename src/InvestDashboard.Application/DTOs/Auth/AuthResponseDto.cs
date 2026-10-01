@@ -5,6 +5,6 @@ public sealed class AuthResponseDto
 {
     public string AccessToken { get; set; } = string.Empty;
     public string RefreshToken { get; set; } = string.Empty;
-    public UserInfoDto User { get; set; } = new();
+    public UsuarioAutenticadoDto User { get; set; } = new();
     public bool RequiresEmailConfirmation { get; set; }
 }

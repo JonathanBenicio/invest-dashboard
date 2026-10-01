@@ -105,9 +105,9 @@ public sealed class AtualizadorDadosMercadoWorker(
                 new
                 {
                     ticker = update.Ticker,
-                    price = decimal.Round(update.Price, 4),
-                    observedAtUtc = update.UpdatedAt,
-                    source = update.Source
+                    preco = decimal.Round(update.Price, 4),
+                    observadoEmUtc = update.UpdatedAt,
+                    origem = update.Source
                 },
                 cancellationToken);
         }

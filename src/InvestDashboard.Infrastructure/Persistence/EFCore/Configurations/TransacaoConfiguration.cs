@@ -25,6 +25,9 @@ public class TransacaoConfiguration : IEntityTypeConfiguration<Transacao>
             .HasColumnName("portfolio_id")
             .IsRequired();
 
+        builder.Property(t => t.TitularId)
+            .HasColumnName("holder_profile_id");
+
         builder.Property(t => t.AtivoId)
             .HasColumnName("asset_id");
 
@@ -66,6 +69,13 @@ public class TransacaoConfiguration : IEntityTypeConfiguration<Transacao>
             .HasColumnType("numeric(18,4)")
             .IsRequired();
 
+        builder.Property(t => t.ModalidadeFiscal)
+            .HasColumnName("tax_modality")
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(ModalidadeFiscal.NaoInformada)
+            .IsRequired();
+
         builder.Property(t => t.TransactionDate)
             .HasColumnName("transaction_date")
             .IsRequired();
@@ -91,5 +101,12 @@ public class TransacaoConfiguration : IEntityTypeConfiguration<Transacao>
             .WithMany()
             .HasForeignKey(t => t.CarteiraId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasOne<TitularCarteira>()
+            .WithMany()
+            .HasForeignKey(t => t.TitularId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(t => t.TitularId).HasDatabaseName("idx_transactions_holder_profile_id");
     }
 }

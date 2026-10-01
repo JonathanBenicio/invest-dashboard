@@ -10,8 +10,11 @@ namespace InvestDashboard.Application.Interfaces
         Task<CarteiraDto> CreatePortfolioAsync(CriarCarteiraDto dto);
         Task<CarteiraDto?> GetPortfolioByIdAsync(Guid portfolioId);
         Task<CarteiraDto?> GetUserPortfolioAsync();
-        Task<PaginatedResponse<CarteiraDto>> GetUserPortfoliosAsync(int page = 1, int pageSize = 10);
-        Task<IReadOnlyList<PosicaoInvestimentoDto>> GetUserPositionsAsync(Guid? portfolioId = null);
+        Task<RespostaPaginada<CarteiraDto>> GetUserPortfoliosAsync(int page = 1, int pageSize = 10, Guid? grupoId = null);
+        Task<ResumoCarteirasDto> GetUserPortfoliosSummaryAsync(Guid? grupoId = null);
+        Task<ProjecaoRendaFixaConsolidadaDto> GetFixedIncomeProjectionAsync(Guid? grupoId = null);
+        Task<ProjecaoRendaFixaDto?> GetFixedIncomeProjectionAsync(Guid positionId);
+        Task<IReadOnlyList<PosicaoInvestimentoDto>> GetUserPositionsAsync(Guid? portfolioId = null, Guid? grupoId = null);
         Task<PosicaoInvestimentoDto?> GetPositionByIdAsync(Guid positionId);
         Task<PosicaoInvestimentoDto?> UpdatePositionValuationAsync(Guid positionId, decimal totalValue, DateTime observedAtUtc);
         Task<IReadOnlyList<PrecoHistoricoDto>> GetPriceHistoryAsync(Guid positionId, DateTime? fromDate = null);

@@ -6,9 +6,13 @@ namespace InvestDashboard.Application.DTOs.Portfolio
     public class PosicaoInvestimentoDto
     {
         public Guid Id { get; set; }
-        [JsonPropertyName("portfolioId")]
+        [JsonPropertyName("carteiraId")]
         public Guid CarteiraId { get; set; }
-        [JsonPropertyName("assetId")]
+        public string? CarteiraNome { get; set; }
+        public Guid? GrupoId { get; set; }
+        public string? Titular { get; set; }
+        public string? InstituicaoFinanceira { get; set; }
+        [JsonPropertyName("ativoId")]
         public Guid AtivoId { get; set; }
         public DateTime? PurchaseDate { get; set; }
         public string Name { get; set; } = string.Empty;
@@ -29,5 +33,7 @@ namespace InvestDashboard.Application.DTOs.Portfolio
         public decimal? InterestRate { get; set; }
         public string? Indexer { get; set; }
         public DateTime? MaturityDate { get; set; }
+        public string? Liquidity { get; set; }
+        public string? Convention { get; set; }
     }
 }

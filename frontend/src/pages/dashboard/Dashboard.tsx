@@ -1,6 +1,7 @@
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Wallet } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { investmentService, queryKeys } from "@/api"
 import { formatCurrency } from "@/lib/utils"
 import {
@@ -14,12 +15,12 @@ import {
 
 export default function Dashboard() {
   // Fetch investment summary
-  const { data: summaryData, isLoading } = useQuery({
+  const { data: summaryData, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.investments.summary(),
     queryFn: () => investmentService.getSummary(),
   })
 
-  const summary = summaryData?.data
+  const summary = summaryData?.dados
 
   if (isLoading) {
     return (
@@ -29,19 +30,29 @@ export default function Dashboard() {
     )
   }
 
-  if (!summary) return null
+  if (isError || !summary) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-responsive-2xl font-bold text-foreground">Dashboard</h1>
+        <div role={isError ? 'alert' : 'status'} className="rounded-md border p-4 text-sm text-muted-foreground">
+          {isError ? 'Não foi possível carregar o resumo da carteira.' : 'O resumo da carteira ainda não está disponível.'}
+          {isError && <Button className="ml-3" variant="outline" onClick={() => void refetch()}>Tentar novamente</Button>}
+        </div>
+      </div>
+    )
+  }
 
-  const totalPortfolio = summary.currentValue
-  const totalProfit = summary.totalGain
-  const profitPercentage = summary.gainPercentage
+  const totalPortfolio = summary.valorAtual
+  const totalProfit = summary.ganhoTotal
+  const profitPercentage = summary.percentualGanho
 
   // Find best and worst performers
-  const bestPerformer = summary.topPerformers[0]
-  const worstPerformer = summary.worstPerformers[0]
+  const bestPerformer = summary.melhoresPosicoes[0]
+  const worstPerformer = summary.pioresPosicoes[0]
 
   const allocationData = [
-    { name: 'Renda Fixa', value: summary.fixedIncomeTotal, color: 'hsl(220, 70%, 50%)' },
-    { name: 'Renda Variável', value: summary.variableIncomeTotal, color: 'hsl(145, 65%, 42%)' },
+    { name: 'Renda Fixa', value: summary.totalRendaFixa, color: 'hsl(220, 70%, 50%)' },
+    { name: 'Renda Variável', value: summary.totalRendaVariavel, color: 'hsl(145, 65%, 42%)' },
   ]
 
   return (
@@ -94,10 +105,10 @@ export default function Dashboard() {
             <ArrowUpRight className="h-4 w-4 text-success hidden sm:block" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold truncate">{bestPerformer?.ticker || bestPerformer?.name || '-'}</div>
+            <div className="text-lg sm:text-2xl font-bold truncate">{bestPerformer?.ticker || bestPerformer?.nome || '-'}</div>
             <div className="flex items-center text-[10px] sm:text-xs text-success mt-1">
               <ArrowUpRight className="h-3 w-3 mr-1" />
-              +{bestPerformer?.gainPercentage.toFixed(2)}%
+              +{bestPerformer?.percentualGanho.toFixed(2)}%
             </div>
           </CardContent>
         </Card>
@@ -110,10 +121,10 @@ export default function Dashboard() {
             <ArrowDownRight className="h-4 w-4 text-destructive hidden sm:block" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg sm:text-2xl font-bold truncate">{worstPerformer?.ticker || worstPerformer?.name || '-'}</div>
+            <div className="text-lg sm:text-2xl font-bold truncate">{worstPerformer?.ticker || worstPerformer?.nome || '-'}</div>
             <div className="flex items-center text-[10px] sm:text-xs text-destructive mt-1">
               <ArrowDownRight className="h-3 w-3 mr-1" />
-              {worstPerformer?.gainPercentage.toFixed(2)}%
+              {worstPerformer?.percentualGanho.toFixed(2)}%
             </div>
           </CardContent>
         </Card>

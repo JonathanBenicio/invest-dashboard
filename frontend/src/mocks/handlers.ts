@@ -6,19 +6,23 @@
 import { http, HttpResponse, delay } from 'msw'
 import { API_CONFIG } from '@/api/env'
 import type {
-  ApiResponse,
+  RespostaApi,
   AtualizarCarteiraRequest,
   CarteiraDto,
   CriarCarteiraRequest,
   CriarRendaFixaRequest,
   CriarRendaVariavelRequest,
-  PaginatedResponse,
+  RespostaPaginada,
   PosicaoInvestimentoDto,
   RegistrarTransacaoRequest,
   RendaFixaDto,
   RendaVariavelDto,
   TransacaoDto,
-  UserDto,
+  UsuarioDto,
+  TaxaEconomicaDto,
+  TaxaEconomicaHistoricoDto,
+  ProjecaoRendaFixaDto,
+  ProjecaoRendaFixaConsolidadaDto,
 } from '@/api/dtos'
 import {
   mockCurrentUser,
@@ -36,15 +40,28 @@ import {
 const BASE_URL = API_CONFIG.VERSION
 let activeMockUserId: string | null = null
 const mockTransactionsByIdempotencyKey = new Map<string, TransacaoDto>()
+const mockHolders: { id: string; grupoId: string; nome: string; parentesco?: string; usuarioId?: string }[] = []
+const mockEconomicRates: TaxaEconomicaDto[] = [{
+  id: 'rate-1', grupoId: 'group-1', nome: 'Taxa Selic', simbolo: 'SELIC',
+  valorAtual: 12.75, valorAnterior: 12.5, variacao: 0.25, unidade: 'Percentual', periodicidade: 'Anual',
+  descricao: 'Taxa básica de juros da economia brasileira', origem: 'Banco Central',
+  atualizadoEm: new Date().toISOString(), dataReferencia: new Date().toISOString().slice(0, 10), atualizadoPorUserId: 'user-1',
+}]
+const mockEconomicRateHistory = new Map<string, TaxaEconomicaHistoricoDto[]>()
+const mockFixedIncomeConsolidatedProjection: ProjecaoRendaFixaConsolidadaDto = {
+  valorObservado: 112500, valorProjetadoBruto: null, quantidadePosicoes: 3, estaCompleta: false,
+  posicoesSemProjecao: ['TESOURO-IPCA-2029'],
+}
+
 
 /**
  * Helper to create API response
  */
-function createResponse<T>(data: T, message?: string): ApiResponse<T> {
+function createResponse<T>(data: T, message?: string): RespostaApi<T> {
   return {
-    data,
-    success: true,
-    message,
+    dados: data,
+    sucesso: true,
+    mensagem: message,
   }
 }
 
@@ -55,7 +72,7 @@ function createPaginatedResponse<T>(
   data: T[],
   page = 1,
   pageSize = 10
-): PaginatedResponse<T> {
+): RespostaPaginada<T> {
   const totalCount = data.length
   const totalPages = Math.ceil(totalCount / pageSize)
   const start = (page - 1) * pageSize
@@ -63,15 +80,15 @@ function createPaginatedResponse<T>(
   const paginatedData = data.slice(start, end)
 
   return {
-    data: paginatedData,
-    success: true,
-    pagination: {
-      page,
-      pageSize,
-      totalCount,
-      totalPages,
-      hasNextPage: page < totalPages,
-      hasPreviousPage: page > 1,
+    dados: paginatedData,
+    sucesso: true,
+    paginacao: {
+      pagina: page,
+      itensPorPagina: pageSize,
+      totalItens: totalCount,
+      totalPaginas: totalPages,
+      temProximaPagina: page < totalPages,
+      temPaginaAnterior: page > 1,
     },
   }
 }
@@ -103,7 +120,7 @@ function checkPermission(request: Request, requiredRole?: 'edit' | 'admin') {
 
   // Check role
   if (requiredRole) {
-    const role = user.role as string
+    const role = user.perfil as string
     if (requiredRole === 'admin' && role !== 'admin') {
       return { authorized: false, status: 403, message: 'Acesso negado: Requer privilégios de Admin' }
     }
@@ -118,7 +135,7 @@ function checkPermission(request: Request, requiredRole?: 'edit' | 'admin') {
 export const handlers = [
   // Auth endpoints
   http.post(`${BASE_URL}/auth/login`, async ({ request }) => {
-    const body = await request.json() as { email?: string; password?: string }
+    const body = await request.json() as { email?: string; senha?: string }
     await delay(500)
 
     const user = mockUsers.find(u => u.email === body.email)
@@ -126,19 +143,19 @@ export const handlers = [
     // Simple password check (In real app, hash check)
     // For mock: password is 'password' for all, or match specific rules if needed.
     // We'll just check if user exists for now or simple "password" string.
-    if (!user || body.password !== 'password') {
+    if (!user || body.senha !== 'password') {
       return HttpResponse.json(
-        { success: false, message: 'Credenciais inválidas' },
+        { sucesso: false, mensagem: 'Credenciais inválidas' },
         { status: 401 }
       )
     }
 
     // Set cookie
     return HttpResponse.json(createResponse({
-      accessToken: `mock-access-token-${user.id}`,
-      expiresIn: 900,
-      user,
-      requiresEmailConfirmation: false,
+      tokenAcesso: `mock-access-token-${user.id}`,
+      expiraEmSegundos: 900,
+      usuario: user,
+      requerConfirmacaoEmail: false,
     }), {
       headers: {
         'Set-Cookie': `refresh_token=${user.id}; HttpOnly; Path=/api/v1/auth; SameSite=Lax`,
@@ -147,37 +164,35 @@ export const handlers = [
   }),
 
   http.post(`${BASE_URL}/auth/register`, async ({ request }) => {
-    const body = await request.json() as { name?: string; email?: string; password?: string }
+    const body = await request.json() as { nome?: string; email?: string; senha?: string }
     await delay(300)
 
-    if (!body.name || !body.email || !body.password || mockUsers.some(user => user.email === body.email)) {
+    if (!body.nome || !body.email || !body.senha || mockUsers.some(user => user.email === body.email)) {
       return HttpResponse.json(
-        { success: false, message: 'Não foi possível criar esta conta.' },
+        { sucesso: false, mensagem: 'Não foi possível criar esta conta.' },
         { status: 409 }
       )
     }
 
-    activeMockUserId = user.id
-
     const now = new Date().toISOString()
-    const user: UserDto = {
+    const user: UsuarioDto = {
       id: `user-${Date.now()}`,
-      name: body.name,
+      nome: body.nome,
       email: body.email,
-      role: 'user',
-      isEmailVerified: true,
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
+      perfil: 'user',
+      emailVerificado: true,
+      ativo: true,
+      criadoEm: now,
+      atualizadoEm: now,
     }
     mockUsers.push(user)
     activeMockUserId = user.id
 
     return HttpResponse.json(createResponse({
-      accessToken: `mock-access-token-${user.id}`,
-      expiresIn: 900,
-      user,
-      requiresEmailConfirmation: false,
+      tokenAcesso: `mock-access-token-${user.id}`,
+      expiraEmSegundos: 900,
+      usuario: user,
+      requerConfirmacaoEmail: false,
     }), {
       headers: {
         'Set-Cookie': `refresh_token=${user.id}; HttpOnly; Path=/api/v1/auth; SameSite=Lax`,
@@ -192,10 +207,10 @@ export const handlers = [
     }
 
     return HttpResponse.json(createResponse({
-      accessToken: `mock-access-token-${check.user.id}`,
-      expiresIn: 900,
-      user: check.user,
-      requiresEmailConfirmation: false,
+      tokenAcesso: `mock-access-token-${check.user.id}`,
+      expiraEmSegundos: 900,
+      usuario: check.user,
+      requerConfirmacaoEmail: false,
     }))
   }),
 
@@ -229,21 +244,21 @@ export const handlers = [
       return HttpResponse.json({ success: false, message: check.message }, { status: check.status })
     }
 
-    const requestedSymbols = new URL(request.url).searchParams.get('symbols')
+    const requestedSymbols = new URL(request.url).searchParams.get('simbolos')
       ?.split(',')
       .map(symbol => symbol.trim().toUpperCase())
       .filter(Boolean) ?? []
     const quotes = mockAllInvestments
-      .filter(investment => investment.type === 'variable_income' && requestedSymbols.includes(investment.ticker.toUpperCase()))
+      .filter(investment => investment.tipo === 'variable_income' && requestedSymbols.includes(investment.ticker.toUpperCase()))
       .map(investment => ({
-        symbol: investment.ticker,
-        name: investment.name,
-        price: investment.currentPrice,
-        observedAtUtc: '2024-12-18T00:00:00.000Z',
-        currency: investment.currency,
-        sector: investment.sector,
-        subtype: investment.subtype,
-        source: 'demo',
+        simbolo: investment.ticker,
+        nome: investment.nome,
+        preco: investment.precoAtual,
+        observadoEmUtc: '2024-12-18T00:00:00.000Z',
+        moeda: investment.moeda,
+        setor: investment.setor,
+        subtipo: investment.subtipo,
+        origem: 'demo',
       }))
 
     return HttpResponse.json(createResponse(quotes))
@@ -259,11 +274,11 @@ export const handlers = [
       )
     }
 
-    const body = await request.json() as Partial<UserDto>
+    const body = await request.json() as Partial<UsuarioDto>
     const user = check.user
 
     // Update fields
-    if (body.name) user.name = body.name
+    if (body.nome) user.nome = body.nome
     if (body.email) user.email = body.email
     if (body.avatar) user.avatar = body.avatar
 
@@ -283,8 +298,8 @@ export const handlers = [
 
     await delay(400)
     const url = new URL(request.url)
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '10')
+    const page = parseInt(url.searchParams.get('pagina') || '1')
+    const pageSize = parseInt(url.searchParams.get('itensPorPagina') || '10')
     const search = url.searchParams.get('search')
 
     let users = [...mockUsers]
@@ -292,7 +307,7 @@ export const handlers = [
     if (search) {
       const lowerSearch = search.toLowerCase()
       users = users.filter(u =>
-        u.name.toLowerCase().includes(lowerSearch) ||
+        u.nome.toLowerCase().includes(lowerSearch) ||
         u.email.toLowerCase().includes(lowerSearch)
       )
     }
@@ -305,7 +320,7 @@ export const handlers = [
     if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     await delay(500)
-    const body = await request.json() as Partial<UserDto>
+    const body = await request.json() as Partial<UsuarioDto>
 
     // Check if email already exists
     if (mockUsers.some(u => u.email === body.email)) {
@@ -315,16 +330,16 @@ export const handlers = [
       )
     }
 
-    const newUser: UserDto = {
+    const newUser: UsuarioDto = {
       id: `${Date.now()}`,
-      name: body.name || '',
+      nome: body.nome || '',
       email: body.email || '',
-      role: body.role || 'view',
-      isActive: body.isActive ?? true,
-      isEmailVerified: true, // Auto-verify for admin created users
+      perfil: body.perfil || 'view',
+      ativo: body.ativo ?? true,
+      emailVerificado: true, // Auto-verify for admin created users
       parentesco: body.parentesco,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
     }
 
     mockUsers.push(newUser)
@@ -338,7 +353,7 @@ export const handlers = [
 
     await delay(400)
     const { id } = params
-    const body = await request.json() as Partial<UserDto>
+    const body = await request.json() as Partial<UsuarioDto>
     const index = mockUsers.findIndex(u => u.id === id)
 
     if (index === -1) {
@@ -387,12 +402,63 @@ export const handlers = [
     return HttpResponse.json(createResponse(null, 'Usuário excluído com sucesso'))
   }),
 
+  // Group and institution endpoints
+  http.get(BASE_URL + '/grupos-carteiras', async () =>
+    HttpResponse.json(createResponse([{ id: 'group-1', nome: 'Grupo principal', papel: 'Admin' }]))),
+  http.post(BASE_URL + '/grupos-carteiras', async ({ request }) => {
+    const body = await request.json() as { nome: string }
+    return HttpResponse.json(createResponse({ id: 'group-created', nome: body.nome, papel: 'Admin' }))
+  }),
+  http.get(BASE_URL + '/grupos-carteiras/:groupId/membros', async () =>
+    HttpResponse.json(createResponse([{ id: 'member-1', usuarioId: 'mock-admin', email: 'admin@investpro.com', nome: 'Admin', papel: 'Admin', ativo: true }]))),
+  http.post(BASE_URL + '/grupos-carteiras/:groupId/convites', async () =>
+    HttpResponse.json(createResponse({ emailEnviado: true, mensagem: 'O Supabase enviou um link de convite; ele expira em uma hora.' }))),
+  http.get(BASE_URL + '/grupos-carteiras/convites-pendentes', async () =>
+    HttpResponse.json(createResponse([]))),
+  http.post(BASE_URL + '/grupos-carteiras/:groupId/convites/:invitationId/aceitar', async () =>
+    HttpResponse.json(createResponse(true))),
+  http.put(BASE_URL + '/grupos-carteiras/:groupId/membros/:memberId/papel', async () =>
+    HttpResponse.json(createResponse(true))),
+  http.delete(BASE_URL + '/grupos-carteiras/:groupId/membros/:memberId', async () =>
+    HttpResponse.json(createResponse(true))),
+  http.get(BASE_URL + '/grupos-carteiras/:groupId/titulares', ({ params }) =>
+    HttpResponse.json(createResponse(mockHolders.filter(holder => holder.grupoId === params.groupId)))),
+  http.post(BASE_URL + '/grupos-carteiras/:groupId/titulares', async ({ params, request }) => {
+    const body = await request.json() as { nome: string; parentesco?: string; usuarioId?: string }
+    const holder = { ...body, id: crypto.randomUUID(), grupoId: String(params.groupId) }
+    mockHolders.push(holder)
+    return HttpResponse.json(createResponse(holder))
+  }),
+  http.put(BASE_URL + '/grupos-carteiras/:groupId/titulares/:id', async ({ params, request }) => {
+    const body = await request.json() as { nome: string; parentesco?: string; usuarioId?: string }
+    const holder = mockHolders.find(item => item.id === params.id && item.grupoId === params.groupId)
+    if (!holder) return new HttpResponse(null, { status: 404 })
+    Object.assign(holder, body)
+    return HttpResponse.json(createResponse(holder))
+  }),
+  http.get(BASE_URL + '/instituicoes-financeiras', async () =>
+    HttpResponse.json(createResponse([
+      { id: '10000000-0000-4000-8000-000000000001', nome: 'Banco do Brasil', categoria: 'Banco', personalizada: false }, { id: 'institution-itau', nome: 'Itaú', categoria: 'Banco', personalizada: false },
+      { id: 'institution-xp', nome: 'XP', categoria: 'Corretora', personalizada: false }, { id: 'institution-clear', nome: 'Clear', categoria: 'Corretora', personalizada: false },
+      { id: 'institution-btg', nome: 'BTG Pactual DTVM', categoria: 'DTVM', personalizada: false },
+    ]))),
+
+  // Portfolio aggregate endpoints must be registered before the id route.
+  http.get(BASE_URL + '/portfolios/resumo-geral', async () => {
+    const total = mockPortfolios.reduce((sum, item) => sum + item.valorTotal, 0)
+    const invested = mockPortfolios.reduce((sum, item) => sum + item.totalInvestido, 0)
+    const gain = mockPortfolios.reduce((sum, item) => sum + item.ganhoTotal, 0)
+    return HttpResponse.json(createResponse({ valorTotal: total, totalInvestido: invested, ganhoTotal: gain, quantidadeCarteiras: mockPortfolios.length }))
+  }),
+  http.get(BASE_URL + '/portfolios/projecao-renda-fixa', async () =>
+    HttpResponse.json(createResponse(mockFixedIncomeConsolidatedProjection))),
+
   // Portfolio endpoints
   http.get(`${BASE_URL}/portfolios`, async ({ request }) => {
     await delay(400)
     const url = new URL(request.url)
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '10')
+    const page = parseInt(url.searchParams.get('pagina') || '1')
+    const pageSize = parseInt(url.searchParams.get('itensPorPagina') || '10')
 
     return HttpResponse.json(createPaginatedResponse(mockPortfolios, page, pageSize))
   }),
@@ -438,18 +504,26 @@ export const handlers = [
     const now = new Date().toISOString()
     const newPortfolio: CarteiraDto = {
       id: `portfolio-${Date.now()}`,
-      name: body.name,
-      description: body.description,
-      positions: [],
-      assetsCount: 0,
-      totalValue: 0,
-      totalInvested: 0,
-      totalGain: 0,
-      gainPercentage: 0,
-      currency: 'BRL',
-      isActive: true,
-      createdAt: now,
-      updatedAt: now,
+      nome: body.nome,
+      descricao: body.descricao,
+      grupoId: body.grupoId,
+      titular: mockHolders.find(item => item.id === body.titularId)?.nome ?? body.titular ?? 'Titular exemplo',
+      titularId: body.titularId,
+      parentesco: body.parentesco,
+      instituicaoFinanceiraId: body.instituicaoFinanceiraId,
+      titularVinculado: !!body.titularUsuarioId,
+      tipoInstituicao: body.tipoInstituicao,
+      instituicaoFinanceira: body.instituicaoFinanceira,
+      visibilidade: body.visibilidade,
+      posicoes: [],
+      quantidadeAtivos: 0,
+      valorTotal: 0,
+      totalInvestido: 0,
+      ganhoTotal: 0,
+      percentualGanho: 0,
+      moeda: 'BRL',
+        criadoEm: now,
+      atualizadoEm: now,
     }
 
     mockPortfolios.push(newPortfolio)
@@ -476,7 +550,7 @@ export const handlers = [
     const updated: CarteiraDto = {
       ...mockPortfolios[index],
       ...body,
-      updatedAt: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
     }
 
     mockPortfolios[index] = updated
@@ -508,30 +582,30 @@ export const handlers = [
   http.get(`${BASE_URL}/investments`, async ({ request }) => {
     await delay(400)
     const url = new URL(request.url)
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '10')
-    const type = url.searchParams.get('type')
-    const search = url.searchParams.get('search')
-    const sortBy = url.searchParams.get('sortBy')
-    const sortOrder = url.searchParams.get('sortOrder') || 'asc'
-    const subtype = url.searchParams.get('subtype')
-    const issuer = url.searchParams.get('issuer') // Using issuer instead of institution as per DTO
-    const sector = url.searchParams.get('sector')
+    const page = parseInt(url.searchParams.get('pagina') || '1')
+    const pageSize = parseInt(url.searchParams.get('itensPorPagina') || '10')
+    const type = url.searchParams.get('tipo')
+    const search = url.searchParams.get('busca')
+    const sortBy = url.searchParams.get('ordenarPor')
+    const sortOrder = url.searchParams.get('ordem') || 'asc'
+    const subtype = url.searchParams.get('subtipo')
+    const issuer = url.searchParams.get('emissor')
+    const sector = url.searchParams.get('setor')
 
     let investments: (RendaFixaDto | RendaVariavelDto)[] = [...mockAllInvestments]
 
     if (type === 'fixed_income') investments = [...mockFixedIncomeInvestments]
     if (type === 'variable_income') investments = [...mockVariableIncomeInvestments]
-    if (subtype) investments = investments.filter(investment => investment.subtype === subtype)
-    if (issuer) investments = investments.filter(investment => investment.issuer?.toLowerCase().includes(issuer.toLowerCase()))
-    if (sector) investments = investments.filter(investment => investment.sector?.toLowerCase().includes(sector.toLowerCase()))
+    if (subtype) investments = investments.filter(investment => investment.subtipo === subtype)
+    if (issuer) investments = investments.filter(investment => investment.emissor?.toLowerCase().includes(issuer.toLowerCase()))
+    if (sector) investments = investments.filter(investment => investment.setor?.toLowerCase().includes(sector.toLowerCase()))
 
     if (search) {
       const query = search.toLowerCase()
       investments = investments.filter(investment =>
-        investment.name.toLowerCase().includes(query) ||
+        investment.nome.toLowerCase().includes(query) ||
         investment.ticker.toLowerCase().includes(query) ||
-        investment.issuer?.toLowerCase().includes(query),
+        investment.emissor?.toLowerCase().includes(query),
       )
     }
 
@@ -558,10 +632,10 @@ export const handlers = [
     await delay(400)
     const { portfolioId } = params
     const url = new URL(request.url)
-    const page = parseInt(url.searchParams.get('page') || '1')
-    const pageSize = parseInt(url.searchParams.get('pageSize') || '10')
+    const page = parseInt(url.searchParams.get('pagina') || '1')
+    const pageSize = parseInt(url.searchParams.get('itensPorPagina') || '10')
 
-    const investments = mockAllInvestments.filter(investment => investment.portfolioId === portfolioId)
+    const investments = mockAllInvestments.filter(investment => investment.carteiraId === portfolioId)
     return HttpResponse.json(createPaginatedResponse(investments, page, pageSize))
   }),
 
@@ -583,47 +657,106 @@ export const handlers = [
     if (!check.authorized) return HttpResponse.json({ message: check.message }, { status: check.status })
 
     const body = await request.json() as RegistrarTransacaoRequest
-    const previous = mockTransactionsByIdempotencyKey.get(body.idempotencyKey)
+    const previous = mockTransactionsByIdempotencyKey.get(body.chaveIdempotencia)
     if (previous) return HttpResponse.json(createResponse(previous))
-    if (!mockPortfolios.some(portfolio => portfolio.id === body.portfolioId)) {
+    if (!mockPortfolios.some(portfolio => portfolio.id === body.carteiraId)) {
       return HttpResponse.json({ success: false, message: 'Carteira não encontrada.' }, { status: 404 })
     }
 
-    const investment = mockAllInvestments.find(item => item.portfolioId === body.portfolioId && item.ticker?.toUpperCase() === body.ticker?.toUpperCase())
-    if (body.type === 'Sell' && (!investment || investment.quantity < body.quantity)) {
+    const investment = mockAllInvestments.find(item => item.carteiraId === body.carteiraId && item.ticker?.toUpperCase() === body.ticker?.toUpperCase())
+    if (body.tipo === 'Sell' && (!investment || investment.quantidade < body.quantidade)) {
       return HttpResponse.json({ success: false, message: 'Quantidade disponível insuficiente.' }, { status: 409 })
     }
 
     const transaction: TransacaoDto = {
       id: `transaction-${crypto.randomUUID()}`,
-      portfolioId: body.portfolioId,
-      assetId: investment?.assetId,
+      carteiraId: body.carteiraId,
+      ativoId: investment?.ativoId,
       ticker: body.ticker,
-      type: body.type,
-      quantity: body.quantity,
-      unitPrice: body.unitPrice,
-      fees: body.fees,
-      totalAmount: body.quantity * body.unitPrice + (body.type === 'Buy' ? body.fees : -body.fees),
-      realizedGain: 0,
-      realizedCostBasis: 0,
-      transactionDate: body.transactionDate,
-      notes: body.notes,
+      tipo: body.tipo,
+      quantidade: body.quantidade,
+      precoUnitario: body.precoUnitario,
+      taxas: body.taxas,
+      valorTotal: body.quantidade * body.precoUnitario + (body.tipo === 'Buy' ? body.taxas : -body.taxas),
+      ganhoRealizado: 0,
+      custoBaseRealizado: 0,
+      modalidadeFiscal: body.modalidadeFiscal ?? "NaoInformada",
+      dataTransacao: body.dataTransacao,
+      observacoes: body.observacoes,
     }
-    mockTransactionsByIdempotencyKey.set(body.idempotencyKey, transaction)
+    mockTransactionsByIdempotencyKey.set(body.chaveIdempotencia, transaction)
     await delay(100)
     return HttpResponse.json(createResponse(transaction), { status: 201 })
+  }),
+
+  http.get(`${BASE_URL}/benchmarks/cdi`, ({ request }) => {
+    const query = new URL(request.url).searchParams
+    return HttpResponse.json(createResponse({
+      dataDe: query.get('dataDe') ?? '2026-09-01',
+      dataAte: query.get('dataAte') ?? '2026-09-29',
+      origem: 'Banco Central do Brasil — SGS série 12 (CDI, percentual ao dia)',
+      atualizadoEmUtc: '2026-09-29T12:00:00.000Z',
+      pontos: [
+        { data: '2026-09-01', taxaDiariaPercentual: 0.055, indiceBase100: 100.055 },
+        { data: '2026-09-15', taxaDiariaPercentual: 0.055, indiceBase100: 100.82 },
+      ],
+    }))
   }),
 
   http.get(`${BASE_URL}/investments/:id/transactions`, async ({ params }) => {
     await delay(400)
     const { id } = params
-    const mockTransactions = [
-      { id: '1', date: '2024-12-10', type: 'Compra', quantity: 50, price: 37.80, total: 1890 },
-      { id: '2', date: '2024-11-05', type: 'Venda', quantity: 10, price: 38.50, total: 385 },
+    const investment = mockAllInvestments.find(item => item.id === id)
+    const mockTransactions: TransacaoDto[] = [
+      {
+        id: 'transaction-1',
+        carteiraId: investment?.carteiraId ?? 'portfolio-1',
+        ativoId: investment?.ativoId,
+        ticker: investment?.ticker,
+        tipo: 'Buy',
+        quantidade: 50,
+        precoUnitario: 37.80,
+        taxas: 0,
+        valorTotal: 1890,
+        ganhoRealizado: 0,
+        custoBaseRealizado: 0,
+        modalidadeFiscal: "NaoInformada",
+        dataTransacao: '2024-12-10T12:00:00.000Z',
+      },
+      {
+        id: 'transaction-2',
+        carteiraId: investment?.carteiraId ?? 'portfolio-1',
+        ativoId: investment?.ativoId,
+        ticker: investment?.ticker,
+        tipo: 'Sell',
+        quantidade: 10,
+        precoUnitario: 38.50,
+        taxas: 0,
+        valorTotal: 385,
+        ganhoRealizado: 0,
+        custoBaseRealizado: 0,
+        modalidadeFiscal: "NaoInformada",
+        dataTransacao: '2024-11-05T12:00:00.000Z',
+      },
     ]
     return HttpResponse.json(createPaginatedResponse(mockTransactions))
   }),
 
+  http.get(`${BASE_URL}/investments/:id/history`, async () => HttpResponse.json(createResponse([
+    { data: '2026-09-01T00:00:00.000Z', preco: 1000, origem: 'statement', ajustado: false },
+    { data: '2026-09-15T00:00:00.000Z', preco: 1025, origem: 'statement', ajustado: false },
+  ]))),
+
+  http.get(`${BASE_URL}/investments/:id/projecao-renda-fixa`, ({ params }) => {
+    const asset = mockFixedIncomeInvestments.find(item => item.id === params.id)
+    if (!asset) return new HttpResponse(null, { status: 404 })
+    const projection: ProjecaoRendaFixaDto = {
+      posicaoId: asset.id, ticker: asset.ticker, valorObservado: asset.valorAtual, observadoEmUtc: asset.atualizadoEm,
+      valorProjetadoBruto: null, dataVencimento: asset.dataVencimento ?? new Date().toISOString().slice(0, 10), estadoProjecao: 'Indisponivel',
+      motivo: asset.situacao === 'matured' ? 'Título vencido; a posição permanece registrada e não movimenta o caixa.' : 'A taxa de referência do grupo precisa ser atualizada para liberar a estimativa.',
+    }
+    return HttpResponse.json(createResponse(projection))
+  }),
   http.get(`${BASE_URL}/investments/:id`, async ({ params }) => {
     await delay(300)
     const { id } = params
@@ -631,7 +764,7 @@ export const handlers = [
 
     if (!investment) {
       return HttpResponse.json(
-        { success: false, message: 'Investimento não encontrado' },
+    { sucesso: false, mensagem: 'Investimento não encontrado' },
         { status: 404 }
       )
     }
@@ -645,38 +778,41 @@ export const handlers = [
 
     await delay(500)
     const body = await request.json() as CriarRendaFixaRequest
+    if (new Date(body.dataCompra) > new Date()) {
+      return HttpResponse.json({ sucesso: false, mensagem: 'A data de compra não pode estar no futuro.' }, { status: 400 })
+    }
     const existing = mockFixedIncomeInvestments.find(
-      investment => investment.id === `fixed-${body.idempotencyKey}`,
+      investment => investment.id === `fixed-${body.chaveIdempotencia}`,
     )
     if (existing) return HttpResponse.json(createResponse(existing))
 
     const now = new Date().toISOString()
-    const currentPrice = body.principal > 0 ? body.statementValue / body.principal : 0
-    const gain = body.statementValue - body.principal
+    const currentPrice = body.valorPrincipal > 0 ? body.valorExtrato / body.valorPrincipal : 0
+    const gain = body.valorExtrato - body.valorPrincipal
     const newInvestment: RendaFixaDto = {
-      id: `fixed-${body.idempotencyKey}`,
-      assetId: `asset-fixed-${body.idempotencyKey}`,
-      status: 'open',
-      portfolioId: body.portfolioId,
-      ticker: `RF-${body.idempotencyKey.replaceAll('-', '').slice(0, 12).toUpperCase()}`,
-      name: body.name,
-      type: 'fixed_income',
-      subtype: body.subtype,
-      issuer: body.issuer,
-      quantity: body.principal,
-      averagePrice: 1,
-      currentPrice,
-      totalInvested: body.principal,
-      currentValue: body.statementValue,
-      gain,
-      gainPercentage: body.principal > 0 ? gain / body.principal * 100 : 0,
-      currency: 'BRL',
-      interestRate: body.interestRate,
-      indexer: body.indexer,
-      purchaseDate: body.purchaseDate,
-      maturityDate: body.maturityDate,
-      createdAt: now,
-      updatedAt: now,
+      id: `fixed-${body.chaveIdempotencia}`,
+      ativoId: `asset-fixed-${body.chaveIdempotencia}`,
+      situacao: 'open',
+      carteiraId: body.carteiraId,
+      ticker: `RF-${body.chaveIdempotencia.replace(/-/g, '').slice(0, 12).toUpperCase()}`,
+      nome: body.nome,
+      tipo: 'fixed_income',
+      subtipo: body.subtipo,
+      emissor: body.emissor,
+      quantidade: body.valorPrincipal,
+      precoMedio: 1,
+      precoAtual: currentPrice,
+      totalInvestido: body.valorPrincipal,
+      valorAtual: body.valorExtrato,
+      ganho: gain,
+      percentualGanho: body.valorPrincipal > 0 ? gain / body.valorPrincipal * 100 : 0,
+      moeda: 'BRL',
+      taxaJuros: body.taxaJuros,
+      indexador: body.indexador,
+      dataCompra: body.dataCompra,
+      dataVencimento: body.dataVencimento,
+      criadoEm: now,
+      atualizadoEm: now,
     }
 
     mockFixedIncomeInvestments.push(newInvestment)
@@ -692,34 +828,34 @@ export const handlers = [
     await delay(500)
     const body = await request.json() as CriarRendaVariavelRequest
     const existing = mockVariableIncomeInvestments.find(
-      investment => investment.id === `var-${body.idempotencyKey}`,
+      investment => investment.id === `var-${body.chaveIdempotencia}`,
     )
     if (existing) return HttpResponse.json(createResponse(existing))
 
     const now = new Date().toISOString()
-    const totalInvested = body.quantity * body.unitPrice + body.fees
-    const currentValue = body.quantity * body.unitPrice
+    const totalInvested = body.quantidade * body.precoUnitario + body.taxas
+    const currentValue = body.quantidade * body.precoUnitario
     const gain = currentValue - totalInvested
     const newInvestment: RendaVariavelDto = {
-      id: `var-${body.idempotencyKey}`,
-      assetId: `asset-var-${body.idempotencyKey}`,
-      status: 'open',
-      portfolioId: body.portfolioId,
+      id: `var-${body.chaveIdempotencia}`,
+      ativoId: `asset-var-${body.chaveIdempotencia}`,
+      situacao: 'open',
+      carteiraId: body.carteiraId,
       ticker: body.ticker,
-      name: body.name ?? body.ticker,
-      type: 'variable_income',
-      subtype: body.subtype,
-      sector: body.sector,
-      quantity: body.quantity,
-      averagePrice: body.unitPrice,
-      currentPrice: body.unitPrice,
-      totalInvested,
-      currentValue,
-      gain,
-      gainPercentage: totalInvested > 0 ? gain / totalInvested * 100 : 0,
-      currency: 'BRL',
-      createdAt: now,
-      updatedAt: now,
+      nome: body.nome ?? body.ticker,
+      tipo: 'variable_income',
+      subtipo: body.subtipo,
+      setor: body.setor,
+      quantidade: body.quantidade,
+      precoMedio: body.precoUnitario,
+      precoAtual: body.precoUnitario,
+      totalInvestido: totalInvested,
+      valorAtual: currentValue,
+      ganho: gain,
+      percentualGanho: totalInvested > 0 ? gain / totalInvested * 100 : 0,
+      moeda: 'BRL',
+      criadoEm: now,
+      atualizadoEm: now,
     }
 
     mockVariableIncomeInvestments.push(newInvestment)
@@ -734,26 +870,26 @@ export const handlers = [
 
     await delay(400)
     const { id } = params
-    const body = await request.json() as Partial<Omit<PosicaoInvestimentoDto, 'id' | 'assetId' | 'type' | 'subtype'>>
+    const body = await request.json() as Partial<Omit<PosicaoInvestimentoDto, 'id' | 'ativoId' | 'tipo' | 'subtipo'>>
     const index = mockAllInvestments.findIndex(inv => inv.id === id)
 
     if (index === -1) {
       return HttpResponse.json(
-        { success: false, message: 'Investimento não encontrado' },
+        { sucesso: false, mensagem: 'Investimento não encontrado' },
         { status: 404 }
       )
     }
 
     const existing = mockAllInvestments[index]
-    const updated = { ...existing, ...body, updatedAt: new Date().toISOString() }
+    const updated = { ...existing, ...body, atualizadoEm: new Date().toISOString() }
     mockAllInvestments[index] = updated
 
     // Also update in specific lists
     const fixedIndex = mockFixedIncomeInvestments.findIndex(inv => inv.id === id)
-    if (updated.type === 'fixed_income' && fixedIndex !== -1) mockFixedIncomeInvestments[fixedIndex] = updated
+    if (updated.tipo === 'fixed_income' && fixedIndex !== -1) mockFixedIncomeInvestments[fixedIndex] = updated as RendaFixaDto
 
     const variableIndex = mockVariableIncomeInvestments.findIndex(inv => inv.id === id)
-    if (updated.type === 'variable_income' && variableIndex !== -1) mockVariableIncomeInvestments[variableIndex] = updated
+    if (updated.tipo === 'variable_income' && variableIndex !== -1) mockVariableIncomeInvestments[variableIndex] = updated as RendaVariavelDto
 
 
     return HttpResponse.json(createResponse(updated, 'Investimento atualizado com sucesso'))
@@ -796,143 +932,110 @@ export const handlers = [
     })
   }),
 
-  // Taxes endpoints
-  http.get(`${BASE_URL}/taxes`, async () => {
-    await delay(300)
-    const mockRates = [
-      {
-        id: 'rate-1',
-        name: 'SELIC',
-        symbol: 'SELIC',
-        currentValue: 12.75,
-        previousValue: 12.75,
-        variation: 0,
-        description: 'Taxa básica de juros da economia brasileira',
-        source: 'Banco Central',
-        lastUpdate: '2024-12-18',
-      },
-      {
-        id: 'rate-2',
-        name: 'IPCA',
-        symbol: 'IPCA',
-        currentValue: 4.83,
-        previousValue: 4.76,
-        variation: 0.07,
-        description: 'Índice Nacional de Preços ao Consumidor Amplo',
-        source: 'IBGE',
-        lastUpdate: '2024-12-10',
-      },
-      {
-        id: 'rate-3',
-        name: 'CDI',
-        symbol: 'CDI',
-        currentValue: 12.65,
-        previousValue: 12.65,
-        variation: 0,
-        description: 'Certificado de Depósito Interbancário',
-        source: 'Cetip',
-        lastUpdate: '2024-12-20',
-      },
-      {
-        id: 'rate-4',
-        name: 'Dólar Comercial',
-        symbol: 'USD/BRL',
-        currentValue: 6.28,
-        previousValue: 6.15,
-        variation: 0.13,
-        description: 'Cotação do dólar em relação ao real',
-        source: 'Banco Central',
-        lastUpdate: '2024-12-20',
-      },
-      {
-        id: 'rate-5',
-        name: 'Imposto de Renda - PF',
-        symbol: 'IR-PF',
-        currentValue: 15.0,
-        previousValue: 15.0,
-        variation: 0,
-        description: 'Alíquota máxima de IR para Pessoa Física',
-        source: 'Receita Federal',
-        lastUpdate: '2024-12-18',
-      },
-    ]
-    return HttpResponse.json(createResponse(mockRates))
+  // Group-scoped economic rates endpoints with the same Portuguese DTO contract as the API.
+  http.get(`${BASE_URL}/taxes`, ({ request }) => {
+    const groupId = new URL(request.url).searchParams.get('grupoId')
+    return HttpResponse.json(createResponse(mockEconomicRates.filter(rate => rate.grupoId === groupId)))
   }),
-
+  http.get(`${BASE_URL}/taxes/:id/historico`, ({ params, request }) => {
+    const groupId = new URL(request.url).searchParams.get('grupoId')
+    const rate = mockEconomicRates.find(item => item.id === params.id && item.grupoId === groupId)
+    if (!rate) return new HttpResponse(null, { status: 404 })
+    return HttpResponse.json(createResponse(mockEconomicRateHistory.get(rate.id) ?? []))
+  }),
+  http.get(`${BASE_URL}/taxes/:id`, ({ params, request }) => {
+    const groupId = new URL(request.url).searchParams.get('grupoId')
+    const rate = mockEconomicRates.find(item => item.id === params.id && item.grupoId === groupId)
+    return rate ? HttpResponse.json(createResponse(rate)) : new HttpResponse(null, { status: 404 })
+  }),
   http.post(`${BASE_URL}/taxes`, async ({ request }) => {
-    await delay(400)
-    const body = await request.json() as Record<string, unknown>
-    const newRate = {
-      id: `rate-${Date.now()}`,
-      ...body,
-      variation: 0,
-      lastUpdate: new Date().toISOString().split('T')[0],
+    const body = await request.json() as Omit<TaxaEconomicaDto, 'id' | 'grupoId' | 'variacao' | 'atualizadoEm' | 'atualizadoPorUserId'>
+    const now = new Date().toISOString()
+    const rate: TaxaEconomicaDto = {
+      ...body, id: crypto.randomUUID(), grupoId: new URL(request.url).searchParams.get('grupoId') ?? '',
+      variacao: body.valorAtual - body.valorAnterior, atualizadoEm: now, atualizadoPorUserId: activeMockUserId ?? 'user-1',
     }
-    return HttpResponse.json(createResponse(newRate, 'Taxa adicionada com sucesso'))
+    mockEconomicRates.push(rate)
+    return HttpResponse.json(createResponse(rate, 'Taxa adicionada com sucesso'))
   }),
-
   http.put(`${BASE_URL}/taxes/:id`, async ({ params, request }) => {
-    await delay(400)
-    const { id } = params
-    const body = await request.json() as Record<string, unknown>
-    const updatedRate = {
-      id,
-      ...body,
-      lastUpdate: new Date().toISOString().split('T')[0],
-    }
-    return HttpResponse.json(createResponse(updatedRate, 'Taxa atualizada com sucesso'))
+    const groupId = new URL(request.url).searchParams.get('grupoId')
+    const rate = mockEconomicRates.find(item => item.id === params.id && item.grupoId === groupId)
+    if (!rate) return new HttpResponse(null, { status: 404 })
+    const body = await request.json() as Omit<TaxaEconomicaDto, 'id' | 'grupoId' | 'variacao' | 'atualizadoEm' | 'atualizadoPorUserId'>
+    const now = new Date().toISOString()
+    const history = mockEconomicRateHistory.get(rate.id) ?? []
+    history.unshift({
+      valorAnterior: rate.valorAtual, valorNovo: body.valorAtual, unidadeAnterior: rate.unidade, unidadeNova: body.unidade,
+      periodicidadeAnterior: rate.periodicidade, periodicidadeNova: body.periodicidade, origem: body.origem,
+      dataReferencia: body.dataReferencia, responsavelUserId: activeMockUserId ?? rate.atualizadoPorUserId, atualizadoEmUtc: now,
+    })
+    mockEconomicRateHistory.set(rate.id, history)
+    Object.assign(rate, body, { variacao: body.valorAtual - body.valorAnterior, atualizadoEm: now, atualizadoPorUserId: activeMockUserId ?? rate.atualizadoPorUserId })
+    return HttpResponse.json(createResponse(rate, 'Taxa atualizada com sucesso'))
   }),
-
-  http.delete(`${BASE_URL}/taxes/:id`, async () => {
-    await delay(300)
+  http.delete(`${BASE_URL}/taxes/:id`, ({ params, request }) => {
+    const groupId = new URL(request.url).searchParams.get('grupoId')
+    const index = mockEconomicRates.findIndex(item => item.id === params.id && item.grupoId === groupId)
+    if (index < 0) return new HttpResponse(null, { status: 404 })
+    mockEconomicRates.splice(index, 1)
+    mockEconomicRateHistory.delete(String(params.id))
     return HttpResponse.json(createResponse(null, 'Taxa removida com sucesso'))
   }),
-
   // Simulation endpoints
   http.post(`${BASE_URL}/simulation`, async ({ request }) => {
     await delay(500)
     const body = await request.json() as {
-      initialAmount: number
-      monthlyContribution: number
-      years: number
-      annualInterestRate: number
-      strategy?: string
+      valorInicial: number
+      aporteMensal: number
+      anos: number
+      taxaJurosAnual: number
+      estrategia?: string
     }
 
-    const totalMonths = body.years * 12
-    const monthlyRate = Math.pow(1 + body.annualInterestRate / 100, 1 / 12) - 1
-    const points: Array<{ month: number; invested: number; total: number; interest: number }> = []
+    if (body.valorInicial < 0 || body.aporteMensal < 0 || body.anos < 1) {
+      return HttpResponse.json({
+        type: 'https://httpstatuses.io/400',
+        title: 'Bad request.',
+        detail: 'Parâmetros de simulação inválidos.',
+        status: 400,
+      }, { status: 400 })
+    }
 
-    let currentAmount = body.initialAmount
-    let totalInvested = body.initialAmount
+    const totalMonths = body.anos * 12
+    const monthlyRate = Math.pow(1 + body.taxaJurosAnual / 100, 1 / 12) - 1
+    const pontos: Array<{ mes: number; investido: number; total: number; juros: number }> = []
+
+    let currentAmount = body.valorInicial
+    let totalInvested = body.valorInicial
 
     for (let i = 0; i <= totalMonths; i++) {
-      points.push({
-        month: i,
-        invested: Number(totalInvested.toFixed(2)),
+      pontos.push({
+        mes: i,
+        investido: Number(totalInvested.toFixed(2)),
         total: Number(currentAmount.toFixed(2)),
-        interest: Number((currentAmount - totalInvested).toFixed(2)),
+        juros: Number((currentAmount - totalInvested).toFixed(2)),
       })
       if (i < totalMonths) {
-        currentAmount = currentAmount * (1 + monthlyRate) + body.monthlyContribution
-        totalInvested += body.monthlyContribution
+        currentAmount = currentAmount * (1 + monthlyRate) + body.aporteMensal
+        totalInvested += body.aporteMensal
       }
     }
 
     return HttpResponse.json(createResponse({
-      points,
-      finalAmount: points[points.length - 1].total,
-      totalInvested: points[points.length - 1].invested,
-      totalInterest: points[points.length - 1].interest,
-      strategyName: body.strategy === 'montecarlo' ? 'Estatístico (Monte Carlo)' : 'Matemático (Determinístico)',
+      pontos,
+      valorFinal: pontos[pontos.length - 1].total,
+      totalInvestido: pontos[pontos.length - 1].investido,
+      totalJuros: pontos[pontos.length - 1].juros,
+      nomeEstrategia: body.estrategia === 'montecarlo' ? 'Estatístico (Monte Carlo)' : 'Matemático (Determinístico)',
     }))
   }),
 
   http.get(`${BASE_URL}/simulation/strategies`, async () => {
     await delay(200)
     return HttpResponse.json(createResponse([
-      { id: 'deterministic', name: 'Matemático (Determinístico)', description: 'Simulação baseada em juros compostos com taxa fixa' },
-      { id: 'montecarlo', name: 'Estatístico (Monte Carlo)', description: 'Simulação probabilística com volatilidade' },
+      { id: 'deterministic', nome: 'Matemático (Determinístico)', descricao: 'Simulação baseada em juros compostos com taxa fixa' },
+      { id: 'montecarlo', nome: 'Estatístico (Monte Carlo)', descricao: 'Simulação probabilística com volatilidade' },
     ]))
   }),
 ]

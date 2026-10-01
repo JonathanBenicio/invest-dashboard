@@ -28,9 +28,7 @@ O MSW é ativado quando `VITE_USE_MSW=true` no ambiente:
 
 ```typescript
 // src/main.tsx
-const shouldUseMSW =
-  (platform === 'web' && useByDev) ||
-  (platform === 'android' && useByFlag)
+const shouldUseMSW = useByFlag
 ```
 
 ### 2. Configuração de URLs
@@ -64,6 +62,10 @@ const url = apiPath.startsWith('http')
   ? new URL(apiPath) 
   : new URL(apiPath, window.location.origin)
 ```
+
+### Contrato JSON
+
+Os handlers refletem o contrato atual da API em `/api/v1`: propriedades e filtros próprios usam português em `camelCase`; as rotas de recursos permanecem em inglês. Respostas seguem `dados/sucesso/mensagem`, e listas paginadas usam `paginacao` com `pagina`, `itensPorPagina`, `totalItens` e metadados de navegação. A referência completa está em [API-CONTRACTS-PT-BR.md](../../../docs/API-CONTRACTS-PT-BR.md).
 
 ## 🔐 Credenciais de Teste
 
@@ -110,14 +112,17 @@ const url = apiPath.startsWith('http')
 ## 🚀 Comandos
 
 ```bash
-# Desenvolvimento (MSW ativo automaticamente)
-npm run dev
+# Desenvolvimento (API real por padrão)
+bun run dev
+
+# Demonstração local com MSW, quando desejado
+VITE_USE_MSW=true bun run dev
 
 # Build para Web (GitHub Pages)
-GITHUB_PAGES=true VITE_USE_MSW=true npm run build
+GITHUB_PAGES=true VITE_USE_MSW=false bun run build
 
 # Build para Android
-CAPACITOR=true VITE_USE_MSW=true npm run build
+CAPACITOR=true VITE_USE_MSW=false bun run build
 npx cap sync android
 npx cap run android
 ```

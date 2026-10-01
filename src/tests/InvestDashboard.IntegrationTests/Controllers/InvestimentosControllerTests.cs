@@ -31,10 +31,10 @@ public class InvestimentosControllerTests : IClassFixture<CustomWebApplicationFa
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadFromJsonAsync<PaginatedResponse>(JsonOpts);
+        var body = await response.Content.ReadFromJsonAsync<RespostaPaginada>(JsonOpts);
         body.Should().NotBeNull();
-        body!.Data.Should().NotBeNull();
-        body.Data.Should().BeEmpty();
+        body!.Dados.Should().NotBeNull();
+        body.Dados.Should().BeEmpty();
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class InvestimentosControllerTests : IClassFixture<CustomWebApplicationFa
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var json = await response.Content.ReadAsStringAsync();
-        json.Should().Contain("\"totalInvested\"");
+        json.Should().Contain("\"totalInvestido\"");
     }
 
     [Fact]
@@ -65,9 +65,9 @@ public class InvestimentosControllerTests : IClassFixture<CustomWebApplicationFa
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        var body = await response.Content.ReadFromJsonAsync<PaginatedResponse>(JsonOpts);
+        var body = await response.Content.ReadFromJsonAsync<RespostaPaginada>(JsonOpts);
         body.Should().NotBeNull();
-        body!.Data.Should().BeEmpty();
+        body!.Dados.Should().BeEmpty();
     }
 
     [Fact]
@@ -112,5 +112,5 @@ public class InvestimentosControllerTests : IClassFixture<CustomWebApplicationFa
     }
 
     // Local DTO for deserialization
-    private record PaginatedResponse(JsonElement[] Data, int Page, int PageSize, int TotalCount);
+    private record RespostaPaginada(JsonElement[] Dados, int Pagina, int ItensPorPagina, int TotalItens);
 }

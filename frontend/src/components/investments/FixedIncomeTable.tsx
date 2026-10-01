@@ -27,6 +27,7 @@ import { formatCurrency, formatDate } from "@/lib/utils"
 
 interface FixedIncomeTableProps {
   data: RendaFixaDto[]
+  groupNames?: Record<string, string>
   pageCount: number
   pagination: PaginationState
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>
@@ -43,6 +44,7 @@ interface FixedIncomeTableProps {
 
 export function FixedIncomeTable({
   data,
+  groupNames = {},
   pageCount,
   pagination,
   setPagination,
@@ -61,7 +63,7 @@ export function FixedIncomeTable({
 
   const columns: ColumnDef<RendaFixaDto>[] = [
     {
-      accessorKey: "name",
+      accessorKey: "nome",
       header: ({ column }) => {
         return (
           <Button
@@ -75,12 +77,12 @@ export function FixedIncomeTable({
       },
       cell: ({ row }) => (
         <div>
-          <p className="font-medium">{row.getValue("name")}</p>
+          <p className="font-medium">{row.getValue("nome")}</p>
         </div>
       ),
     },
     {
-      accessorKey: "issuer",
+      accessorKey: "emissor",
       header: ({ column }) => {
         return (
           <Button
@@ -92,15 +94,34 @@ export function FixedIncomeTable({
           </Button>
         )
       },
-      cell: ({ row }) => <div className="text-sm">{row.getValue("issuer")}</div>,
+      cell: ({ row }) => <div className="text-sm">{row.getValue("emissor")}</div>,
     },
     {
-      accessorKey: "subtype",
+      id: "carteira",
+      accessorFn: row => row.carteiraNome ?? "",
+      header: "Carteira / grupo",
+      cell: ({ row }) => {
+        const asset = row.original
+        const groupName = asset.grupoId ? groupNames[asset.grupoId] : undefined
+        return <div className="min-w-36 text-sm">
+          <p className="font-medium">{asset.carteiraNome || "Carteira"}</p>
+          <p className="text-xs text-muted-foreground">{groupName || "Grupo sem nome"}</p>
+          {(asset.titular || asset.instituicaoFinanceira) && <p className="text-xs text-muted-foreground">{[asset.titular, asset.instituicaoFinanceira].filter(Boolean).join(" · ")}</p>}
+        </div>
+      },
+    },
+    {
+      accessorKey: "subtipo",
       header: "Tipo",
-      cell: ({ row }) => <Badge variant="secondary">{row.getValue("subtype")}</Badge>,
+      cell: ({ row }) => <Badge variant="secondary">{row.getValue("subtipo")}</Badge>,
     },
     {
-      accessorKey: "totalInvested",
+      accessorKey: "situacao",
+      header: "Situação",
+      cell: ({ row }) => <Badge variant="outline" className={row.original.situacao === "matured" ? "border-warning/50 text-warning" : undefined}>{row.original.situacao === "matured" ? "Vencido" : row.original.situacao === "closed" ? "Encerrado" : "Em carteira"}</Badge>,
+    },
+    {
+      accessorKey: "totalInvestido",
       header: ({ column }) => (
         <div className="text-right">
           <Button
@@ -112,10 +133,10 @@ export function FixedIncomeTable({
           </Button>
         </div>
       ),
-      cell: ({ row }) => <div className="text-right">{formatCurrency(row.getValue("totalInvested"))}</div>,
+      cell: ({ row }) => <div className="text-right">{formatCurrency(row.getValue("totalInvestido"))}</div>,
     },
     {
-      accessorKey: "currentValue",
+      accessorKey: "valorAtual",
       header: ({ column }) => (
         <div className="text-right">
           <Button
@@ -128,10 +149,10 @@ export function FixedIncomeTable({
         </div>
       ),
       cell: ({ row }) => {
-        const profit = row.original.gainPercentage
+        const profit = row.original.percentualGanho
         return (
           <div className="text-right">
-            <p className="font-medium">{formatCurrency(row.getValue("currentValue"))}</p>
+            <p className="font-medium">{formatCurrency(row.getValue("valorAtual"))}</p>
             <p className={`text-xs ${profit >= 0 ? 'text-success' : 'text-destructive'}`}>
               {profit >= 0 ? '+' : ''}{profit.toFixed(2)}%
             </p>
@@ -140,14 +161,14 @@ export function FixedIncomeTable({
       },
     },
     {
-      accessorKey: "interestRate",
+      accessorKey: "taxaJuros",
       header: "Taxa",
-      cell: ({ row }) => <span className="text-sm">{row.original.interestRate}% {row.original.indexer}</span>,
+      cell: ({ row }) => <span className="text-sm">{row.original.taxaJuros}% {row.original.indexador}</span>,
     },
     {
-      accessorKey: "maturityDate",
+      accessorKey: "dataVencimento",
       header: "Vencimento",
-      cell: ({ row }) => <div>{formatDate(row.getValue("maturityDate"))}</div>,
+      cell: ({ row }) => <div>{formatDate(row.getValue("dataVencimento"))}</div>,
     },
     {
       id: "actions",
@@ -167,14 +188,14 @@ export function FixedIncomeTable({
                 <Eye className="h-4 w-4 mr-2" />
                 Ver Detalhes
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'buy' } })}>
+              {asset.situacao === 'open' && <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'buy' } })}>
                 <PlusCircle className="h-4 w-4 mr-2 text-success" />
                 Aportar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'sell' } })}>
+              </DropdownMenuItem>}
+              {asset.situacao !== 'closed' && <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed', action: 'sell' } })}>
                 <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
                 Resgatar
-              </DropdownMenuItem>
+              </DropdownMenuItem>}
               <DropdownMenuItem onClick={() => onEdit(asset)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Editar
@@ -290,27 +311,32 @@ export function FixedIncomeTable({
         {table.getRowModel().rows?.length ? (
           table.getRowModel().rows.map((row) => {
             const asset = row.original
-            const profit = asset.gainPercentage
+            const profit = asset.percentualGanho
             return (
               <Card key={row.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'fixed' } })}>
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                   <div className="space-y-1">
                     <CardTitle className="text-base font-medium line-clamp-1">
-                      {asset.name}
+                      {asset.nome}
                     </CardTitle>
                     <p className="text-xs text-muted-foreground line-clamp-1">
-                      {asset.issuer}
+                      {asset.emissor}
                     </p>
+                    <p className="text-xs text-muted-foreground line-clamp-1">
+                      {asset.carteiraNome || "Carteira"} · {asset.grupoId ? groupNames[asset.grupoId] || "Grupo" : "Sem grupo"}
+                    </p>
+                    {(asset.titular || asset.instituicaoFinanceira) && <p className="text-xs text-muted-foreground line-clamp-1">{[asset.titular, asset.instituicaoFinanceira].filter(Boolean).join(" · ")}</p>}
                   </div>
                   <Badge variant="secondary" className="shrink-0">
-                    {asset.subtype}
+                    {asset.subtipo}
                   </Badge>
+                  {asset.situacao === 'matured' && <Badge variant="outline" className="border-warning/50 text-warning">Vencido</Badge>}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Valor Atual</p>
-                      <p className="font-semibold">{formatCurrency(asset.currentValue)}</p>
+                      <p className="font-semibold">{formatCurrency(asset.valorAtual)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Resultado</p>
@@ -322,14 +348,14 @@ export function FixedIncomeTable({
                       <p className="text-muted-foreground text-xs mb-1">Vencimento</p>
                       <p className="font-medium flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        {asset.maturityDate ? formatDate(asset.maturityDate) : 'Sem data'}
+                        {asset.dataVencimento ? formatDate(asset.dataVencimento) : 'Sem data'}
                       </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Taxa</p>
                       <p className="font-medium flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
-                        {asset.interestRate}%
+                        {asset.taxaJuros}%
                       </p>
                     </div>
                   </div>

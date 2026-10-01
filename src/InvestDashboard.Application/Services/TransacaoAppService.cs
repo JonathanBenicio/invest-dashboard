@@ -29,11 +29,21 @@ public sealed class TransacaoAppService(
         if (!Enum.TryParse<TipoTransacao>(dto.Type, true, out var type) ||
             type is not (TipoTransacao.Buy or TipoTransacao.Sell))
             throw new ArgumentException("Only buy and sell transactions are supported; cash transactions are not enabled.");
+        if (!Enum.TryParse<ModalidadeFiscal>(dto.ModalidadeFiscal, true, out var modalidadeFiscal))
+        {
+            if (type == TipoTransacao.Sell && !string.IsNullOrWhiteSpace(dto.ModalidadeFiscal))
+                throw new ArgumentException("Fiscal modality must be Comum or DayTrade.");
+            modalidadeFiscal = ModalidadeFiscal.NaoInformada;
+        }
+        if (!Enum.IsDefined(modalidadeFiscal))
+            throw new ArgumentException("Fiscal modality must be a supported value.");
         if (string.IsNullOrWhiteSpace(dto.Ticker))
             throw new ArgumentException("Ticker is required for buy and sell transactions.");
 
         var portfolio = await portfolios.GetByIdForUserAsync(dto.CarteiraId, userId)
             ?? throw new KeyNotFoundException("Portfolio not found.");
+        if (!await portfolios.CanManageAsync(portfolio.Id, userId))
+            throw new UnauthorizedAccessException("You cannot change this portfolio.");
 
         var priorRequest = await transactions.GetByIdempotencyKeyAsync(userId, dto.IdempotencyKey);
         if (priorRequest is not null)
@@ -68,6 +78,10 @@ public sealed class TransacaoAppService(
             throw new TransactionLedgerConflictException();
         }
 
+        if (type == TipoTransacao.Sell && RequiresFiscalModality(asset) &&
+            modalidadeFiscal == ModalidadeFiscal.NaoInformada)
+            throw new ArgumentException("Fiscal modality is required for stock and real estate fund sales.");
+
         var transaction = new Transacao(
             Guid.NewGuid(),
             userId,
@@ -80,7 +94,9 @@ public sealed class TransacaoAppService(
             dto.BrokerageFee,
             dto.TransactionDate,
             dto.Notes,
-            dto.IdempotencyKey);
+            dto.IdempotencyKey,
+            modalidadeFiscal,
+            portfolio.TitularId);
 
         var walletTransactions = await transactions.GetByPortfolioIdAsync(portfolio.Id);
         var history = walletTransactions.Append(transaction)
@@ -130,7 +146,7 @@ public sealed class TransacaoAppService(
         var userId = currentUser.UserId?.ToString()
             ?? throw new AuthenticationException("Authentication is required.");
         var transaction = await transactions.GetByIdAsync(id);
-        if (transaction is null || transaction.UserId != userId)
+        if (transaction is null)
             throw new KeyNotFoundException("Transaction not found.");
         if (!Enum.TryParse<TipoTransacao>(dto.Type, true, out var type) ||
             type is not (TipoTransacao.Buy or TipoTransacao.Sell))
@@ -138,6 +154,8 @@ public sealed class TransacaoAppService(
 
         var portfolio = await portfolios.GetByIdForUserAsync(transaction.CarteiraId, userId)
             ?? throw new KeyNotFoundException("Portfolio not found.");
+        if (!await portfolios.CanManageAsync(portfolio.Id, userId))
+            throw new KeyNotFoundException("Transaction not found.");
         transaction.UpdateDetails(type, dto.Quantity, dto.UnitPrice, dto.BrokerageFee, dto.TransactionDate, dto.Notes);
 
         var history = await transactions.GetByPortfolioIdAsync(portfolio.Id);
@@ -161,11 +179,13 @@ public sealed class TransacaoAppService(
         var userId = currentUser.UserId?.ToString()
             ?? throw new AuthenticationException("Authentication is required.");
         var transaction = await transactions.GetByIdAsync(id);
-        if (transaction is null || transaction.UserId != userId)
+        if (transaction is null)
             throw new KeyNotFoundException("Transaction not found.");
 
         var portfolio = await portfolios.GetByIdForUserAsync(transaction.CarteiraId, userId)
             ?? throw new KeyNotFoundException("Portfolio not found.");
+        if (!await portfolios.CanManageAsync(portfolio.Id, userId))
+            throw new KeyNotFoundException("Transaction not found.");
         var history = (await transactions.GetByPortfolioIdAsync(portfolio.Id))
             .Where(item => item.Id != transaction.Id)
             .ToList();
@@ -257,7 +277,9 @@ public sealed class TransacaoAppService(
             dto.InterestRate.Value,
             dto.MaturityDate.Value,
             dto.Issuer,
-            dto.Subtype);
+            dto.Subtype,
+            dto.Liquidity,
+            dto.Convention);
     }
 
     private static string NormalizeAssetClass(string? assetClass) => assetClass?.Trim().ToUpperInvariant() switch
@@ -277,10 +299,17 @@ public sealed class TransacaoAppService(
         _ => asset.Subtype
     };
 
+    private static bool RequiresFiscalModality(Ativo asset) =>
+        asset.TipoAtivo == TipoAtivo.FundoImobiliario ||
+        asset.TipoAtivo == TipoAtivo.Acao &&
+        (string.Equals(asset.Subtype, "ACAO", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(asset.Subtype, "STOCK", StringComparison.OrdinalIgnoreCase));
+
     private static TransacaoDto MapToDto(Transacao transaction) => new()
     {
         Id = transaction.Id,
         CarteiraId = transaction.CarteiraId,
+        TitularId = transaction.TitularId,
         AtivoId = transaction.AtivoId,
         Ticker = transaction.Ticker,
         Type = transaction.Type.ToString(),
@@ -290,6 +319,7 @@ public sealed class TransacaoAppService(
         TotalAmount = transaction.TotalAmount,
         RealizedGain = transaction.RealizedGain,
         RealizedCostBasis = transaction.RealizedCostBasis,
+        ModalidadeFiscal = transaction.ModalidadeFiscal.ToString(),
         TransactionDate = transaction.TransactionDate,
         Notes = transaction.Notes
     };

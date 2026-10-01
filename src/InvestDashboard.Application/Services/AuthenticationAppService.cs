@@ -13,12 +13,13 @@ public sealed class AuthenticationAppService(
     IAccessTokenIssuer accessTokenIssuer,
     IRefreshTokenSessionRepository sessions,
     IAuthRoleProvider authRoleProvider,
+    IGrupoCarteirasAppService groupService,
     TimeProvider timeProvider) : IAuthenticationAppService
 {
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(7);
     private static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromMinutes(15);
 
-    public async Task<AuthSessionDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<SessaoAutenticacaoDto> LoginAsync(SolicitacaoLoginDto request, CancellationToken cancellationToken = default)
     {
         var identity = await AuthenticateAsync(
             () => authProvider.LoginAsync(request.Email, request.Password, cancellationToken), cancellationToken);
@@ -26,16 +27,16 @@ public sealed class AuthenticationAppService(
         return await CreateSessionAsync(identity, cancellationToken);
     }
 
-    public async Task<AuthSessionDto> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken = default)
+    public async Task<SessaoAutenticacaoDto> RegisterAsync(SolicitacaoCadastroDto request, CancellationToken cancellationToken = default)
     {
         var identity = await AuthenticateAsync(
             () => authProvider.RegisterAsync(request.Name.Trim(), request.Email.Trim(), request.Password, cancellationToken), cancellationToken);
 
         if (identity.RequiresEmailConfirmation || string.IsNullOrWhiteSpace(identity.AccessToken))
         {
-            return new AuthSessionDto
+            return new SessaoAutenticacaoDto
             {
-                User = new UserInfoDto
+                User = new UsuarioAutenticadoDto
                 {
                     Id = identity.User.Id,
                     Email = identity.User.Email,
@@ -49,7 +50,24 @@ public sealed class AuthenticationAppService(
         return await CreateSessionAsync(identity, cancellationToken);
     }
 
-    public async Task<AuthSessionDto> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
+    public async Task<SessaoAutenticacaoDto> AceitarConviteAsync(Guid groupId, Guid invitationId, string tokenHash, string? accessToken = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(tokenHash) && string.IsNullOrWhiteSpace(accessToken))
+            throw new AuthenticationException("Convite inválido ou expirado.");
+        var identity = await AuthenticateAsync(
+            () => string.IsNullOrWhiteSpace(tokenHash)
+                ? authProvider.ValidateAccessTokenAsync(accessToken!, cancellationToken)
+                : authProvider.VerifyInvitationAsync(tokenHash, cancellationToken),
+            cancellationToken);
+        if (!Guid.TryParse(identity.User.Id, out _) || string.IsNullOrWhiteSpace(identity.User.Email))
+            throw new AuthenticationException("A identidade do convite é inválida.");
+        var accepted = await groupService.AceitarConviteAsync(groupId, invitationId, identity.User.Id,
+            identity.User.Email, identity.User.Name, cancellationToken);
+        if (accepted != true) throw new AuthenticationException("Convite inválido, expirado ou destinado a outro e-mail.");
+        return await CreateSessionAsync(identity, cancellationToken);
+    }
+
+    public async Task<SessaoAutenticacaoDto> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default)
     {
         if (!TryReadSessionId(refreshToken, out var sessionId))
             throw new AuthenticationException("Sessão inválida ou expirada.");
@@ -116,7 +134,7 @@ public sealed class AuthenticationAppService(
         }
     }
 
-    private async Task<AuthSessionDto> CreateSessionAsync(AuthResponseDto identity, CancellationToken cancellationToken)
+    private async Task<SessaoAutenticacaoDto> CreateSessionAsync(AuthResponseDto identity, CancellationToken cancellationToken)
     {
         if (!Guid.TryParse(identity.User.Id, out var userId))
             throw new AuthenticationException("O provedor de identidade retornou um usuário inválido.");
@@ -159,7 +177,7 @@ public sealed class AuthenticationAppService(
         return CreateResponse(sessionId, userId, identity.User.Email, identity.User.Name, role, expiresAt, refreshToken, now);
     }
 
-    private AuthSessionDto CreateResponse(
+    private SessaoAutenticacaoDto CreateResponse(
         Guid sessionId,
         Guid userId,
         string email,
@@ -172,11 +190,11 @@ public sealed class AuthenticationAppService(
         var accessExpiresAt = now.Add(AccessTokenLifetime);
         var token = accessTokenIssuer.Issue(userId, sessionId, email, name, role, accessExpiresAt);
 
-        return new AuthSessionDto
+        return new SessaoAutenticacaoDto
         {
             AccessToken = token,
             ExpiresIn = (int)AccessTokenLifetime.TotalSeconds,
-            User = new UserInfoDto { Id = userId.ToString(), Email = email, Name = name, Role = role },
+            User = new UsuarioAutenticadoDto { Id = userId.ToString(), Email = email, Name = name, Role = role },
             RequiresEmailConfirmation = false,
             RefreshToken = refreshToken,
             SessionExpiresAtUtc = sessionExpiresAt

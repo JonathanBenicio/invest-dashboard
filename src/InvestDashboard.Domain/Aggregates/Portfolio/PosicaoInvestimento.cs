@@ -16,6 +16,7 @@ public class PosicaoInvestimento : Entity<Guid>
     public decimal TotalCost { get; private set; }
     public decimal CurrentPrice { get; private set; }
     public DateTime? PurchaseDateUtc { get; private set; }
+    public DateTime? MaturedAtUtc { get; private set; }
 
     public decimal ValuationPrice => TipoAtivo == TipoAtivo.RendaFixa ? CurrentPrice : Ativo?.CurrentPrice ?? CurrentPrice;
     public decimal CurrentValue => Quantity * ValuationPrice;
@@ -130,5 +131,23 @@ public class PosicaoInvestimento : Entity<Guid>
             throw new ArgumentException("Market asset does not match this position", nameof(asset));
 
         Ativo = asset;
+    }
+
+    public bool TryMarkMatured(DateTime nowUtc, TimeZoneInfo timeZone)
+    {
+        if (nowUtc.Kind != DateTimeKind.Utc)
+            throw new ArgumentException("Maturity evaluation time must be UTC.", nameof(nowUtc));
+
+        if (TipoAtivo != TipoAtivo.RendaFixa || Ativo is not RendaFixa fixedIncome ||
+            Quantity <= 0 || MaturedAtUtc.HasValue)
+            return false;
+
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(nowUtc, timeZone));
+        var maturityDay = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(fixedIncome.MaturityDate, timeZone));
+        if (today < maturityDay)
+            return false;
+
+        MaturedAtUtc = nowUtc;
+        return true;
     }
 }

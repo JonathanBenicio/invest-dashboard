@@ -49,42 +49,42 @@ public sealed class PortfolioTenantIsolationTests
         otherPortfolios.StatusCode.Should().Be(HttpStatusCode.OK);
         using (var body = JsonDocument.Parse(await otherPortfolios.Content.ReadAsStringAsync()))
         {
-            body.RootElement.GetProperty("data").GetArrayLength().Should().Be(0);
-            body.RootElement.GetProperty("pagination").GetProperty("totalCount").GetInt32().Should().Be(0);
+            body.RootElement.GetProperty("dados").GetArrayLength().Should().Be(0);
+            body.RootElement.GetProperty("paginacao").GetProperty("totalItens").GetInt32().Should().Be(0);
         }
 
         (await otherClient.GetAsync($"/api/v1/portfolios/{portfolioId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await otherClient.GetAsync($"/api/v1/portfolios/{portfolioId}/summary")).StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await otherClient.GetAsync($"/api/v1/portfolios/{portfolioId}/history?fromDate=2025-01-01&toDate=2025-01-02"))
+        (await otherClient.GetAsync($"/api/v1/portfolios/{portfolioId}/history?dataDe=2025-01-01&dataAte=2025-01-02"))
             .StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await otherClient.GetAsync($"/api/v1/investments?portfolioId={portfolioId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await otherClient.GetAsync($"/api/v1/investments/summary?portfolioId={portfolioId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await otherClient.GetAsync($"/api/v1/investments?carteiraId={portfolioId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await otherClient.GetAsync($"/api/v1/investments/summary?carteiraId={portfolioId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await otherClient.GetAsync($"/api/v1/investments/{positionId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await otherClient.GetAsync($"/api/v1/investments/{positionId}/transactions")).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var foreignPortfolioUpdate = await otherClient.PatchAsJsonAsync(
             $"/api/v1/portfolios/{portfolioId}",
-            new { name = "Stolen portfolio name" });
+            new { nome = "Stolen portfolio name" });
         foreignPortfolioUpdate.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var foreignValuation = await otherClient.PostAsJsonAsync(
             $"/api/v1/investments/{positionId}/valuations",
-            new { totalValue = 1_000_000m, date = DateTime.UtcNow });
+            new { valorTotal = 1_000_000m, data = DateTime.UtcNow });
         foreignValuation.StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var foreignTransaction = await otherClient.PostAsJsonAsync(
             "/api/v1/transactions",
             new
             {
-                portfolioId,
+                carteiraId = portfolioId,
                 ticker = "PETR4",
-                type = "Buy",
-                assetClass = "ACAO",
-                quantity = 1m,
-                unitPrice = 10m,
-                fees = 0m,
-                transactionDate = DateTime.UtcNow.AddDays(-1),
-                idempotencyKey = Guid.NewGuid()
+                tipo = "Buy",
+                classeAtivo = "ACAO",
+                quantidade = 1m,
+                precoUnitario = 10m,
+                taxas = 0m,
+                dataTransacao = DateTime.UtcNow.AddDays(-1),
+                chaveIdempotencia = Guid.NewGuid()
             });
         foreignTransaction.StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await otherClient.DeleteAsync($"/api/v1/investments/{positionId}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -92,11 +92,11 @@ public sealed class PortfolioTenantIsolationTests
         var ownerPortfolio = await ownerClient.GetAsync($"/api/v1/portfolios/{portfolioId}");
         ownerPortfolio.StatusCode.Should().Be(HttpStatusCode.OK);
         using var ownerBody = JsonDocument.Parse(await ownerPortfolio.Content.ReadAsStringAsync());
-        var ownerData = ownerBody.RootElement.GetProperty("data");
-        ownerData.GetProperty("name").GetString().Should().Be("Private to owner");
-        var ownerPositions = ownerData.GetProperty("positions");
+        var ownerData = ownerBody.RootElement.GetProperty("dados");
+        ownerData.GetProperty("nome").GetString().Should().Be("Private to owner");
+        var ownerPositions = ownerData.GetProperty("posicoes");
         ownerPositions.GetArrayLength().Should().Be(1);
-        ownerPositions[0].GetProperty("currentValue").GetDecimal().Should().Be(80m);
+        ownerPositions[0].GetProperty("valorAtual").GetDecimal().Should().Be(80m);
     }
 
     private static HttpClient CreateClient(
@@ -114,27 +114,27 @@ public sealed class PortfolioTenantIsolationTests
 
     private static async Task<Guid> CreatePortfolioAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/v1/portfolios", new { name = "Private to owner" });
+        var response = await client.PostAsJsonAsync("/api/v1/portfolios", new { instituicaoFinanceiraId = Guid.Parse("10000000-0000-4000-8000-000000000001"),  nome = "Private to owner" });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return body.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+        return body.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
     }
 
     private static async Task RegisterStockPurchaseAsync(HttpClient client, Guid portfolioId)
     {
         var response = await client.PostAsJsonAsync("/api/v1/transactions", new
         {
-            portfolioId,
+            carteiraId = portfolioId,
             ticker = "PETR4",
-            type = "Buy",
-            assetClass = "ACAO",
-            name = "Petrobras",
-            sector = "Energia",
-            quantity = 2m,
-            unitPrice = 40m,
-            fees = 0m,
-            transactionDate = DateTime.UtcNow.AddDays(-1),
-            idempotencyKey = Guid.NewGuid()
+            tipo = "Buy",
+            classeAtivo = "ACAO",
+            nome = "Petrobras",
+            setor = "Energia",
+            quantidade = 2m,
+            precoUnitario = 40m,
+            taxas = 0m,
+            dataTransacao = DateTime.UtcNow.AddDays(-1),
+            chaveIdempotencia = Guid.NewGuid()
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -142,10 +142,10 @@ public sealed class PortfolioTenantIsolationTests
 
     private static async Task<Guid> GetOnlyPositionIdAsync(HttpClient client, Guid portfolioId)
     {
-        var response = await client.GetAsync($"/api/v1/investments?portfolioId={portfolioId}");
+        var response = await client.GetAsync($"/api/v1/investments?carteiraId={portfolioId}");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        var positions = body.RootElement.GetProperty("data");
+        var positions = body.RootElement.GetProperty("dados");
         positions.GetArrayLength().Should().Be(1);
         return positions[0].GetProperty("id").GetGuid();
     }

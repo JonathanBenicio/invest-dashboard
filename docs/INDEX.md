@@ -33,6 +33,7 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 
 - [Plano de implementação da plataforma](plan/plan.md) (preexistente; confirmar premissas antes de reutilizar)
 - [Gestão de carteira](plan/carteira.md)
+- [Fechamento dos gaps das telas que usavam mocks](plan/mock-era-parity.md)
 - [Chat IA](plan/chat-ia.md)
 - [Planos OpenCode](plan/opencode/)
 

@@ -86,7 +86,7 @@ O plano vigente para remover mocks de produto e fechar a integração frontend/b
 - [x] Substituir mocks das telas de análise/importação por API e registrar a coleta futura do Tesouro Transparente; CI de `605bbc5` passou nos três jobs.
 - [x] Revisar os PRs #14 e #4 separadamente e encerrá-los sem merge em 29/09/2026, conforme decisão do usuário de manter `develop` como linha de trabalho.
 
-Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte desta etapa.
+Fluxo de caixa e proventos estão no [plano futuro de baixa prioridade](future-low-priority.md). Nenhum deploy de produção faz parte desta etapa.
 
 ### Revisão dos PRs antigos
 
@@ -102,7 +102,7 @@ Fluxo de caixa e proventos seguem adiados. Nenhum deploy de produção faz parte
 4. [x] Cobrir o contrato de importação até o PostgreSQL: compra de ação e renda fixa, replay idempotente, rejeição de linha inválida e persistência após reinício do host.
 5. [x] E2E Playwright sem MSW para importar CSV pela interface contra API/PostgreSQL reais; sessão de teste controlada e operações financeiras reais. Os quatro jobs passaram na CI de `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654).
 6. [x] Corrigir o lint padrão do frontend; `bun run lint` passa sem erros e mantém 10 avisos Fast Refresh em componentes existentes.
-7. Na fase final, validar homologação de autenticação Supabase e comunicação/limites de Brapi e demais serviços terceiros; só então avaliar deploy. Fluxo de caixa e proventos seguem fora desta etapa.
+7. Na fase final, validar homologação de autenticação Supabase e comunicação/limites de Brapi e demais serviços terceiros; só então avaliar deploy. Fluxo de caixa e proventos estão no [plano futuro de baixa prioridade](future-low-priority.md).
 
 ### Próximos passos de acompanhamento
 
@@ -159,3 +159,40 @@ A documentação do [schema oficial Brapi](https://brapi.dev/docs/openapi) defin
 - [x] E2E de importação CSV e avaliação manual passaram juntos (2 testes); avaliação foi repetida após incluir verificação da data. Typecheck/lint direcionado e 5 E2E MSW passaram.
 
 **Aceite:** caminho da tela de Renda Fixa ao endpoint de avaliação grava valor/histórico no PostgreSQL sem adicionar transação e sem depender de terceiros.
+
+### Contrato do simulador API/UI (concluído)
+
+- [x] Alinhados JSON request, resposta e pontos em português com os DTOs TypeScript; estratégias mantêm `id` estável e usam `nome/descricao`.
+- [x] Backend valida montantes, prazo, taxa, estratégia, volatilidade e número de simulações.
+- [x] UI distingue carregamento, erro e sucesso; preserva o último resultado quando uma nova chamada falha e não usa uma resposta simulada como resultado.
+- [x] Testes de API cobrem contrato determinístico, Monte Carlo, catálogo de estratégias e parâmetros inválidos. E2E MSW cobre sucesso/erro e E2E sem MSW confirma o resultado real e exibe falha HTTP.
+- [x] Validação local concluída: suíte .NET Release, typecheck, lint, build, 7 E2E MSW e 2 E2E do simulador contra API/PostgreSQL.
+
+**Aceite:** os parâmetros chegam corretamente ao motor determinístico/Monte Carlo, a resposta alimenta o gráfico e falhas são apresentadas explicitamente. Taxa macroeconômica configurada permanece uma integração futura; o simulador usa a taxa fornecida pelo usuário.
+
+### Padronização de contratos e DTOs (concluída)
+
+- [x] Corte coordenado da API em `/api/v1`, confirmado pelo usuário porque ainda não há clientes reais; rotas de recursos e códigos estáveis foram preservados.
+- [x] Envelopes, paginação, DTOs de request/response, filtros/query parameters e SignalR usam nomes portugueses. Requests inline foram extraídos e o resumo de investimentos recebeu DTO nomeado.
+- [x] Frontend, serviços, telas, MSW opt-in e E2E consomem os mesmos campos portugueses. Brapi/Supabase e protocolo JWT/cookies mantêm seus formatos externos.
+- [x] Referência publicada em [API-CONTRACTS-PT-BR.md](../API-CONTRACTS-PT-BR.md); o schema OpenAPI usa a mesma política JSON.
+- [x] `dotnet build -c Release`, `bunx tsc -p tsconfig.app.json --noEmit` e `bun run build` passaram. A validação pedida foi compilação/build, sem suíte dedicada de nomes de contrato.
+
+**Aceite:** contratos próprios, app e mocks descrevem o mesmo JSON PT-BR em `/api/v1`; nenhuma integração externa ou deploy foi incluído.
+
+- Plano ativo para esta padronização: [api-contracts-ptbr.md](../../api-contracts-ptbr.md).
+
+### Auditoria funcional pré-terceiros (concluída em 29/09/2026)
+
+- [x] Revisadas telas roteadas, hooks, serviços e mocks: erros de API são diferenciados de resultados vazios em dashboard, renda fixa/variável, detalhes, importação, histórico e taxas; as telas afetadas oferecem retry quando aplicável.
+- [x] E2E de erro confirma que importação não confunde falha com lista vazia, o dashboard permite retry e a busca de ativo distingue indisponibilidade de resultado vazio e permite nova tentativa. E2E de erro: 3/3; suíte MSW: 7/7.
+- [x] Removido `historicoDesempenho` vazio do resumo da carteira e de seu contrato TypeScript; a série real segue disponível no endpoint de histórico.
+- [x] CRUD manual de taxas corrigido para persistir todos os campos editáveis; integração validou vazio, criação, leitura, edição, variação/data e exclusão (1/1).
+- [x] Consulta pública Brapi sem token respondeu HTTP 200, um resultado e `regularMarketTime`. Isso confirma somente conectividade e formato básico, não operação sustentada nem limites.
+- [ ] Supabase real: pendente de URL/chave e usuário de teste do projeto. Login, renovação de sessão e claims não foram homologados.
+
+**Gaps funcionais remanescentes:** vencimento/liquidação automática, regras fiscais e integração de imposto, benchmarks históricos CDI/Ibovespa e validação de importação com extratos reais anonimizados. A coleta/visualização do Tesouro Transparente permanece em etapa futura deste roadmap; fluxo de caixa e proventos estão em [backlog separado de baixa prioridade](future-low-priority.md). Integração sustentada com Brapi e autenticação Supabase são a etapa externa pendente; não avançar para deploy antes da homologação.
+
+Roadmap acionável dos gaps: [functional-gaps.md](functional-gaps.md). A auditoria subsequente encontrou MSW ligado no `.env.local` deste checkout e como padrão no Docker Android; ambos foram alterados para `false`, mantendo `VITE_USE_MSW=true` como opção explícita de demonstração/testes. Também foi corrigido o parser histórico da Brapi para usar `adjustedClose` (preferencial para retorno) e fallback para `close`, sem depender do `rawClose` Pro. A busca de ativos mostra indisponibilidade e permite retry. Removi o cliente Supabase direto e a dependência sem consumidores, mantendo autenticação do navegador via API backend. Testes locais cobrem o contrato e os estados da interface.
+
+O Compose atual também foi iniciado localmente com `.env` ignorado, publishable key Supabase e segredos aleatórios distintos para Postgres/JWT; DB saudável, API live/ready e frontend responderam HTTP 200, e a rota do frontend chegou à API protegida. O `SupabaseAuthProvider` tem testes locais de contrato 5/5. Homologação de login real segue pendente de credenciais de conta de teste; a secret key compartilhada não foi configurada nem usada.

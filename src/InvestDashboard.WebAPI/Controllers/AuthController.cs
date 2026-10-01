@@ -19,34 +19,46 @@ public sealed class AuthController(IAuthenticationAppService authentication) : C
     [AllowAnonymous]
     [EnableRateLimiting("authentication")]
     [HttpPost("login")]
-    public async Task<ActionResult<ApiResponse<AuthSessionDto>>> Login(
-        [FromBody] LoginRequestDto request,
+    public async Task<ActionResult<RespostaApi<SessaoAutenticacaoDto>>> Login(
+        [FromBody] SolicitacaoLoginDto request,
         CancellationToken cancellationToken)
     {
         var result = await authentication.LoginAsync(request, cancellationToken);
         SetRefreshTokenCookie(result);
-        return Ok(new ApiResponse<AuthSessionDto>(result));
+        return Ok(new RespostaApi<SessaoAutenticacaoDto>(result));
     }
 
     [AllowAnonymous]
     [EnableRateLimiting("authentication")]
     [HttpPost("register")]
-    public async Task<ActionResult<ApiResponse<AuthSessionDto>>> Register(
-        [FromBody] RegisterRequestDto request,
+    public async Task<ActionResult<RespostaApi<SessaoAutenticacaoDto>>> Register(
+        [FromBody] SolicitacaoCadastroDto request,
         CancellationToken cancellationToken)
     {
         var result = await authentication.RegisterAsync(request, cancellationToken);
         if (result.RequiresEmailConfirmation)
-            return Accepted(new ApiResponse<AuthSessionDto>(result, true, "Confirme seu e-mail para entrar."));
+            return Accepted(new RespostaApi<SessaoAutenticacaoDto>(result, true, "Confirme seu e-mail para entrar."));
 
         SetRefreshTokenCookie(result);
-        return Ok(new ApiResponse<AuthSessionDto>(result));
+        return Ok(new RespostaApi<SessaoAutenticacaoDto>(result));
+    }
+
+    [AllowAnonymous]
+    [EnableRateLimiting("authentication")]
+    [HttpPost("convites/aceitar")]
+    public async Task<ActionResult<RespostaApi<SessaoAutenticacaoDto>>> AceitarConvite(
+        [FromBody] SolicitacaoAceiteConviteDto request, CancellationToken cancellationToken)
+    {
+        var result = await authentication.AceitarConviteAsync(request.GrupoId, request.ConviteId,
+            request.TokenHash ?? string.Empty, request.TokenSupabase, cancellationToken);
+        SetRefreshTokenCookie(result);
+        return Ok(new RespostaApi<SessaoAutenticacaoDto>(result));
     }
 
     [AllowAnonymous]
     [EnableRateLimiting("authentication")]
     [HttpPost("refresh")]
-    public async Task<ActionResult<ApiResponse<AuthSessionDto>>> Refresh(CancellationToken cancellationToken)
+    public async Task<ActionResult<RespostaApi<SessaoAutenticacaoDto>>> Refresh(CancellationToken cancellationToken)
     {
         var refreshToken = Request.Cookies[RefreshTokenCookieName];
         if (string.IsNullOrWhiteSpace(refreshToken))
@@ -54,12 +66,12 @@ public sealed class AuthController(IAuthenticationAppService authentication) : C
 
         var result = await authentication.RefreshAsync(refreshToken, cancellationToken);
         SetRefreshTokenCookie(result);
-        return Ok(new ApiResponse<AuthSessionDto>(result));
+        return Ok(new RespostaApi<SessaoAutenticacaoDto>(result));
     }
 
     [AllowAnonymous]
     [HttpPost("logout")]
-    public async Task<ActionResult<ApiResponse<bool>>> Logout(CancellationToken cancellationToken)
+    public async Task<ActionResult<RespostaApi<bool>>> Logout(CancellationToken cancellationToken)
     {
         var sessionClaim = User.FindFirstValue("sid");
         Guid? sessionId = Guid.TryParseExact(sessionClaim, "N", out var parsedSessionId) ? parsedSessionId : null;
@@ -67,19 +79,19 @@ public sealed class AuthController(IAuthenticationAppService authentication) : C
 
         await authentication.LogoutAsync(sessionId, refreshToken, cancellationToken);
         DeleteRefreshTokenCookie();
-        return Ok(new ApiResponse<bool>(true));
+        return Ok(new RespostaApi<bool>(true));
     }
 
     [Authorize]
     [HttpGet("me")]
-    public ActionResult<ApiResponse<UserInfoDto>> GetMe()
+    public ActionResult<RespostaApi<UsuarioAutenticadoDto>> GetMe()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         var email = User.FindFirstValue(ClaimTypes.Email) ?? User.FindFirstValue("email");
         if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(email))
             throw new AuthenticationException("Sessão inválida.");
 
-        var user = new UserInfoDto
+        var user = new UsuarioAutenticadoDto
         {
             Id = userId,
             Email = email,
@@ -87,10 +99,10 @@ public sealed class AuthController(IAuthenticationAppService authentication) : C
             Role = User.FindFirstValue("role") ?? "user"
         };
 
-        return Ok(new ApiResponse<UserInfoDto>(user));
+        return Ok(new RespostaApi<UsuarioAutenticadoDto>(user));
     }
 
-    private void SetRefreshTokenCookie(AuthSessionDto session)
+    private void SetRefreshTokenCookie(SessaoAutenticacaoDto session)
     {
         Response.Cookies.Append(RefreshTokenCookieName, session.RefreshToken, new CookieOptions
         {

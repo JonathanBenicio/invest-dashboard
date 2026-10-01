@@ -10,8 +10,9 @@ public interface ICarteiraRepository
     Task<Carteira?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<Carteira?> GetByIdForUserAsync(Guid id, string userId, CancellationToken cancellationToken = default);
     Task<Carteira?> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<Carteira>> GetByUserIdPageAsync(string userId, int skip, int take, CancellationToken cancellationToken = default);
-    Task<int> CountByUserIdAsync(string userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Carteira>> GetByUserIdPageAsync(string userId, int skip, int take, Guid? groupId = null, CancellationToken cancellationToken = default);
+    Task<int> CountByUserIdAsync(string userId, Guid? groupId = null, CancellationToken cancellationToken = default);
+    Task<bool> CanManageAsync(Guid portfolioId, string userId, CancellationToken cancellationToken = default);
     Task<(Carteira Portfolio, PosicaoInvestimento Position)?> GetPositionByIdForUserAsync(Guid positionId, string userId, CancellationToken cancellationToken = default);
     Task AddAsync(Carteira carteira, CancellationToken cancellationToken = default);
     void AddPosition(PosicaoInvestimento position);

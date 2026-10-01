@@ -27,7 +27,7 @@ namespace InvestDashboard.WebAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<TransacaoDto>>> Register(
+        public async Task<ActionResult<RespostaApi<TransacaoDto>>> Register(
             [FromBody] RegistrarTransacaoDto dto,
             CancellationToken cancellationToken)
         {
@@ -35,30 +35,30 @@ namespace InvestDashboard.WebAPI.Controllers
             return CreatedAtAction(
                 nameof(GetByPortfolio),
                 new { portfolioId = transaction.CarteiraId },
-                new ApiResponse<TransacaoDto>(transaction));
+                new RespostaApi<TransacaoDto>(transaction));
         }
 
         [HttpGet("portfolio/{portfolioId:guid}")]
-        public async Task<ActionResult<ApiResponse<List<TransacaoDto>>>> GetByPortfolio(Guid portfolioId)
+        public async Task<ActionResult<RespostaApi<List<TransacaoDto>>>> GetByPortfolio(Guid portfolioId)
         {
             var transactions = await _transacaoAppService.GetTransactionsByPortfolioIdAsync(portfolioId);
-            return Ok(new ApiResponse<List<TransacaoDto>>(transactions));
+            return Ok(new RespostaApi<List<TransacaoDto>>(transactions));
         }
 
         [HttpPatch("{id:guid}")]
-        public async Task<ActionResult<ApiResponse<TransacaoDto>>> Update(
+        public async Task<ActionResult<RespostaApi<TransacaoDto>>> Update(
             Guid id,
             [FromBody] AtualizarTransacaoDto dto)
         {
             var transaction = await _transacaoAppService.UpdateTransactionAsync(id, dto);
-            return Ok(new ApiResponse<TransacaoDto>(transaction));
+            return Ok(new RespostaApi<TransacaoDto>(transaction));
         }
 
         [HttpDelete("{id:guid}")]
-        public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id)
+        public async Task<ActionResult<RespostaApi<bool>>> Delete(Guid id)
         {
             await _transacaoAppService.DeleteTransactionAsync(id);
-            return Ok(new ApiResponse<bool>(true));
+            return Ok(new RespostaApi<bool>(true));
         }
 
         /// <summary>

@@ -14,9 +14,11 @@ import InvestmentDetails from './pages/investments/InvestmentDetails'
 import VariableIncome from './pages/investments/VariableIncome'
 import Login from './pages/auth/Login'
 import Register from './pages/auth/Register'
+import AcceptInvitation from './pages/auth/AcceptInvitation'
 import NotFound from './pages/errors/NotFound'
 import PortfolioDetails from './pages/portfolio/PortfolioDetails'
 import Portfolios from './pages/portfolio/Portfolios'
+import Groups from './pages/portfolio/Groups'
 import Settings from './pages/tools/Settings'
 import Simulator from './pages/tools/Simulator'
 import Taxas from './pages/tools/Taxas'
@@ -39,7 +41,7 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 const AdminGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuthStore()
   if (isLoading) return <div className="flex min-h-screen items-center justify-center">Carregando...</div>
-  if (user?.role !== 'admin') return <Navigate to="/dashboard" />
+  if (user?.perfil !== 'admin') return <Navigate to="/dashboard" />
   return <>{children}</>
 }
 
@@ -69,6 +71,12 @@ export const registerRoute = createRoute({
   component: Register,
 })
 
+export const acceptInvitationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/convite/aceitar',
+  component: AcceptInvitation,
+})
+
 export const layoutRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: 'layout',
@@ -85,6 +93,12 @@ export const portfoliosRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: '/carteiras',
   component: Portfolios,
+})
+
+export const groupsRoute = createRoute({
+  getParentRoute: () => layoutRoute,
+  path: '/usuarios',
+  component: Groups,
 })
 
 export const portfolioDetailsRoute = createRoute({
@@ -139,7 +153,7 @@ export const settingsRoute = createRoute({
 export const taxasRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: '/taxas',
-  component: () => <AdminGuard><Taxas /></AdminGuard>,
+  component: Taxas,
 })
 
 export const notFoundRoute = createRoute({
@@ -152,9 +166,11 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
   registerRoute,
+  acceptInvitationRoute,
   layoutRoute.addChildren([
     dashboardRoute,
     portfoliosRoute,
+    groupsRoute,
     portfolioDetailsRoute,
     fixedIncomeRoute,
     variableIncomeRoute,

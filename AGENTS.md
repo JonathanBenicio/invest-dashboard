@@ -20,8 +20,8 @@ Monorepo: React 19 + Vite frontend (`frontend/`) + .NET 10 DDD backend (`src/`).
 - **Bun, not npm** — frontend uses `bun@1.3.4`. `npm install` works but `bun` is the package manager.
 - **`.slnx` not `.sln`** — solution file is `src/InvestDashboard.slnx` (modern XML format).
 - **Port 5000 conflict** — Vite dev server and API both default to 5000. Docker maps API to `5000:8080`. Local dev: API runs on 5000, Vite on 5173.
-- **MSW required for builds** — run `bunx msw init public --save` before `bun run build` or the service worker won't be registered.
-- **GitHub Pages build** — needs `GITHUB_PAGES=true`, `VITE_USE_MSW=true`, and `cp dist/index.html dist/404.html` for SPA routing.
+- **MSW service worker** — run `bunx msw init public --save` only for builds that explicitly set `VITE_USE_MSW=true`; normal development and production builds keep it disabled.
+- **GitHub Pages build** — needs `GITHUB_PAGES=true`, `VITE_USE_MSW=false`, and `cp dist/index.html dist/404.html` for SPA routing.
 - **`android/` is gitignored** — Capacitor native dirs are generated. Run `bun run cap:sync` to recreate.
 - **Integration tests are empty** — only a placeholder `Test1()` exists. Unit tests cover domain logic only.
 - **No backend CI/CD** — only frontend has GitHub Actions workflows.

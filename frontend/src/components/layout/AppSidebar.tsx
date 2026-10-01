@@ -9,6 +9,7 @@ import {
   Percent,
   LineChart,
   Upload,
+  UsersRound,
 } from "lucide-react"
 import { NavLink } from "@/components/NavLink"
 import {
@@ -31,6 +32,7 @@ import { useNavigate } from "@tanstack/react-router"
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Carteiras", url: "/carteiras", icon: Wallet },
+  { title: "Grupos e usuários", url: "/usuarios", icon: UsersRound },
   { title: "Renda Fixa", url: "/renda-fixa", icon: Landmark },
   { title: "Renda Variável", url: "/renda-variavel", icon: TrendingUp },
   { title: "Simulador", url: "/simulador", icon: Calculator },
@@ -95,8 +97,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {user?.role === 'admin' && (
-          <SidebarGroup>
+        <SidebarGroup>
             <SidebarGroupLabel className="px-2 text-xs font-medium text-muted-foreground">
               Administração
             </SidebarGroupLabel>
@@ -118,20 +119,19 @@ export function AppSidebar() {
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary/10 text-primary text-sm">
-              {user?.name.split(' ').map(n => n[0]).join('')}
+              {user?.nome.split(' ').map(n => n[0]).join('')}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex flex-1 flex-col">
-              <span className="text-sm font-medium text-sidebar-foreground">{user?.name}</span>
+              <span className="text-sm font-medium text-sidebar-foreground">{user?.nome}</span>
               <span className="text-xs text-muted-foreground">{user?.email}</span>
             </div>
           )}

@@ -47,38 +47,38 @@ public sealed class FixedIncomeStatementValuationTests
     private static async Task<(Guid PortfolioId, Guid PositionId)> RegisterAndValuePositionAsync(HttpClient client)
     {
         var portfolioResponse = await client.PostAsJsonAsync(
-            "/api/v1/portfolios", new { name = "Fixed income statement" });
+            "/api/v1/portfolios", new { instituicaoFinanceiraId = Guid.Parse("10000000-0000-4000-8000-000000000001"),  nome = "Fixed income statement" });
         portfolioResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         using var portfolioBody = JsonDocument.Parse(await portfolioResponse.Content.ReadAsStringAsync());
-        var portfolioId = portfolioBody.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+        var portfolioId = portfolioBody.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
 
         var purchaseDate = DateTime.UtcNow.AddMonths(-1);
         var purchaseResponse = await client.PostAsJsonAsync("/api/v1/investments/fixed-income", new
         {
-            portfolioId,
-            name = "CDB extrato",
-            subtype = "CDB",
-            issuer = "Banco de teste",
-            principal = 5000m,
-            statementValue = 5075m,
-            interestRate = 110m,
-            indexer = "CDI",
-            purchaseDate,
-            maturityDate = DateTime.UtcNow.AddYears(1),
-            idempotencyKey = Guid.NewGuid()
+            carteiraId = portfolioId,
+            nome = "CDB extrato",
+            subtipo = "CDB",
+            emissor = "Banco de teste",
+            valorPrincipal = 5000m,
+            valorExtrato = 5075m,
+            taxaJuros = 110m,
+            indexador = "CDI",
+            dataCompra = purchaseDate,
+            dataVencimento = DateTime.UtcNow.AddYears(1),
+            chaveIdempotencia = Guid.NewGuid()
         });
         purchaseResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         using var purchaseBody = JsonDocument.Parse(await purchaseResponse.Content.ReadAsStringAsync());
-        var positionId = purchaseBody.RootElement.GetProperty("data").GetProperty("id").GetGuid();
-        purchaseBody.RootElement.GetProperty("data").GetProperty("currentValue").GetDecimal().Should().Be(5075m);
+        var positionId = purchaseBody.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
+        purchaseBody.RootElement.GetProperty("dados").GetProperty("valorAtual").GetDecimal().Should().Be(5075m);
 
         var valuationDate = DateTime.UtcNow;
         var valuationResponse = await client.PostAsJsonAsync(
             $"/api/v1/investments/{positionId}/valuations",
-            new { totalValue = 5200m, date = valuationDate });
+            new { valorTotal = 5200m, data = valuationDate });
         valuationResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var valuationBody = JsonDocument.Parse(await valuationResponse.Content.ReadAsStringAsync());
-        valuationBody.RootElement.GetProperty("data").GetProperty("currentValue").GetDecimal().Should().Be(5200m);
+        valuationBody.RootElement.GetProperty("dados").GetProperty("valorAtual").GetDecimal().Should().Be(5200m);
 
         return (portfolioId, positionId);
     }
@@ -88,23 +88,23 @@ public sealed class FixedIncomeStatementValuationTests
         var portfolioResponse = await client.GetAsync($"/api/v1/portfolios/{portfolioId}");
         portfolioResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var portfolioBody = JsonDocument.Parse(await portfolioResponse.Content.ReadAsStringAsync());
-        var positions = portfolioBody.RootElement.GetProperty("data").GetProperty("positions");
+        var positions = portfolioBody.RootElement.GetProperty("dados").GetProperty("posicoes");
         positions.GetArrayLength().Should().Be(1);
         positions[0].GetProperty("id").GetGuid().Should().Be(positionId);
-        positions[0].GetProperty("currentValue").GetDecimal().Should().Be(5200m);
+        positions[0].GetProperty("valorAtual").GetDecimal().Should().Be(5200m);
 
         var historyResponse = await client.GetAsync($"/api/v1/investments/{positionId}/history");
         historyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var historyBody = JsonDocument.Parse(await historyResponse.Content.ReadAsStringAsync());
-        var history = historyBody.RootElement.GetProperty("data");
+        var history = historyBody.RootElement.GetProperty("dados");
         history.GetArrayLength().Should().BeGreaterThanOrEqualTo(2);
         history.EnumerateArray().Should().Contain(item =>
-            item.GetProperty("source").GetString() == "statement" &&
-            item.GetProperty("price").GetDecimal() == 1.04m);
+            item.GetProperty("origem").GetString() == "statement" &&
+            item.GetProperty("preco").GetDecimal() == 1.04m);
 
         var transactionsResponse = await client.GetAsync($"/api/v1/transactions/portfolio/{portfolioId}");
         transactionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var transactionsBody = JsonDocument.Parse(await transactionsResponse.Content.ReadAsStringAsync());
-        transactionsBody.RootElement.GetProperty("data").GetArrayLength().Should().Be(1);
+        transactionsBody.RootElement.GetProperty("dados").GetArrayLength().Should().Be(1);
     }
 }

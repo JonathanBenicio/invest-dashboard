@@ -1,6 +1,4 @@
-using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
-using System.Text.Json.Serialization;
 using InvestDashboard.Application.DTOs.Common;
 using InvestDashboard.Application.DTOs.Portfolio;
 using InvestDashboard.Application.DTOs.Trading;
@@ -19,129 +17,142 @@ public sealed class InvestimentosController(
 {
     private const int MaximumPageSize = 100;
 
+    [HttpGet("{positionId:guid}/projecao-renda-fixa")]
+    public async Task<ActionResult<RespostaApi<ProjecaoRendaFixaDto>>> GetFixedIncomeProjection(Guid positionId)
+    {
+        var estimate = await portfolios.GetFixedIncomeProjectionAsync(positionId);
+        return estimate is null
+            ? NotFound(new RespostaApi<ProjecaoRendaFixaDto>(null!, false, "Fixed income position not found."))
+            : Ok(new RespostaApi<ProjecaoRendaFixaDto>(estimate));
+    }
+
     [HttpGet]
-    public async Task<ActionResult<PaginatedResponse<PosicaoInvestimentoDto>>> GetAll(
-        [FromQuery] Guid? portfolioId,
-        [FromQuery] string? type,
-        [FromQuery] string? subtype,
-        [FromQuery] string? issuer,
-        [FromQuery] string? sector,
-        [FromQuery] string? status,
-        [FromQuery] string? search,
-        [FromQuery] string? sortBy,
-        [FromQuery] string? sortOrder,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+    public async Task<ActionResult<RespostaPaginada<PosicaoInvestimentoDto>>> GetAll(
+        [FromQuery(Name = "carteiraId")] Guid? portfolioId,
+        [FromQuery(Name = "grupoId")] Guid? grupoId,
+        [FromQuery(Name = "tipo")] string? type,
+        [FromQuery(Name = "subtipo")] string? subtype,
+        [FromQuery(Name = "emissor")] string? issuer,
+        [FromQuery(Name = "setor")] string? sector,
+        [FromQuery(Name = "situacao")] string? status,
+        [FromQuery(Name = "busca")] string? search,
+        [FromQuery(Name = "ordenarPor")] string? sortBy,
+        [FromQuery(Name = "ordem")] string? sortOrder,
+        [FromQuery(Name = "pagina")] int page = 1,
+        [FromQuery(Name = "itensPorPagina")] int pageSize = 10)
     {
         ValidatePage(page, pageSize);
         if (portfolioId.HasValue && await portfolios.GetPortfolioByIdAsync(portfolioId.Value) is null)
-            return NotFound(new ApiResponse<object>(null!, false, "Portfolio not found."));
+            return NotFound(new RespostaApi<object>(null!, false, "Portfolio not found."));
 
-        var positions = await FilterPositionsAsync(portfolioId, type, subtype, issuer, sector, status, search);
+        var positions = await FilterPositionsAsync(portfolioId, grupoId, type, subtype, issuer, sector, status, search);
         var ordered = SortPositions(positions, sortBy, sortOrder);
         var pageItems = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        return Ok(new PaginatedResponse<PosicaoInvestimentoDto>(pageItems, page, pageSize, ordered.Count));
+        return Ok(new RespostaPaginada<PosicaoInvestimentoDto>(pageItems, page, pageSize, ordered.Count));
     }
 
     [HttpGet("/api/v1/portfolios/{portfolioId:guid}/investments")]
-    public async Task<ActionResult<PaginatedResponse<PosicaoInvestimentoDto>>> GetByPortfolio(
+    public async Task<ActionResult<RespostaPaginada<PosicaoInvestimentoDto>>> GetByPortfolio(
         Guid portfolioId,
-        [FromQuery] string? type,
-        [FromQuery] string? subtype,
-        [FromQuery] string? issuer,
-        [FromQuery] string? sector,
-        [FromQuery] string? status,
-        [FromQuery] string? search,
-        [FromQuery] string? sortBy,
-        [FromQuery] string? sortOrder,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery(Name = "tipo")] string? type,
+        [FromQuery(Name = "subtipo")] string? subtype,
+        [FromQuery(Name = "emissor")] string? issuer,
+        [FromQuery(Name = "setor")] string? sector,
+        [FromQuery(Name = "situacao")] string? status,
+        [FromQuery(Name = "busca")] string? search,
+        [FromQuery(Name = "ordenarPor")] string? sortBy,
+        [FromQuery(Name = "ordem")] string? sortOrder,
+        [FromQuery(Name = "pagina")] int page = 1,
+        [FromQuery(Name = "itensPorPagina")] int pageSize = 10)
     {
-        return await GetAll(portfolioId, type, subtype, issuer, sector, status, search, sortBy, sortOrder, page, pageSize);
+        return await GetAll(portfolioId, null, type, subtype, issuer, sector, status, search, sortBy, sortOrder, page, pageSize);
     }
 
     [HttpGet("summary")]
-    public async Task<ActionResult<ApiResponse<object>>> GetSummary([FromQuery] Guid? portfolioId)
+    public async Task<ActionResult<RespostaApi<ResumoInvestimentoDto>>> GetSummary(
+        [FromQuery(Name = "carteiraId")] Guid? portfolioId)
     {
         var portfolioList = new List<CarteiraDto>();
         if (portfolioId.HasValue)
         {
             var portfolio = await portfolios.GetPortfolioByIdAsync(portfolioId.Value);
             if (portfolio is null)
-                return NotFound(new ApiResponse<object>(null!, false, "Portfolio not found."));
+                return NotFound(new RespostaApi<ResumoInvestimentoDto>(null!, false, "Portfolio not found."));
             portfolioList.Add(portfolio);
         }
         else
         {
             var page = 1;
-            PaginatedResponse<CarteiraDto> result;
+            RespostaPaginada<CarteiraDto> result;
             do
             {
                 result = await portfolios.GetUserPortfoliosAsync(page++, 100);
-                portfolioList.AddRange(result.Data);
+                portfolioList.AddRange(result.Dados);
             }
-            while (result.Pagination.HasNextPage);
+            while (result.Paginacao.TemProximaPagina);
         }
 
         var positions = portfolioList.SelectMany(portfolio => portfolio.Positions).ToList();
-        var openPositions = positions.Where(position => position.Status == "open").ToList();
+        var openPositions = positions.Where(position => position.Status != "closed").ToList();
         var invested = portfolioList.Sum(portfolio => portfolio.TotalInvested);
         var current = portfolioList.Sum(portfolio => portfolio.TotalValue);
         var gain = portfolioList.Sum(portfolio => portfolio.TotalGain);
         var realizedGain = portfolioList.Sum(portfolio => portfolio.RealizedGain);
         var unrealizedGain = portfolioList.Sum(portfolio => portfolio.UnrealizedGain);
-        var summary = new
+        var summary = new ResumoInvestimentoDto
         {
-            TotalInvested = invested,
-            CurrentValue = current,
-            TotalGain = gain,
-            GainPercentage = invested > 0 ? gain / invested * 100 : 0,
-            RealizedGain = realizedGain,
-            UnrealizedGain = unrealizedGain,
-            FixedIncomeTotal = openPositions.Where(position => position.Type == "fixed_income").Sum(position => position.CurrentValue),
-            VariableIncomeTotal = openPositions.Where(position => position.Type == "variable_income").Sum(position => position.CurrentValue),
-            TopPerformers = openPositions.OrderByDescending(position => position.GainPercentage).Take(3),
-            WorstPerformers = openPositions.OrderBy(position => position.GainPercentage).Take(3)
+            TotalInvestido = invested,
+            ValorAtual = current,
+            GanhoTotal = gain,
+            PercentualGanho = invested > 0 ? gain / invested * 100 : 0,
+            GanhoRealizado = realizedGain,
+            GanhoNaoRealizado = unrealizedGain,
+            TotalRendaFixa = openPositions.Where(position => position.Type == "fixed_income").Sum(position => position.CurrentValue),
+            TotalRendaVariavel = openPositions.Where(position => position.Type == "variable_income").Sum(position => position.CurrentValue),
+            MelhoresPosicoes = openPositions.OrderByDescending(position => position.GainPercentage).Take(3).ToList(),
+            PioresPosicoes = openPositions.OrderBy(position => position.GainPercentage).Take(3).ToList()
         };
 
-        return Ok(new ApiResponse<object>(summary));
+        return Ok(new RespostaApi<ResumoInvestimentoDto>(summary));
     }
 
     [HttpGet("dividends")]
-    public ActionResult<PaginatedResponse<object>> GetDividends([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
+    public ActionResult<RespostaPaginada<object>> GetDividends(
+        [FromQuery(Name = "pagina")] int page = 1,
+        [FromQuery(Name = "itensPorPagina")] int pageSize = 10)
     {
         ValidatePage(page, pageSize);
-        return Ok(new PaginatedResponse<object>([], page, pageSize, 0));
+        return Ok(new RespostaPaginada<object>([], page, pageSize, 0));
     }
 
     [HttpGet("{id:guid}/transactions")]
-    public async Task<ActionResult<PaginatedResponse<TransacaoDto>>> GetTransactions(
+    public async Task<ActionResult<RespostaPaginada<TransacaoDto>>> GetTransactions(
         Guid id,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+        [FromQuery(Name = "pagina")] int page = 1,
+        [FromQuery(Name = "itensPorPagina")] int pageSize = 10)
     {
         ValidatePage(page, pageSize);
         var position = await portfolios.GetPositionByIdAsync(id);
         if (position is null)
-            return NotFound(new ApiResponse<object>(null!, false, "Investment not found."));
+            return NotFound(new RespostaApi<object>(null!, false, "Investment not found."));
 
         var all = await transactions.GetTransactionsByPortfolioIdAsync(position.CarteiraId);
         var matching = all.Where(transaction => transaction.AtivoId == position.AtivoId).ToList();
         var pageItems = matching.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        return Ok(new PaginatedResponse<TransacaoDto>(pageItems, page, pageSize, matching.Count));
+        return Ok(new RespostaPaginada<TransacaoDto>(pageItems, page, pageSize, matching.Count));
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<PosicaoInvestimentoDto>>> GetById(Guid id)
+    public async Task<ActionResult<RespostaApi<PosicaoInvestimentoDto>>> GetById(Guid id)
     {
         var position = await portfolios.GetPositionByIdAsync(id);
         return position is null
-            ? NotFound(new ApiResponse<PosicaoInvestimentoDto>(null!, false, "Investment not found."))
-            : Ok(new ApiResponse<PosicaoInvestimentoDto>(position));
+            ? NotFound(new RespostaApi<PosicaoInvestimentoDto>(null!, false, "Investment not found."))
+            : Ok(new RespostaApi<PosicaoInvestimentoDto>(position));
     }
 
     [HttpPost("fixed-income")]
-    public async Task<ActionResult<ApiResponse<PosicaoInvestimentoDto>>> CreateFixedIncome([FromBody] CriarRendaFixaDto request)
+    public async Task<ActionResult<RespostaApi<PosicaoInvestimentoDto>>> CreateFixedIncome([FromBody] CriarRendaFixaDto request)
     {
         var ticker = CreateFixedIncomeTicker(request.IdempotencyKey);
         var transaction = await transactions.RegisterTransactionAsync(new RegistrarTransacaoDto
@@ -159,6 +170,8 @@ public sealed class InvestimentosController(
             InterestRate = request.InterestRate,
             Indexer = request.Indexer,
             MaturityDate = request.MaturityDate,
+            Liquidity = request.Liquidity,
+            Convention = request.Convention,
             TransactionDate = request.PurchaseDate,
             IdempotencyKey = request.IdempotencyKey
         });
@@ -166,12 +179,12 @@ public sealed class InvestimentosController(
         var position = await portfolios.GetUserPositionsAsync(request.CarteiraId);
         var created = position.FirstOrDefault(item => item.AtivoId == transaction.AtivoId);
         return created is null
-            ? StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>(null!, false, "The investment could not be loaded after saving."))
-            : CreatedAtAction(nameof(GetById), new { id = created.Id }, new ApiResponse<PosicaoInvestimentoDto>(created));
+            ? StatusCode(StatusCodes.Status500InternalServerError, new RespostaApi<object>(null!, false, "The investment could not be loaded after saving."))
+            : CreatedAtAction(nameof(GetById), new { id = created.Id }, new RespostaApi<PosicaoInvestimentoDto>(created));
     }
 
     [HttpPost("variable-income")]
-    public async Task<ActionResult<ApiResponse<PosicaoInvestimentoDto>>> CreateVariableIncome([FromBody] CriarRendaVariavelDto request)
+    public async Task<ActionResult<RespostaApi<PosicaoInvestimentoDto>>> CreateVariableIncome([FromBody] CriarRendaVariavelDto request)
     {
         var transaction = await transactions.RegisterTransactionAsync(new RegistrarTransacaoDto
         {
@@ -191,41 +204,44 @@ public sealed class InvestimentosController(
         var positions = await portfolios.GetUserPositionsAsync(request.CarteiraId);
         var created = positions.FirstOrDefault(item => item.AtivoId == transaction.AtivoId);
         return created is null
-            ? StatusCode(StatusCodes.Status500InternalServerError, new ApiResponse<object>(null!, false, "The investment could not be loaded after saving."))
-            : CreatedAtAction(nameof(GetById), new { id = created.Id }, new ApiResponse<PosicaoInvestimentoDto>(created));
+            ? StatusCode(StatusCodes.Status500InternalServerError, new RespostaApi<object>(null!, false, "The investment could not be loaded after saving."))
+            : CreatedAtAction(nameof(GetById), new { id = created.Id }, new RespostaApi<PosicaoInvestimentoDto>(created));
     }
 
     [HttpPost("{id:guid}/valuations")]
-    public async Task<ActionResult<ApiResponse<PosicaoInvestimentoDto>>> AddStatementValuation(Guid id, [FromBody] RegistrarAvaliacaoDto request)
+    public async Task<ActionResult<RespostaApi<PosicaoInvestimentoDto>>> AddStatementValuation(Guid id, [FromBody] RegistrarAvaliacaoDto request)
     {
         var position = await portfolios.UpdatePositionValuationAsync(id, request.TotalValue, request.Date);
         return position is null
-            ? NotFound(new ApiResponse<PosicaoInvestimentoDto>(null!, false, "Investment not found."))
-            : Ok(new ApiResponse<PosicaoInvestimentoDto>(position));
+            ? NotFound(new RespostaApi<PosicaoInvestimentoDto>(null!, false, "Investment not found."))
+            : Ok(new RespostaApi<PosicaoInvestimentoDto>(position));
     }
 
     [HttpGet("{id:guid}/history")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<PrecoHistoricoDto>>>> GetHistory(Guid id, [FromQuery] DateTime? fromDate)
+    public async Task<ActionResult<RespostaApi<IReadOnlyList<PrecoHistoricoDto>>>> GetHistory(
+        Guid id,
+        [FromQuery(Name = "dataDe")] DateTime? fromDate)
     {
         var position = await portfolios.GetPositionByIdAsync(id);
         if (position is null)
-            return NotFound(new ApiResponse<IReadOnlyList<PrecoHistoricoDto>>(null!, false, "Investment not found."));
+            return NotFound(new RespostaApi<IReadOnlyList<PrecoHistoricoDto>>(null!, false, "Investment not found."));
 
-        return Ok(new ApiResponse<IReadOnlyList<PrecoHistoricoDto>>(
+        return Ok(new RespostaApi<IReadOnlyList<PrecoHistoricoDto>>(
             await portfolios.GetPriceHistoryAsync(id, fromDate)));
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id)
+    public async Task<ActionResult<RespostaApi<bool>>> Delete(Guid id)
     {
         var deleted = await portfolios.DeleteInvestmentAsync(id);
         return deleted
-            ? Ok(new ApiResponse<bool>(true))
-            : NotFound(new ApiResponse<bool>(false, false, "Investment not found."));
+            ? Ok(new RespostaApi<bool>(true))
+            : NotFound(new RespostaApi<bool>(false, false, "Investment not found."));
     }
 
     private async Task<List<PosicaoInvestimentoDto>> FilterPositionsAsync(
         Guid? portfolioId,
+        Guid? grupoId,
         string? type,
         string? subtype,
         string? issuer,
@@ -233,7 +249,7 @@ public sealed class InvestimentosController(
         string? status,
         string? search)
     {
-        var positions = await portfolios.GetUserPositionsAsync(portfolioId);
+        var positions = await portfolios.GetUserPositionsAsync(portfolioId, grupoId);
         return positions
             .Where(position => string.IsNullOrWhiteSpace(type) || position.Type.Equals(type, StringComparison.OrdinalIgnoreCase))
             .Where(position => string.IsNullOrWhiteSpace(subtype) || position.Subtype.Equals(subtype, StringComparison.OrdinalIgnoreCase))
@@ -254,11 +270,11 @@ public sealed class InvestimentosController(
         var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
         Func<PosicaoInvestimentoDto, object> key = sortBy?.ToLowerInvariant() switch
         {
-            "name" => position => position.Name,
+            "nome" => position => position.Name,
             "ticker" => position => position.Ticker,
-            "totalinvested" => position => position.TotalInvested,
-            "currentvalue" => position => position.CurrentValue,
-            "gainpercentage" => position => position.GainPercentage,
+            "totalinvestido" => position => position.TotalInvested,
+            "valoratual" => position => position.CurrentValue,
+            "percentualganho" => position => position.GainPercentage,
             _ => position => position.Ticker
         };
 
@@ -279,59 +295,4 @@ public sealed class InvestimentosController(
         return "RF" + Convert.ToHexString(hash)[..18];
     }
 
-    public sealed class CriarRendaFixaDto
-    {
-        [JsonPropertyName("portfolioId")]
-        [Required]
-        public Guid CarteiraId { get; set; }
-        [Required, StringLength(200)]
-        public string Name { get; set; } = string.Empty;
-        [Required, StringLength(20)]
-        public string Subtype { get; set; } = string.Empty;
-        [Required, StringLength(200)]
-        public string Issuer { get; set; } = string.Empty;
-        [Range(typeof(decimal), "0.00000001", "100000000000000", ParseLimitsInInvariantCulture = true)]
-        public decimal Principal { get; set; }
-        [Range(typeof(decimal), "0", "100000000000000", ParseLimitsInInvariantCulture = true)]
-        public decimal StatementValue { get; set; }
-        [Range(typeof(decimal), "0", "10000", ParseLimitsInInvariantCulture = true)]
-        public decimal InterestRate { get; set; }
-        [Required, StringLength(20)]
-        public string Indexer { get; set; } = string.Empty;
-        public DateTime MaturityDate { get; set; }
-        public DateTime PurchaseDate { get; set; }
-        [Required]
-        public Guid IdempotencyKey { get; set; }
-    }
-
-    public sealed class CriarRendaVariavelDto
-    {
-        [JsonPropertyName("portfolioId")]
-        [Required]
-        public Guid CarteiraId { get; set; }
-        [Required, StringLength(20)]
-        public string Ticker { get; set; } = string.Empty;
-        [Required, RegularExpression("^(ACAO|FII|ETF|BDR|CRYPTO)$")]
-        public string Subtype { get; set; } = string.Empty;
-        [StringLength(200)]
-        public string? Name { get; set; }
-        [StringLength(100)]
-        public string? Sector { get; set; }
-        [Range(typeof(decimal), "0.00000001", "100000000000000", ParseLimitsInInvariantCulture = true)]
-        public decimal Quantity { get; set; }
-        [Range(typeof(decimal), "0.00000001", "100000000000000", ParseLimitsInInvariantCulture = true)]
-        public decimal UnitPrice { get; set; }
-        [Range(typeof(decimal), "0", "100000000000000", ParseLimitsInInvariantCulture = true)]
-        public decimal Fees { get; set; }
-        public DateTime TransactionDate { get; set; }
-        [Required]
-        public Guid IdempotencyKey { get; set; }
-    }
-
-    public sealed class RegistrarAvaliacaoDto
-    {
-        [Range(typeof(decimal), "0", "100000000000000", ParseLimitsInInvariantCulture = true)]
-        public decimal TotalValue { get; set; }
-        public DateTime Date { get; set; }
-    }
 }
