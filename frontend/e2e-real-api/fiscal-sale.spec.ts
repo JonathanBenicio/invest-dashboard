@@ -6,13 +6,14 @@ test('stock sale requires fiscal modality and persists the selected category', a
   const token = createAccessToken(jwtSecret!)
   const authorization = { Authorization: `Bearer ${token}` }
   const portfolio = await createPortfolio(request, token, `Venda fiscal E2E ${Date.now()}`)
+  const ticker = `E2E${Date.now().toString().slice(-6)}3`
   const transactionUrl = `${apiUrl}/api/v1/transactions`
 
   const purchaseResponse = await request.post(transactionUrl, {
     headers: authorization,
     data: {
       carteiraId: portfolio.id,
-      ticker: 'WEGE3',
+      ticker,
       tipo: 'Buy',
       classeAtivo: 'ACAO',
       nome: 'WEG',
@@ -29,7 +30,7 @@ test('stock sale requires fiscal modality and persists the selected category', a
     headers: authorization,
     data: {
       carteiraId: portfolio.id,
-      ticker: 'WEGE3',
+      ticker,
       tipo: 'Sell',
       classeAtivo: 'ACAO',
       quantidade: 1,
@@ -43,7 +44,7 @@ test('stock sale requires fiscal modality and persists the selected category', a
 
   await mockRefreshSession(page, token)
   await page.goto('/renda-variavel')
-  const stockRow = page.getByRole('row').filter({ hasText: 'WEGE3' })
+  const stockRow = page.getByRole('row').filter({ hasText: ticker })
   await expect(stockRow).toBeVisible()
   await stockRow.getByRole('button').click()
   await page.getByRole('menuitem', { name: 'Vender' }).click()
