@@ -1,1 +1,43 @@
-using System;\nusing System.Collections.Generic;\n\nnamespace InvestDashboard.Application.DTOs.Common\n{\n    public class MetadadosPaginacao\n    {\n        public int Pagina { get; set; }\n        public int ItensPorPagina { get; set; }\n        public int TotalItens { get; set; }\n        public int TotalPaginas { get; set; }\n        public bool TemProximaPagina { get; set; }\n        public bool TemPaginaAnterior { get; set; }\n    }\n\n    public class RespostaPaginada<T>\n    {\n        public List<T> Dados { get; set; } = new();\n        public bool Sucesso { get; set; }\n        public string? Mensagem { get; set; }\n        public MetadadosPaginacao Paginacao { get; set; } = new();\n\n        public RespostaPaginada() { }\n\n        public RespostaPaginada(List<T> dados, int pagina, int itensPorPagina, int totalItens, bool sucesso = true, string? mensagem = null)\n        {\n            Dados = dados;\n            Sucesso = sucesso;\n            Mensagem = mensagem;\n\n            var totalPaginas = (int)Math.Ceiling(totalItens / (double)itensPorPagina);\n            Paginacao = new MetadadosPaginacao\n            {\n                Pagina = pagina,\n                ItensPorPagina = itensPorPagina,\n                TotalItens = totalItens,\n                TotalPaginas = totalPaginas,\n                TemProximaPagina = pagina < totalPaginas,\n                TemPaginaAnterior = pagina > 1\n            };\n        }\n    }\n}\n
+using System;
+using System.Collections.Generic;
+
+namespace InvestDashboard.Application.DTOs.Common
+{
+    public class MetadadosPaginacao
+    {
+        public int Pagina { get; set; }
+        public int ItensPorPagina { get; set; }
+        public int TotalItens { get; set; }
+        public int TotalPaginas { get; set; }
+        public bool TemProximaPagina { get; set; }
+        public bool TemPaginaAnterior { get; set; }
+    }
+
+    public class RespostaPaginada<T>
+    {
+        public List<T> Dados { get; set; } = new();
+        public bool Sucesso { get; set; }
+        public string? Mensagem { get; set; }
+        public MetadadosPaginacao Paginacao { get; set; } = new();
+
+        public RespostaPaginada() { }
+
+        public RespostaPaginada(List<T> dados, int pagina, int itensPorPagina, int totalItens, bool sucesso = true, string? mensagem = null)
+        {
+            Dados = dados;
+            Sucesso = sucesso;
+            Mensagem = mensagem;
+
+            var totalPaginas = (int)Math.Ceiling(totalItens / (double)itensPorPagina);
+            Paginacao = new MetadadosPaginacao
+            {
+                Pagina = pagina,
+                ItensPorPagina = itensPorPagina,
+                TotalItens = totalItens,
+                TotalPaginas = totalPaginas,
+                TemProximaPagina = pagina < totalPaginas,
+                TemPaginaAnterior = pagina > 1
+            };
+        }
+    }
+}
