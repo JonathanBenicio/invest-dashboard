@@ -40,7 +40,7 @@ public sealed class GrupoCarteirasAppService(
     {
         var caller = await repository.GetMemberAsync(grupoId, usuarioId, cancellationToken);
         if (caller is null || !caller.Ativo || caller.Papel != PapelGrupo.Admin) return null;
-        if (!Enum.TryParse<PapelGrupo>(papel, true, out var role)) return false;
+        if (!Enum.TryParse<PapelGrupo>(papel, true, out var role) || !Enum.IsDefined(role)) return false;
         var member = await repository.GetMemberByIdAsync(grupoId, membroId, cancellationToken);
         if (member is null) return false;
         if (member.Papel == PapelGrupo.Admin && role != PapelGrupo.Admin && await repository.CountActiveAdminsAsync(grupoId, cancellationToken) <= 1) return false;
@@ -102,6 +102,8 @@ public sealed class GrupoCarteirasAppService(
                 timeProvider.GetUtcNow().UtcDateTime), cancellationToken);
         else
         {
+            if (member.Ativo && member.Papel == PapelGrupo.Admin && invitation.Papel != PapelGrupo.Admin &&
+                await repository.CountActiveAdminsAsync(grupoId, cancellationToken) <= 1) return false;
             member.AlterarPapel(invitation.Papel);
             member.Reativar();
         }

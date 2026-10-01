@@ -95,7 +95,7 @@ Atualizado em 29/09/2026 após auditoria das telas, contratos e integrações. O
 
 ## P3 — Gate final de release
 
-1. [x] Builds .NET e frontend; 47 testes unitários (2 live ignorados), 58 integrações PostgreSQL, E2E MSW 14/14 e E2E real API/PostgreSQL 11/11 passaram. Smoke Compose anterior confirmou `/health/live`, `/health/ready` e frontend 200. Live Brapi público passou pelo cliente real. O teste live de Supabase segue ignorado sem conta dedicada.
+1. [x] Builds .NET e frontend; 47 testes unitários (2 live ignorados), 66 integrações PostgreSQL, E2E MSW 14/14 e E2E real API/PostgreSQL 11/11 passaram. Smoke Compose anterior confirmou `/health/live`, `/health/ready` e frontend 200. Live Brapi público passou pelo cliente real. O teste live de Supabase segue ignorado sem conta dedicada.
 2. [~] Supabase/Brapi com credenciais reais não foram homologados. Supabase sem conta de teste; Brapi sem token/limites da conta. PostgreSQL local não substitui autenticação externa.
 3. Revisar logs/configuração para excluir credenciais; verificar que produção, GitHub Pages e Android build usam `VITE_USE_MSW=false`.
 4. [x] Atualizar dependências sem `--force`, sincronizar `bun.lock` e `package-lock.json`; `npm audit` atual: zero advisories.

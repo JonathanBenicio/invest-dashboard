@@ -18,7 +18,8 @@
 
 ## Validação
 
-- [x] Suíte .NET Release executada contra PostgreSQL 15 em Docker: 47 testes unitários e 58 de integração aprovados; 2 testes live que dependem de serviços externos ficaram ignorados. Os testes de contrato Brapi cobrem 401/403/429, timeout, falha de rede, JSON inválido, cotação sem horário, ticker ausente e histórico vazio.
+- [x] Suíte .NET Release executada contra PostgreSQL 15 em Docker: 47 testes unitários e 66 de integração aprovados; 2 testes live que dependem de serviços externos ficaram ignorados. Os testes de contrato Brapi cobrem 401/403/429, timeout, falha de rede, JSON inválido, cotação sem horário, ticker ausente e histórico vazio.
+- [x] Revisão de membros: aceitar convite não pode rebaixar o último Admin ativo; papéis numéricos indefinidos são rejeitados. Testes cobrem Investidor/Consulta, 999/0/-1, rebaixamento permitido com outro Admin e preservação do membro/convite em PostgreSQL.
 - [x] E2E Playwright: 14/14 cenários MSW e 11/11 fluxos reais UI/API/PostgreSQL aprovados, sem flakiness; o único cenário ignorado é a homologação live de Supabase, que requer credenciais de teste. A cobertura real inclui grupo/titular/instituição/visibilidade, venda fiscal, projeção sem taxa, histórico de taxa, importação CSV e avaliação manual de renda fixa.
 - [x] Typecheck (`bun x tsc -p tsconfig.app.json --noEmit`) e build de produção (`bun run build -- --outDir /tmp/invest-dashboard-final-build`) aprovados. ESLint: 0 erros e 10 avisos existentes de Fast Refresh; o build também informa Browserslist desatualizado e bundle principal acima de 500 KB.
 - [x] Migrações atuais foram exercitadas pela suíte de integração PostgreSQL, incluindo persistência de perfis/instituições e metadados do histórico.
