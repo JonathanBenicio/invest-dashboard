@@ -26,6 +26,14 @@ test('stock sale requires fiscal modality and persists the selected category', a
   })
   expect(purchaseResponse.status()).toBe(201)
 
+  const positionsResponse = await request.get(`${apiUrl}/api/v1/investments?carteiraId=${portfolio.id}`, {
+    headers: authorization,
+  })
+  expect(positionsResponse.status()).toBe(200)
+  const position = ((await positionsResponse.json()).dados as Array<{ id: string; ticker: string }>)
+    .find(item => item.ticker === ticker)
+  expect(position).toBeDefined()
+
   const rejectedSale = await request.post(transactionUrl, {
     headers: authorization,
     data: {
@@ -46,8 +54,9 @@ test('stock sale requires fiscal modality and persists the selected category', a
   await page.goto('/renda-variavel')
   const stockRow = page.getByRole('row').filter({ hasText: ticker })
   await expect(stockRow).toBeVisible()
-  await stockRow.getByRole('button').click()
-  await page.getByRole('menuitem', { name: 'Vender' }).click()
+  await page.goto(`/investimento/${position!.id}`)
+  await expect(page.getByRole('heading', { name: 'WEG' })).toBeVisible()
+  await page.getByRole('button', { name: 'Vender' }).click()
 
   const modality = page.locator('#trade-tax-modality')
   await expect(modality).toHaveAttribute('required', '')
