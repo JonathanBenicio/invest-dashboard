@@ -19,7 +19,7 @@ export default function Login() {
     e.preventDefault()
 
     try {
-      await login({ email, password })
+      await login({ email, senha: password })
       toast({
         title: "Login realizado com sucesso!",
         description: "Bem-vindo de volta ao InvestPro.",

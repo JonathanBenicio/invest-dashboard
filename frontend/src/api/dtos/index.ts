@@ -1,23 +1,23 @@
 // Base DTOs
 export type {
-  ApiResponse,
-  PaginatedResponse,
-  PaginationParams,
-  BaseEntity,
-  ErrorResponse,
+  RespostaApi,
+  RespostaPaginada,
+  ParametrosPaginacao,
+  EntidadeBase,
+  RespostaErro,
 } from './base.dto'
 
 // Auth DTOs
 export type {
-  LoginRequest,
-  RegisterRequest,
-  AuthenticatedUserDto,
-  AuthSessionDto,
-  UserDto,
-  AuthResponse,
-  TokenResponse,
-  PasswordResetRequest,
-  PasswordChangeRequest,
+  SolicitacaoLogin,
+  SolicitacaoCadastro,
+  UsuarioAutenticadoDto,
+  SessaoAutenticacaoDto,
+  UsuarioDto,
+  RespostaAutenticacao,
+  RespostaToken,
+  SolicitacaoRedefinicaoSenha,
+  SolicitacaoAlteracaoSenha,
 } from './auth.dto'
 
 // Portfolio DTOs
@@ -25,10 +25,18 @@ export type {
   CarteiraDto,
   ResumoCarteiraDto,
   AlocacaoAtivoDto,
-  PontoPerformanceDto,
   CriarCarteiraRequest,
   AtualizarCarteiraRequest,
   CarteiraFiltros,
+  PontoHistoricoCarteiraDto,
+  GrupoCarteirasDto,
+  MembroGrupoDto,
+  ConvitePendenteGrupoDto,
+  ResultadoConviteGrupoDto,
+  InstituicaoFinanceiraDto,
+  ResumoCarteirasDto,
+  ProjecaoRendaFixaDto,
+  ProjecaoRendaFixaConsolidadaDto,
 } from './portfolio.dto'
 
 // Investment DTOs
@@ -44,6 +52,8 @@ export type {
   AtualizarInvestimentoRequest,
   InvestimentoFiltros,
   ResumoInvestimentoDto,
+  PrecoHistoricoDto,
+  ProventoDto,
 } from './investment.dto'
 
 // Brapi DTOs
@@ -55,13 +65,17 @@ export type {
   BrapiHistoricalResponse,
 } from './brapi.dto'
 
-export type { MarketQuoteDto, MarketSearchResultDto, MarketHistoryPointDto } from './market-data.dto'
+export type { CotacaoMercadoDto, ResultadoBuscaMercadoDto, PontoHistoricoMercadoDto } from './market-data.dto'
+export type { PontoBenchmarkCdiDto, SerieBenchmarkCdiDto } from './benchmark.dto'
 
 // Taxes DTOs
 export type {
   TaxaEconomicaDto,
+  TaxaEconomicaHistoricoDto,
   CriarTaxaEconomicaRequest,
   AtualizarTaxaEconomicaRequest,
+  EstimativaImpostoMensalDto,
+  CategoriaImpostoEstimadoDto,
 } from './taxes.dto'
 
 // Simulation DTOs
@@ -76,5 +90,6 @@ export type {
 export type {
   TransacaoDto,
   RegistrarTransacaoRequest,
+  AtualizarTransacaoRequest,
   TransacaoFiltros,
 } from './transacao.dto'

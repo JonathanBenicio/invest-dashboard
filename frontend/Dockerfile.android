@@ -35,7 +35,7 @@ COPY . .
 RUN npm install
 
 # Build the web app
-ARG VITE_USE_MSW=true
+ARG VITE_USE_MSW=false
 ARG VERSION_CODE=1
 ARG VERSION_NAME=1.0
 ENV VITE_USE_MSW=$VITE_USE_MSW

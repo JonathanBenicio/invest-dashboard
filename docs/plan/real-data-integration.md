@@ -1,10 +1,33 @@
 # Plano: remover mocks de produto e integrar frontend/backend
 
-Atualizado em 29/09/2026. A implementação de análise real, importação CSV e remoção dos fixtures de produto foi commitada em `605bbc5`; backend/PostgreSQL, frontend e Docker smoke passaram na CI. O E2E de importação pelo navegador contra API/PostgreSQL reais passou localmente sem MSW; apenas a sessão de autenticação é controlada pelo teste. A CI do commit `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654) passou nos quatro jobs. Uma consulta pública Brapi sem token foi bem-sucedida; validação de autenticação Supabase e operação Brapi sustentada em homologação continuam pendentes.
+Atualizado em 29/09/2026. O estado pós-fechamento está em [functional-gaps.md](functional-gaps.md) e [complete-active-plan.md](complete-active-plan.md). Vencimento, estimativa fiscal, CDI BCB, live Brapi, builds/testes e smoke Compose já foram implementados/validados conforme esses documentos. Supabase real aguarda uma conta de homologação; veja [como configurá-la localmente](supabase-auth-homologation.md). Os CSVs de corretoras têm plano específico em [broker-csv-import-plan.md](broker-csv-import-plan.md). Ibovespa B3 foi movido para funcionalidade futura por decisão do usuário.
+
+## Auditoria funcional antes dos serviços externos
+
+Em 29/09/2026, a revisão de rotas, telas, serviços, hooks, mocks e respostas da API não encontrou outra tela ativa de posições apresentando fixtures como dados do usuário. Dashboard, renda fixa/variável, detalhe da carteira, importação, histórico e taxas diferenciam erro de resultado vazio e apresentam retry onde aplicável. Também foi removido do resumo o campo de histórico que o servidor sempre devolvia vazio; o histórico verdadeiro continua no endpoint dedicado. Os gaps ainda abertos são rastreados em [functional-gaps.md](functional-gaps.md).
+
+Validação desta correção: E2E de estados de erro 3/3 e suíte MSW 7/7. O CRUD manual de taxas foi corrigido para persistir os campos submetidos e seu teste de integração passou 1/1. Uma chamada pública sem token à cotação Brapi respondeu HTTP 200 com um resultado e `regularMarketTime`; isso verifica conectividade básica, não autenticação, limites ou estabilidade sustentada.
+
+### Gaps que permanecem fora da etapa local
+
+- Supabase: URL/chave publicável foram configuradas somente no `.env` ignorado pelo Git; o Compose injeta-as no backend. Auth settings HTTP 200 confirmou e-mail habilitado, cadastro aberto e confirmação obrigatória. Postgres ficou saudável, API live/ready e frontend responderam HTTP 200. Login/refresh/claims ainda não foram homologados por falta de conta de teste; REST de schema retornou HTTP 401. A secret key fornecida não foi usada nem armazenada.
+- Brapi: falta homologar configuração real, token se aplicável, limites, timeout, respostas incompletas e disponibilidade sustentada.
+- Historicamente, vencimento, tributos e benchmarks estavam pendentes; eles foram concluídos/parcialmente fechados na atualização pós-auditoria descrita no roadmap. Importação específica de layouts de corretora aguarda amostras e segue o [plano de CSV](broker-csv-import-plan.md).
+- A coleta e visualização do Tesouro Transparente são trabalho futuro documentado abaixo. Fluxo de caixa e proventos pertencem ao [plano futuro de baixa prioridade](future-low-priority.md).
+
+Na continuação da validação Brapi, a consulta histórica pública retornou `close` e `adjustedClose`, sem `rawClose`. O cliente exigia `includeRaw=true` e descartava todos os pontos, o que esvaziava o histórico usado pela análise. A requisição agora não pede o campo Pro; mapeia `adjustedClose` (marcando a série como ajustada) e usa `close` quando o ajustado não está disponível. O teste unitário de contrato valida ambos os casos. A chamada real foi leitura sem token e respondeu HTTP 200; faltam limites, falhas transitórias e homologação com token configurado.
+
+O MSW estava de fato ativo neste checkout por `.env.local` e era o padrão do build Android. Ambos foram corrigidos para `false`; MSW continua disponível de forma opt-in nos E2E/demonstração. Ver roadmap em [functional-gaps.md](functional-gaps.md).
+
+A busca de ativo também foi verificada contra a rota Brapi atual (HTTP 200 e formato esperado). A tela `StockSearch` agora distingue erro de provedor de busca vazia, descarta resultados antigos durante nova consulta e permite repetir a busca. O cliente tem teste de mapeamento e de indisponibilidade; homologação sob os limites da conta contratada continua na fase P0.1.
+
+O projeto Supabase foi localizado a partir da configuração frontend. Seu endpoint público de configuração de Auth respondeu HTTP 200; a tela não consumia o cliente direto `@supabase/supabase-js`, então removi esse módulo e a dependência para manter um único caminho de autenticação via API. O schema remoto continua sem inspeção: REST respondeu 401 e as ferramentas operacionais MCP não estão disponíveis nesta sessão.
+
+Configuração subsequente: o Compose passou a usar `SUPABASE_PUBLISHABLE_KEY` (chave legada `anon` está em depreciação) e `.env` local recebeu URL/chave publicável, mais senhas aleatórias locais para Postgres e JWT. Não foi usada `SUPABASE_SECRET_KEY`. `SupabaseAuthProvider` recebeu cobertura local 5/5; cadastro/login real não foram enviados por falta de conta de teste. O Compose completo iniciou, criou volume local vazio e passou health checks; frontend -> Nginx -> API foi confirmado por `POST /api/v1/auth/refresh` retornando 401 sem cookie.
 
 ## Objetivo e limites
 
-Conectar as telas do produto aos contratos reais de API e eliminar valores simulados apresentados como dados do usuário. A ordem começa pelo acompanhamento de posições. Fluxo de caixa, proventos e pagamentos permanecem fora do escopo até a etapa posterior explicitamente definida pelo usuário.
+Conectar as telas do produto aos contratos reais de API e eliminar valores simulados apresentados como dados do usuário. A ordem começa pelo acompanhamento de posições. Fluxo de caixa, proventos e pagamentos pertencem ao [plano futuro de baixa prioridade](future-low-priority.md).
 
 O MSW pode continuar como ferramenta de testes e demonstração local. Ele não pode ser ativado por padrão, no deploy, nem mascarar uma falha da API como se fosse dado real. Os fixtures de teste devem ser identificáveis como dados de teste.
 
@@ -12,7 +35,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 - O backend já expõe carteiras, posições, transações, histórico patrimonial, cotações, taxas econômicas e simulações.
 - Dashboard, carteiras, telas de renda variável/fixa, detalhes de posição, taxas e simulador já usam alguns desses endpoints; a conexão real ainda precisa de verificação integrada.
-- `Analysis.tsx` consumia séries estáticas de carteira, Ibovespa, CDI, setores e proventos. Em `605bbc5`, passou a consumir carteira, posições e histórico do backend, calcula alocação/resultados das posições abertas e está na navegação. Benchmark continua indisponível sem fonte real.
+- `Analysis.tsx` consumia séries estáticas de carteira, Ibovespa, CDI, setores e proventos. Agora consulta carteira, posições, histórico e CDI oficial BCB; Ibovespa está no backlog futuro. Fluxo de caixa/proventos está no plano futuro de baixa prioridade.
 - `Import.tsx` simulava leitura e conclusão sem chamar API. Em `605bbc5`, lê CSV delimitado, valida compra/venda e dados de renda fixa, envia operações sequencialmente ao ledger, mostra resultados por linha e permite retry seguro para falhas transitórias.
 - `FixedIncomeProjection.tsx` era código sem rota/uso conhecido e projetava rendimentos com CDI/IPCA fixos; foi removido em `605bbc5`.
 - `frontend/src/lib/mock-data.ts` fornecia fixtures e formatação. Os consumidores ativos de formatação foram migrados para `lib/utils.ts` e o arquivo foi removido em `605bbc5`.
@@ -65,19 +88,19 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 ### Fase 4 — remover caminhos de dados simulados expostos
 
-1. Buscar todos os imports de fixture em `frontend/src/pages`, `components` e `hooks`, incluindo usos indiretos de valores de exemplo.
-2. Para cada página roteada, ligar a API existente; quando não houver endpoint, remover a promessa de funcionalidade e manter estado de indisponibilidade explícito.
-3. Manter os handlers MSW apenas como fixtures de teste/demo opt-in. Não ativar MSW nos workflows de build, deploy, Docker ou runtime normal.
-4. Revisar chat, usuários administrativos e corretoras: criar backend seguro apenas se fizerem parte do escopo acordado; até lá, manter fora da navegação e não exibir confirmação fictícia.
+1. [x] Auditar imports de fixtures nas telas, componentes, hooks e store: nenhuma rota de produto importa `mocks/data`; o único `Math.random` restante dimensiona visualmente um skeleton.
+2. [x] Confirmar que telas roteadas de posição, carteira, análise, importação, taxas e simulação usam serviços API e que falhas de carteira/posição/histórico/summary/importação são exibidas separadamente de listas vazias.
+3. [x] Manter MSW somente opt-in para testes/demonstração; build e execução real usam `VITE_USE_MSW=false`.
+4. [x] Confirmar que chat e gerenciamento mockado de usuários não estão no roteador/navegação e não anunciam sucesso em telas de produto.
 
 **Aceite:** uma auditoria de imports/rotas não encontra dataset de negócio hardcoded sendo usado por uma tela de produto; `VITE_USE_MSW=false` em todos os ambientes de produção.
 
 ### Fase 5 — conexão das capacidades backend existentes
 
-1. Verificar taxas: CRUD autenticado, valores observados/data/fonte e comportamento sem taxas cadastradas.
-2. Verificar simulador: request e response reais, validação de limites, mensagens de erro e atualização da UI.
-3. Não usar taxa codificada ou resposta do MSW como taxa corrente em cálculos apresentados como reais; identificar taxa fornecida manualmente pelo usuário.
-4. Confirmar testes de autorização e isolamento multiusuário no PostgreSQL.
+1. [x] Verificar taxas: CRUD autenticado, edição de nome/símbolo/valores/descrição/fonte, data de atualização, estado vazio e erros explícitos. O teste de integração da API confirma lista vazia, criação, edição completa, variação e exclusão em InMemory; a UI usa a API e não carrega taxa demo.
+2. [x] Verificar simulador: request e response reais, validação de limites, mensagens de erro e atualização da UI. E2E sem MSW cobre sucesso e falha HTTP no endpoint real.
+3. [x] Não usar taxa codificada nem resposta do MSW como taxa corrente em cálculos apresentados como reais; a tela do simulador identifica a taxa manual fornecida pelo usuário.
+4. [x] Confirmar testes de autorização e isolamento multiusuário no PostgreSQL.
 
 **Aceite:** cada tela de negócio roteada possui contrato explícito, estado de erro real e teste de integração que cobre a conexão relevante.
 
@@ -98,7 +121,7 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 ## Fora desta entrega
 
-Fluxo de caixa, pagamentos de proventos e apuração fiscal completa. Esses itens exigem seus próprios contratos, critérios e validações; não devem ser substituídos por mocks na fase de posições.
+Apuração fiscal completa exige critérios e validações próprios. Fluxo de caixa e pagamentos de proventos foram movidos para o [plano futuro de baixa prioridade](future-low-priority.md).
 
 ## Fase futura solicitada: coleta do Tesouro Transparente
 

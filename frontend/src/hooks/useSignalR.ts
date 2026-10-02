@@ -34,12 +34,12 @@ export const useSignalR = (tickers: string[] = []) => {
       .withAutomaticReconnect()
       .build()
 
-    connection.on('OnPriceUpdate', (data: { ticker: string; price: number; observedAtUtc?: string; updatedAt?: string; source?: string }) => {
-      if (data && data.ticker) {
+    connection.on('OnPriceUpdate', (data: { ticker: string; preco: number; observadoEmUtc: string; origem: string }) => {
+      if (data?.ticker && data.observadoEmUtc) {
         setObservation(data.ticker, {
-          price: data.price,
-          observedAtUtc: data.observedAtUtc ?? data.updatedAt ?? new Date().toISOString(),
-          source: data.source ?? 'brapi',
+          price: data.preco,
+          observedAtUtc: data.observadoEmUtc,
+          source: data.origem,
         })
       }
     })

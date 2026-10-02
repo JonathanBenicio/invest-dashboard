@@ -1,15 +1,16 @@
 import { create } from 'zustand'
 import { authService } from '@/api/services/auth.service'
-import type { AuthenticatedUserDto, AuthSessionDto, LoginRequest, RegisterRequest } from '@/api/dtos'
+import type { UsuarioAutenticadoDto, SessaoAutenticacaoDto, SolicitacaoLogin, SolicitacaoCadastro } from '@/api/dtos'
 import { queryClient } from '@/lib/query-client'
 
 interface AuthState {
-  user: AuthenticatedUserDto | null
+  user: UsuarioAutenticadoDto | null
   accessToken: string | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (credentials: LoginRequest) => Promise<AuthSessionDto>
-  register: (request: RegisterRequest) => Promise<AuthSessionDto>
+  login: (credentials: SolicitacaoLogin) => Promise<SessaoAutenticacaoDto>
+  register: (request: SolicitacaoCadastro) => Promise<SessaoAutenticacaoDto>
+  acceptInvitation: (request: { grupoId: string; conviteId: string; tokenHash?: string; tokenSupabase?: string }) => Promise<SessaoAutenticacaoDto>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
   clearSession: () => void
@@ -18,14 +19,14 @@ interface AuthState {
 }
 
 function storeSession(
-  session: AuthSessionDto,
+  session: SessaoAutenticacaoDto,
   set: (partial: Partial<AuthState>) => void,
-  currentUser: AuthenticatedUserDto | null,
+  currentUser: UsuarioAutenticadoDto | null,
 ) {
-  if (currentUser?.id !== session.user.id) queryClient.clear()
+  if (currentUser?.id !== session.usuario.id) queryClient.clear()
   set({
-    user: session.user,
-    accessToken: session.accessToken,
+    user: session.usuario,
+    accessToken: session.tokenAcesso,
     isAuthenticated: true,
     isLoading: false,
   })
@@ -47,8 +48,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (credentials) => {
     set({ isLoading: true })
     try {
-      const session = (await authService.login(credentials)).data
-      if (!session?.accessToken) throw new Error('Login response did not include an access token.')
+      const session = (await authService.login(credentials)).dados
+      if (!session?.tokenAcesso) throw new Error('Login response did not include an access token.')
       storeSession(session, set, get().user)
       return session
     } catch (error) {
@@ -60,12 +61,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (request) => {
     set({ isLoading: true })
     try {
-      const session = (await authService.register(request)).data
+      const session = (await authService.register(request)).dados
       if (!session) throw new Error('Registration response is invalid.')
-      if (session.requiresEmailConfirmation || !session.accessToken) {
+      if (session.requerConfirmacaoEmail || !session.tokenAcesso) {
         get().clearSession()
         return session
       }
+      storeSession(session, set, get().user)
+      return session
+    } catch (error) {
+      get().clearSession()
+      throw error
+    }
+  },
+
+  acceptInvitation: async (request) => {
+    set({ isLoading: true })
+    try {
+      const session = (await authService.acceptInvitation(request)).dados
+      if (!session?.tokenAcesso) throw new Error('O convite não gerou uma sessão válida.')
       storeSession(session, set, get().user)
       return session
     } catch (error) {
@@ -87,8 +101,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   checkAuth: async () => {
     set({ isLoading: true })
     try {
-      const session = (await authService.refresh()).data
-      if (!session?.accessToken) throw new Error('Refresh response did not include an access token.')
+      const session = (await authService.refresh()).dados
+      if (!session?.tokenAcesso) throw new Error('Refresh response did not include an access token.')
       storeSession(session, set, get().user)
     } catch {
       get().clearSession()
@@ -96,7 +110,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   hasPermission: (permission) => {
-    const role = get().user?.role
+    const role = get().user?.perfil
     if (!role) return false
     if (permission === 'admin') return role === 'admin'
     return permission === 'view' || role === 'admin' || role === 'user'

@@ -6,54 +6,54 @@
 /**
  * Standard API Response wrapper
  */
-export interface ApiResponse<T> {
-  data: T
-  success: boolean
-  message?: string
+export interface RespostaApi<T> {
+  dados: T
+  sucesso: boolean
+  mensagem?: string
 }
 
 /**
  * Paginated API Response
  */
-export interface PaginatedResponse<T> {
-  data: T[]
-  success: boolean
-  message?: string
-  pagination: {
-    page: number
-    pageSize: number
-    totalCount: number
-    totalPages: number
-    hasNextPage: boolean
-    hasPreviousPage: boolean
+export interface RespostaPaginada<T> {
+  dados: T[]
+  sucesso: boolean
+  mensagem?: string
+  paginacao: {
+    pagina: number
+    itensPorPagina: number
+    totalItens: number
+    totalPaginas: number
+    temProximaPagina: boolean
+    temPaginaAnterior: boolean
   }
 }
 
 /**
  * Pagination request parameters
  */
-export interface PaginationParams {
-  page?: number
-  pageSize?: number
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
+export interface ParametrosPaginacao {
+  pagina?: number
+  itensPorPagina?: number
+  ordenarPor?: string
+  ordem?: 'asc' | 'desc'
 }
 
 /**
  * Base entity with common fields
  */
-export interface BaseEntity {
+export interface EntidadeBase {
   id: string
-  createdAt: string
-  updatedAt: string
+  criadoEm: string
+  atualizadoEm: string
 }
 
 /**
  * Error response from API
  */
-export interface ErrorResponse {
-  success: false
-  message: string
-  code?: string
-  errors?: Record<string, string[]>
+export interface RespostaErro {
+  sucesso: false
+  mensagem: string
+  codigo?: string
+  erros?: Record<string, string[]>
 }

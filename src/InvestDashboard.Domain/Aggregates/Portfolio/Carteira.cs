@@ -12,6 +12,15 @@ public class Carteira : AggregateRoot<Guid>
     private readonly List<PosicaoInvestimento> _positions = new();
 
     public string UserId { get; private set; }
+    public Guid? GrupoId { get; private set; }
+    public Guid? TitularId { get; private set; }
+    public TitularCarteira? TitularProfile { get; private set; }
+    public string Titular { get; private set; } = string.Empty;
+    public string? InstituicaoFinanceira { get; private set; }
+    public CategoriaInstituicaoFinanceira? TipoInstituicao { get; private set; }
+    public Guid? InstituicaoFinanceiraId { get; private set; }
+    public InstituicaoFinanceira? InstituicaoFinanceiraProfile { get; private set; }
+    public VisibilidadeCarteira Visibilidade { get; private set; } = VisibilidadeCarteira.Particular;
     public string Name { get; private set; }
     public string? Description { get; private set; }
     public decimal Balance { get; private set; }
@@ -27,7 +36,12 @@ public class Carteira : AggregateRoot<Guid>
     public decimal TotalReturnAmount => TotalAssetsValue - TotalAssetsCost;
     public decimal TotalReturnPercentage => TotalAssetsCost > 0 ? (TotalReturnAmount / TotalAssetsCost) * 100 : 0;
 
-    public Carteira(Guid id, string userId, string name, decimal initialBalance = 0, string? description = null)
+    public Carteira(Guid id, string userId, string name, decimal initialBalance = 0, string? description = null,
+        Guid? grupoId = null, string? titular = null, string? instituicaoFinanceira = null,
+        CategoriaInstituicaoFinanceira? tipoInstituicao = null,
+        VisibilidadeCarteira visibilidade = VisibilidadeCarteira.Particular,
+        Guid? titularId = null,
+        Guid? instituicaoFinanceiraId = null)
         : base(id)
     {
         if (string.IsNullOrWhiteSpace(userId))
@@ -40,9 +54,38 @@ public class Carteira : AggregateRoot<Guid>
             throw new ArgumentException("Initial balance cannot be negative", nameof(initialBalance));
 
         UserId = userId;
+        GrupoId = grupoId;
+        TitularId = titularId;
+        Titular = string.IsNullOrWhiteSpace(titular) ? userId : titular.Trim();
+        InstituicaoFinanceira = string.IsNullOrWhiteSpace(instituicaoFinanceira) ? null : instituicaoFinanceira.Trim();
+        TipoInstituicao = tipoInstituicao;
+        InstituicaoFinanceiraId = instituicaoFinanceiraId;
+        Visibilidade = visibilidade;
         Name = name.Trim();
         Balance = initialBalance;
         Description = NormalizeDescription(description);
+    }
+
+    public void AssociarTitular(TitularCarteira titular)
+    {
+        ArgumentNullException.ThrowIfNull(titular);
+        if (!GrupoId.HasValue || titular.GrupoId != GrupoId.Value)
+            throw new ArgumentException("Holder profile must belong to the portfolio group.", nameof(titular));
+        TitularId = titular.Id;
+        TitularProfile = titular;
+        Titular = titular.Nome;
+        Version++;
+    }
+
+    public void AssociarInstituicao(InstituicaoFinanceira? instituicao)
+    {
+        if (instituicao is not null && instituicao.GrupoId.HasValue && instituicao.GrupoId != GrupoId)
+            throw new ArgumentException("A custom institution must belong to the portfolio group.", nameof(instituicao));
+        InstituicaoFinanceiraProfile = instituicao;
+        InstituicaoFinanceiraId = instituicao?.Id;
+        InstituicaoFinanceira = instituicao?.Nome;
+        TipoInstituicao = instituicao?.Categoria;
+        Version++;
     }
 
     public void UpdateDetails(string? name, string? description)
@@ -60,6 +103,21 @@ public class Carteira : AggregateRoot<Guid>
         if (updatedName == Name && updatedDescription == Description) return;
         Name = updatedName;
         Description = updatedDescription;
+        Version++;
+    }
+
+    public void UpdateOwnershipDetails(string? titular, string? instituicaoFinanceira,
+        CategoriaInstituicaoFinanceira? tipoInstituicao, VisibilidadeCarteira visibilidade)
+    {
+        if (titular is not null)
+        {
+            if (string.IsNullOrWhiteSpace(titular)) throw new ArgumentException("Holder name is required.", nameof(titular));
+            Titular = titular.Trim();
+        }
+        if (instituicaoFinanceira is not null)
+            InstituicaoFinanceira = string.IsNullOrWhiteSpace(instituicaoFinanceira) ? null : instituicaoFinanceira.Trim();
+        if (tipoInstituicao.HasValue) TipoInstituicao = tipoInstituicao;
+        Visibilidade = visibilidade;
         Version++;
     }
 
@@ -96,8 +154,8 @@ public class Carteira : AggregateRoot<Guid>
         if (transaction is null)
             throw new ArgumentNullException(nameof(transaction));
 
-        if (transaction.UserId != UserId)
-            throw new InvalidOperationException("Transaction does not belong to the owner of this carteira");
+        if (string.IsNullOrWhiteSpace(transaction.UserId))
+            throw new InvalidOperationException("Transaction must retain the identity of its author");
 
         Version++;
 

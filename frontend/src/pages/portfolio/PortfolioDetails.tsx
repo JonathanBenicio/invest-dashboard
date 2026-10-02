@@ -19,7 +19,7 @@ import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { investmentService } from "@/api/services/investment.service"
 import { portfolioService } from "@/api/services/portfolio.service"
-import type { RendaFixaDto, RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, TipoRendaFixa } from "@/api/dtos"
+import type { PosicaoInvestimentoDto, RendaFixaDto, RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, TipoRendaFixa } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 
 export default function PortfolioDetails() {
@@ -28,8 +28,8 @@ export default function PortfolioDetails() {
   const { toast } = useToast()
 
   // Queries
-  const { data: portfolioResponse, isLoading: isLoadingPortfolio } = usePortfolio(id)
-  const { data: summaryResponse } = usePortfolioSummary(id)
+  const { data: portfolioResponse, isLoading: isLoadingPortfolio, isError: isPortfolioError, refetch: refetchPortfolio } = usePortfolio(id)
+  const { data: summaryResponse, isError: isSummaryError, refetch: refetchSummary } = usePortfolioSummary(id)
   const historyRange = useMemo(() => {
     const today = new Date()
     const from = new Date(today)
@@ -39,20 +39,20 @@ export default function PortfolioDetails() {
       toDate: today.toISOString().slice(0, 10),
     }
   }, [])
-  const { data: historyResponse, isLoading: isLoadingHistory, isError: isHistoryError } = useQuery({
+  const { data: historyResponse, isLoading: isLoadingHistory, isError: isHistoryError, refetch: refetchHistory } = useQuery({
     queryKey: ["portfolio-history", id, historyRange],
     queryFn: () => portfolioService.getHistory(id, historyRange.fromDate, historyRange.toDate),
   })
 
-  const portfolio = portfolioResponse?.data
-  const summary = summaryResponse?.data
-  const completeHistory = historyResponse?.data
-    .filter(point => point.isComplete && point.totalValue !== null)
+  const portfolio = portfolioResponse?.dados
+  const summary = summaryResponse?.dados
+  const completeHistory = historyResponse?.dados
+    .filter(point => point.estaCompleto && point.valorTotal !== null)
     .map(point => ({
-      date: new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(point.date)),
-      value: point.totalValue as number,
+      date: new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(new Date(point.data)),
+      value: point.valorTotal as number,
     })) ?? []
-  const hasIncompleteHistory = historyResponse?.data.some(point => !point.isComplete) ?? false
+  const hasIncompleteHistory = historyResponse?.dados.some(point => !point.estaCompleto) ?? false
 
   // Fixed Income Table State
   const [fixedPagination, setFixedPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 5 })
@@ -69,68 +69,68 @@ export default function PortfolioDetails() {
   // Filters construction
   const fixedFilters: InvestimentoFiltros = useMemo(() => {
     const filters: InvestimentoFiltros = {
-      portfolioId: id,
-      page: fixedPagination.pageIndex + 1,
-      pageSize: fixedPagination.pageSize,
-      search: fixedGlobalFilter || undefined,
-      sortBy: fixedSorting[0]?.id,
-      sortOrder: fixedSorting[0]?.desc ? 'desc' : 'asc',
+      carteiraId: id,
+      pagina: fixedPagination.pageIndex + 1,
+      itensPorPagina: fixedPagination.pageSize,
+      busca: fixedGlobalFilter || undefined,
+      ordenarPor: fixedSorting[0]?.id,
+      ordem: fixedSorting[0]?.desc ? 'desc' : 'asc',
     }
-    const subtype = fixedColumnFilters.find(f => f.id === 'subtype')?.value
-    if (subtype) filters.subtype = subtype as TipoRendaFixa
-    const issuer = fixedColumnFilters.find(f => f.id === 'issuer')?.value
-    if (issuer) filters.issuer = issuer as string
+    const subtype = fixedColumnFilters.find(f => f.id === 'subtipo')?.value
+    if (subtype) filters.subtipo = subtype as TipoRendaFixa
+    const issuer = fixedColumnFilters.find(f => f.id === 'emissor')?.value
+    if (issuer) filters.emissor = issuer as string
     return filters
   }, [id, fixedPagination, fixedSorting, fixedColumnFilters, fixedGlobalFilter])
 
   const variableFilters: InvestimentoFiltros = useMemo(() => {
     const filters: InvestimentoFiltros = {
-      portfolioId: id,
-      page: variablePagination.pageIndex + 1,
-      pageSize: variablePagination.pageSize,
-      search: variableGlobalFilter || undefined,
-      sortBy: variableSorting[0]?.id,
-      sortOrder: variableSorting[0]?.desc ? 'desc' : 'asc',
+      carteiraId: id,
+      pagina: variablePagination.pageIndex + 1,
+      itensPorPagina: variablePagination.pageSize,
+      busca: variableGlobalFilter || undefined,
+      ordenarPor: variableSorting[0]?.id,
+      ordem: variableSorting[0]?.desc ? 'desc' : 'asc',
     }
-    const subtype = variableColumnFilters.find(f => f.id === 'subtype')?.value
-    if (subtype) filters.subtype = subtype as TipoRendaVariavel
-    const sector = variableColumnFilters.find(f => f.id === 'sector')?.value
-    if (typeof sector === 'string') filters.sector = sector
+    const subtype = variableColumnFilters.find(f => f.id === 'subtipo')?.value
+    if (subtype) filters.subtipo = subtype as TipoRendaVariavel
+    const sector = variableColumnFilters.find(f => f.id === 'setor')?.value
+    if (typeof sector === 'string') filters.setor = sector
     return filters
   }, [id, variablePagination, variableSorting, variableColumnFilters, variableGlobalFilter])
 
   // Data fetching
-  const { data: fixedResponse, isLoading: isLoadingFixed, refetch: refetchFixed } = useFixedIncomeInvestments(fixedFilters)
-  const { data: variableResponse, isLoading: isLoadingVariable, refetch: refetchVariable } = useVariableIncomeInvestments(variableFilters)
+  const { data: fixedResponse, isLoading: isLoadingFixed, isError: isFixedError, refetch: refetchFixed } = useFixedIncomeInvestments(fixedFilters)
+  const { data: variableResponse, isLoading: isLoadingVariable, isError: isVariableError, refetch: refetchVariable } = useVariableIncomeInvestments(variableFilters)
 
-  const fixedAssets = (fixedResponse?.data || []) as RendaFixaDto[]
+  const fixedAssets = (fixedResponse?.dados || []) as RendaFixaDto[]
 
   // Extrair tickers para assinar via SignalR
   const tickers = useMemo(() => {
-    return (variableResponse?.data || []).map(asset => asset.ticker)
-  }, [variableResponse?.data])
+    return (variableResponse?.dados || []).map(asset => asset.ticker)
+  }, [variableResponse?.dados])
 
   const { quotesBySymbol, unavailableSymbols, isLoading: isLoadingQuotes } = useMarketQuotes(tickers)
 
   // Mapeia os ativos de renda variável injetando os preços em tempo real
   const variableAssets = useMemo(() => {
-    const originalAssets = (variableResponse?.data || []) as RendaVariavelDto[]
+    const originalAssets = (variableResponse?.dados || []) as RendaVariavelDto[]
     return originalAssets.map(asset => {
       const quote = quotesBySymbol.get(asset.ticker.toUpperCase())
       if (quote) {
         return {
           ...asset,
-          currentPrice: quote.price,
-          currentPriceSource: quote.source,
-          currentPriceObservedAtUtc: quote.observedAtUtc,
-          currentValue: asset.quantity * quote.price,
-          gain: (asset.quantity * quote.price) - asset.totalInvested,
-          gainPercentage: asset.totalInvested > 0 ? (((asset.quantity * quote.price) - asset.totalInvested) / asset.totalInvested) * 100 : 0
+          precoAtual: quote.preco,
+          origemPrecoAtual: quote.origem,
+          precoObservadoEmUtc: quote.observadoEmUtc,
+          valorAtual: asset.quantidade * quote.preco,
+          ganho: (asset.quantidade * quote.preco) - asset.totalInvestido,
+          percentualGanho: asset.totalInvestido > 0 ? (((asset.quantidade * quote.preco) - asset.totalInvestido) / asset.totalInvestido) * 100 : 0
         }
       }
       return asset
     })
-  }, [variableResponse?.data, quotesBySymbol])
+  }, [variableResponse?.dados, quotesBySymbol])
 
   // Edit/Delete State
   const [editingInvestment, setEditingInvestment] = useState<RendaFixaDto | RendaVariavelDto | null>(null)
@@ -152,12 +152,12 @@ export default function PortfolioDetails() {
     setIsEditDialogOpen(true)
   }
 
-  const handleSaveInvestment = async (updated: RendaFixaDto | RendaVariavelDto, valuationDate: string) => {
+  const handleSaveInvestment = async (updated: PosicaoInvestimentoDto, valuationDate: string) => {
     if (!editingInvestment) return
     try {
         await investmentService.update(editingInvestment.id, {
-          totalValue: updated.currentValue,
-          date: new Date(`${valuationDate}T12:00:00`).toISOString(),
+          valorTotal: updated.valorAtual,
+          data: new Date(`${valuationDate}T12:00:00`).toISOString(),
         })
         setIsEditDialogOpen(false)
         toast({ title: "Investimento atualizado", description: "Sucesso." })
@@ -187,9 +187,10 @@ export default function PortfolioDetails() {
   }
 
   if (isLoadingPortfolio) return <div className="p-8 flex justify-center">Carregando carteira...</div>
+  if (isPortfolioError) return <div className="space-y-4 p-8"><p role="alert" className="text-destructive">Não foi possível carregar a carteira.</p><Button variant="outline" onClick={() => void refetchPortfolio()}>Tentar novamente</Button></div>
   if (!portfolio) return <div className="p-8 flex justify-center">Carteira não encontrada.</div>
 
-  const isProfit = portfolio.totalGain >= 0
+  const isProfit = portfolio.ganhoTotal >= 0
 
   return (
     <div className="space-y-6">
@@ -204,9 +205,9 @@ export default function PortfolioDetails() {
           <div>
             <div className="flex items-center gap-3">
               <div>
-                <h1 className="text-2xl font-bold">{portfolio.name}</h1>
+                <h1 className="text-2xl font-bold">{portfolio.nome}</h1>
                 <p className="text-muted-foreground flex items-center gap-2">
-                  {portfolio.description ?? 'Investimentos desta carteira'}
+                  {portfolio.descricao ?? 'Investimentos desta carteira'}
                 </p>
               </div>
             </div>
@@ -218,6 +219,13 @@ export default function PortfolioDetails() {
         </Button>
       </div>
 
+      {(isSummaryError || isFixedError || isVariableError) && (
+        <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">
+          Não foi possível carregar todos os dados da carteira.
+          <Button className="ml-3" variant="outline" size="sm" onClick={() => void Promise.all([refetchSummary(), refetchFixed(), refetchVariable()])}>Tentar novamente</Button>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
@@ -228,9 +236,9 @@ export default function PortfolioDetails() {
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(portfolio.totalValue)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(portfolio.valorTotal)}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {portfolio.assetsCount} ativos na carteira
+              {portfolio.quantidadeAtivos} ativos na carteira
             </p>
           </CardContent>
         </Card>
@@ -243,7 +251,7 @@ export default function PortfolioDetails() {
             <PiggyBank className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(portfolio.totalInvested)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(portfolio.totalInvestido)}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Valor aportado
             </p>
@@ -263,7 +271,7 @@ export default function PortfolioDetails() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${isProfit ? 'text-success' : 'text-destructive'}`}>
-              {formatCurrency(portfolio.totalGain)}
+              {formatCurrency(portfolio.ganhoTotal)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Resultado líquido
@@ -284,7 +292,7 @@ export default function PortfolioDetails() {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${isProfit ? 'text-success' : 'text-destructive'}`}>
-              {formatPercentage(portfolio.gainPercentage)}
+              {formatPercentage(portfolio.percentualGanho)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Desde o início
@@ -316,7 +324,7 @@ export default function PortfolioDetails() {
             <CardContent>
               <FixedIncomeTable
                 data={fixedAssets}
-                pageCount={fixedResponse?.pagination?.totalPages || 0}
+                pageCount={fixedResponse?.paginacao?.totalPaginas || 0}
                 pagination={fixedPagination}
                 setPagination={setFixedPagination}
                 sorting={fixedSorting}
@@ -340,7 +348,7 @@ export default function PortfolioDetails() {
             <CardContent>
                 <VariableIncomeTable
                     data={variableAssets}
-                    pageCount={variableResponse?.pagination?.totalPages || 0}
+                    pageCount={variableResponse?.paginacao?.totalPaginas || 0}
                     pagination={variablePagination}
                     setPagination={setVariablePagination}
                     sorting={variableSorting}
@@ -373,7 +381,12 @@ export default function PortfolioDetails() {
               <CardContent>
                 {isLoadingHistory ? (
                   <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">Carregando histórico...</div>
-                ) : isHistoryError || completeHistory.length < 2 ? (
+                ) : isHistoryError ? (
+                  <div role="alert" className="flex h-[300px] flex-col items-center justify-center gap-3 px-6 text-center text-sm text-destructive">
+                    Não foi possível carregar o histórico da carteira.
+                    <Button variant="outline" size="sm" onClick={() => void refetchHistory()}>Tentar novamente</Button>
+                  </div>
+                ) : completeHistory.length < 2 ? (
                   <div className="flex h-[300px] items-center justify-center px-6 text-center text-sm text-muted-foreground">
                     Ainda não há pontos completos suficientes. A série cresce conforme chegam cotações diárias e avaliações de extrato.
                   </div>
@@ -402,16 +415,17 @@ export default function PortfolioDetails() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={summary?.assetAllocation || []}
+                        data={summary?.alocacaoAtivos || []}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
                         outerRadius={100}
-                        dataKey="value"
-                        label={({ category, percentage }) => `${category}: ${percentage}%`}
+                        dataKey="valor"
+                        nameKey="categoria"
+                        label={({ categoria, percentual }) => `${categoria}: ${percentual}%`}
                       >
-                        {(summary?.assetAllocation || []).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color || 'hsl(var(--primary))'} />
+                        {(summary?.alocacaoAtivos || []).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.cor || 'hsl(var(--primary))'} />
                         ))}
                       </Pie>
                       <Tooltip formatter={(value: number) => formatCurrency(value)} />

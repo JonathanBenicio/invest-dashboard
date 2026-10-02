@@ -14,7 +14,7 @@ export function useMarketQuotes(symbols: string[]) {
 
   const query = useQuery({
     queryKey: ['market-data', 'quotes', normalizedSymbols],
-    queryFn: async () => (await marketDataService.getQuotes(normalizedSymbols)).data,
+    queryFn: async () => (await marketDataService.getQuotes(normalizedSymbols)).dados,
     enabled: normalizedSymbols.length > 0,
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -22,23 +22,23 @@ export function useMarketQuotes(symbols: string[]) {
   })
 
   const quotesBySymbol = useMemo(() => {
-    const quotes = new Map((query.data ?? []).map(quote => [quote.symbol.toUpperCase(), quote]))
+    const quotes = new Map((query.data ?? []).map(quote => [quote.simbolo.toUpperCase(), quote]))
 
     normalizedSymbols.forEach(symbol => {
       const realtime = observations[symbol]
       if (!realtime) return
 
       const fetched = quotes.get(symbol)
-      if (!fetched || Date.parse(realtime.observedAtUtc) >= Date.parse(fetched.observedAtUtc)) {
+      if (!fetched || Date.parse(realtime.observedAtUtc) >= Date.parse(fetched.observadoEmUtc)) {
         quotes.set(symbol, {
-          symbol,
-          name: fetched?.name ?? symbol,
-          price: realtime.price,
-          observedAtUtc: realtime.observedAtUtc,
-          currency: fetched?.currency ?? 'BRL',
-          sector: fetched?.sector,
-          subtype: fetched?.subtype,
-          source: realtime.source,
+          simbolo: symbol,
+          nome: fetched?.nome ?? symbol,
+          preco: realtime.price,
+          observadoEmUtc: realtime.observedAtUtc,
+          moeda: fetched?.moeda ?? 'BRL',
+          setor: fetched?.setor,
+          subtipo: fetched?.subtipo,
+          origem: realtime.source,
         })
       }
     })

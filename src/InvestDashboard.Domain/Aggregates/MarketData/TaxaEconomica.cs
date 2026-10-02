@@ -13,6 +13,11 @@ public class TaxaEconomica : AggregateRoot<Guid>
     public string Description { get; private set; }
     public string Source { get; private set; }
     public DateTime LastUpdate { get; private set; }
+    public Guid? GroupId { get; private set; }
+    public string Unit { get; private set; }
+    public string Periodicity { get; private set; }
+    public DateOnly ReferenceDate { get; private set; }
+    public string UpdatedByUserId { get; private set; }
 
     public TaxaEconomica(
         Guid id,
@@ -22,7 +27,12 @@ public class TaxaEconomica : AggregateRoot<Guid>
         decimal previousValue,
         string description,
         string source,
-        DateTime lastUpdate)
+        DateTime lastUpdate,
+        Guid? groupId = null,
+        string unit = "Percentual",
+        string periodicity = "Mensal",
+        DateOnly? referenceDate = null,
+        string updatedByUserId = "system")
         : base(id)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -41,16 +51,57 @@ public class TaxaEconomica : AggregateRoot<Guid>
         Description = description.Trim();
         Source = source.Trim();
         LastUpdate = lastUpdate;
+        GroupId = groupId;
+        Unit = NormalizeMetadata(unit, nameof(unit));
+        Periodicity = NormalizeMetadata(periodicity, nameof(periodicity));
+        ReferenceDate = referenceDate ?? DateOnly.FromDateTime(lastUpdate);
+        UpdatedByUserId = NormalizeMetadata(updatedByUserId, nameof(updatedByUserId));
     }
 
 #pragma warning disable CS8618
     private TaxaEconomica() { }
 #pragma warning restore CS8618
 
-    public void UpdateValue(decimal newValue, DateTime updateDate)
+    public void Update(
+        string name,
+        string symbol,
+        decimal currentValue,
+        decimal previousValue,
+        string description,
+        string source,
+        DateTime updateDate,
+        string unit = "Percentual",
+        string periodicity = "Mensal",
+        DateOnly? referenceDate = null,
+        string updatedByUserId = "system")
     {
-        PreviousValue = CurrentValue;
-        CurrentValue = newValue;
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be null or empty", nameof(name));
+        if (string.IsNullOrWhiteSpace(symbol))
+            throw new ArgumentException("Symbol cannot be null or empty", nameof(symbol));
+        if (string.IsNullOrWhiteSpace(description))
+            throw new ArgumentException("Description cannot be null or empty", nameof(description));
+        if (string.IsNullOrWhiteSpace(source))
+            throw new ArgumentException("Source cannot be null or empty", nameof(source));
+
+        Name = name.Trim();
+        Symbol = symbol.Trim().ToUpperInvariant();
+        CurrentValue = currentValue;
+        PreviousValue = previousValue;
+        Description = description.Trim();
+        Source = source.Trim();
         LastUpdate = updateDate;
+        Unit = NormalizeMetadata(unit, nameof(unit));
+        Periodicity = NormalizeMetadata(periodicity, nameof(periodicity));
+        ReferenceDate = referenceDate ?? DateOnly.FromDateTime(updateDate);
+        UpdatedByUserId = NormalizeMetadata(updatedByUserId, nameof(updatedByUserId));
+    }
+
+    private static string NormalizeMetadata(string value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Value is required.", parameterName);
+        var normalized = value.Trim();
+        if (normalized.Length > 80) throw new ArgumentOutOfRangeException(parameterName);
+        return normalized;
     }
 }

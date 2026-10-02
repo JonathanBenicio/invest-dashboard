@@ -33,10 +33,10 @@ public sealed class PositionFilteringTests
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer", FakeAuthProvider.GenerateJwt(FakeAuthProvider.TestEmail));
 
-        var portfolioResponse = await client.PostAsJsonAsync("/api/v1/portfolios", new { name = "Filter positions" });
+        var portfolioResponse = await client.PostAsJsonAsync("/api/v1/portfolios", new { instituicaoFinanceiraId = Guid.Parse("10000000-0000-4000-8000-000000000001"),  nome = "Filter positions" });
         portfolioResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         using var portfolioJson = JsonDocument.Parse(await portfolioResponse.Content.ReadAsStringAsync());
-        var portfolioId = portfolioJson.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+        var portfolioId = portfolioJson.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
 
         await RegisterTransactionAsync(client, portfolioId, "PETR4", "Petróleo", "Energia", "Buy", 2m, 10m);
         await RegisterTransactionAsync(client, portfolioId, "PETR4", "Petróleo", "Energia", "Sell", 2m, 12m);
@@ -44,27 +44,27 @@ public sealed class PositionFilteringTests
         await RegisterTransactionAsync(client, portfolioId, "WEGE3", "Weg", "Industrial", "Buy", 1m, 20m);
 
         var filtered = await client.GetAsync(
-            $"/api/v1/investments?portfolioId={portfolioId}&type=variable_income&subtype=ACAO&sector=energia&status=closed&search=petr&page=1&pageSize=1");
+            $"/api/v1/investments?carteiraId={portfolioId}&tipo=variable_income&subtipo=ACAO&setor=energia&situacao=closed&busca=petr&pagina=1&itensPorPagina=1");
 
         filtered.StatusCode.Should().Be(HttpStatusCode.OK);
         using var filteredJson = JsonDocument.Parse(await filtered.Content.ReadAsStringAsync());
         var filteredRoot = filteredJson.RootElement;
-        var filteredPositions = filteredRoot.GetProperty("data");
-        filteredRoot.GetProperty("pagination").GetProperty("totalCount").GetInt32().Should().Be(1);
+        var filteredPositions = filteredRoot.GetProperty("dados");
+        filteredRoot.GetProperty("paginacao").GetProperty("totalItens").GetInt32().Should().Be(1);
         filteredPositions.GetArrayLength().Should().Be(1);
         filteredPositions[0].GetProperty("ticker").GetString().Should().Be("PETR4");
-        filteredPositions[0].GetProperty("status").GetString().Should().Be("closed");
+        filteredPositions[0].GetProperty("situacao").GetString().Should().Be("closed");
 
         var paginated = await client.GetAsync(
-            $"/api/v1/investments?portfolioId={portfolioId}&status=open&sortBy=currentValue&sortOrder=desc&page=1&pageSize=1");
+            $"/api/v1/investments?carteiraId={portfolioId}&situacao=open&ordenarPor=valorAtual&ordem=desc&pagina=1&itensPorPagina=1");
 
         paginated.StatusCode.Should().Be(HttpStatusCode.OK);
         using var paginatedJson = JsonDocument.Parse(await paginated.Content.ReadAsStringAsync());
         var paginatedRoot = paginatedJson.RootElement;
-        var page = paginatedRoot.GetProperty("data");
-        paginatedRoot.GetProperty("pagination").GetProperty("totalCount").GetInt32().Should().Be(2);
-        paginatedRoot.GetProperty("pagination").GetProperty("page").GetInt32().Should().Be(1);
-        paginatedRoot.GetProperty("pagination").GetProperty("pageSize").GetInt32().Should().Be(1);
+        var page = paginatedRoot.GetProperty("dados");
+        paginatedRoot.GetProperty("paginacao").GetProperty("totalItens").GetInt32().Should().Be(2);
+        paginatedRoot.GetProperty("paginacao").GetProperty("pagina").GetInt32().Should().Be(1);
+        paginatedRoot.GetProperty("paginacao").GetProperty("itensPorPagina").GetInt32().Should().Be(1);
         page.GetArrayLength().Should().Be(1);
         page[0].GetProperty("ticker").GetString().Should().Be("WEGE3");
     }
@@ -81,17 +81,18 @@ public sealed class PositionFilteringTests
     {
         var response = await client.PostAsJsonAsync("/api/v1/transactions", new
         {
-            portfolioId,
+            carteiraId = portfolioId,
             ticker,
-            type,
-            assetClass = "ACAO",
-            name,
-            sector,
-            quantity,
-            unitPrice,
-            fees = 0m,
-            transactionDate = DateTime.UtcNow,
-            idempotencyKey = Guid.NewGuid()
+            tipo = type,
+            modalidadeFiscal = type == "Sell" ? "Comum" : null,
+            classeAtivo = "ACAO",
+            nome = name,
+            setor = sector,
+            quantidade = quantity,
+            precoUnitario = unitPrice,
+            taxas = 0m,
+            dataTransacao = DateTime.UtcNow,
+            chaveIdempotencia = Guid.NewGuid()
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Created);

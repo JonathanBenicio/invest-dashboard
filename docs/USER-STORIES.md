@@ -2,27 +2,27 @@
 
 ## Escopo desta revisão
 
-Revisado em 29/09/2026. A implementação frontend/API de análise, importação e acompanhamento de posições está em `develop`. Suíte .NET Release passou em 23 testes unitários e 32 integrações PostgreSQL, sem skips, incluindo timestamp de cotação, isolamento multiusuário e avaliação por extrato. Cinco E2E MSW e dois E2E sem MSW validaram importação e avaliação de renda fixa pela UI contra API/PostgreSQL, controlando apenas a sessão; o E2E de avaliação confirma valor, data/fonte no histórico e ledger sem transação duplicada. A comunicação com Supabase/Brapi/terceiros fica para a fase final conforme orientação do usuário. Lint sem erros, 10 avisos Fast Refresh. Fluxo de caixa/proventos continuam adiados.
+Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme decisão do usuário. Estado e evidência pós-implementação estão no [roadmap de gaps funcionais](plan/functional-gaps.md) e no [plano ativo de fechamento](plan/complete-active-plan.md). Fluxo de caixa/proventos estão no [plano futuro de baixa prioridade](plan/future-low-priority.md). Validação atual: 33 testes unitários, 41 integrações PostgreSQL, 8 E2E MSW, build backend/frontend, zero advisories no `npm audit` e smoke Compose 200. Supabase real ainda precisa de conta local de homologação; Ibovespa foi movido para funcionalidade futura por decisão do usuário; importação específica de corretoras aguarda amostras conforme [plano de CSV](plan/broker-csv-import-plan.md).
 
 | ID estável | História | Estado observado no código | Evidência e gap principal |
 |---|---|---|---|
 | US-AUTH-001 | Autenticação segura | JWT/autorização cobertos; Supabase real pendente | JWT curto e refresh rotativo; teste PostgreSQL/InMemory com dois usuários prova isolamento de carteira e posição, inclusive leitura e tentativas de mutação. Login/claims reais Supabase ficam para a fase final de terceiros. |
-| US-CONFIG-001 | Indicadores e taxas | Parcial; não validada | [TaxasController](../src/InvestDashboard.WebAPI/Controllers/TaxasController.cs), [modelo de taxa](../src/InvestDashboard.Domain/Aggregates/MarketData/TaxaEconomica.cs), [tela de taxas](../frontend/src/pages/tools/Taxas.tsx). CRUD genérico existe; atualização automática e uso integrado em projeções/cálculos não foram comprovados. |
+| US-CONFIG-001 | Indicadores e taxas | CRUD manual integrado; atualização automática futura | [TaxasController](../src/InvestDashboard.WebAPI/Controllers/TaxasController.cs), [modelo de taxa](../src/InvestDashboard.Domain/Aggregates/MarketData/TaxaEconomica.cs), [tela de taxas](../frontend/src/pages/tools/Taxas.tsx). Teste de integração cobre lista inicialmente vazia, criação, leitura/edição dos campos, variação, data da atualização e exclusão. Taxas persistidas ainda não alimentam automaticamente projeções/cálculos; atualização macroeconômica depende da etapa final de terceiros. |
 | US-INV-001 | Compra e venda | Implementada; fluxo validado em InMemory e PostgreSQL | Teste integrado cobre compra idempotente, venda parcial, excesso de unidades e historico incompleto. O mesmo fluxo passou contra PostgreSQL 15 local e na CI, incluindo persistência entre hosts de API. |
-| US-INV-002 | Vencimentos | Parcial; a transição descrita não foi evidenciada | [RendaFixa](../src/InvestDashboard.Domain/Aggregates/MarketData/RendaFixa.cs) armazena data de vencimento e a UI mostra projeções. Não localizei transição automática de estado para “Vencido” nem liquidação do principal/juros. |
+| US-INV-002 | Vencimentos | Implementada; estado vencido sem liquidação de caixa | Worker horário em `America/Sao_Paulo` persiste status idempotente; UI mostra “Vencido” e preserva quantidade/valor/ledger. Testes de domínio e PostgreSQL passaram. |
 | US-TAX-001 | Apuração de lucro e prejuízo | Parcial; testes de domínio passaram | Custo médio e ganho realizado são calculados, mas critérios fiscais completos e testes de casos de borda permanecem pendentes. |
-| US-TAX-002 | Imposto de Renda | Cálculos de domínio presentes; integração e regras pendentes | [CalculoImpostoService](../src/InvestDashboard.Domain/Services/CalculoImpostoService.cs) contém alíquotas/limiar codificados. Não localizei fluxo que aplique o serviço ao registrar venda nem testes específicos no catálogo de testes. As regras fiscais não foram verificadas como orientação vigente. |
-| US-PORT-001 | Histórico patrimonial | Posições, cotações e avaliações manuais com histórico | API/UI exibem origem/horário, preservam o último valor com aviso e omitem histórico incompleto. Brapi descarta preços sem `regularMarketTime`. Avaliação de renda fixa por extrato atualiza valor e histórico `statement`, validada em InMemory/PostgreSQL e por E2E sem MSW; isolamento entre usuários também coberto. Homologação Supabase/Brapi fica para fase final. |
+| US-TAX-002 | Imposto de Renda | Estimativa mensal versionada implementada em escopo limitado | Endpoint `GET /api/v1/taxes/estimativa-mensal` e análise exibem estimativa, fonte, versão e limitações. Vendas recentes podem informar modalidade; dados legados/sem modalidade são excluídos e marcados incompletos. Revisão profissional antes de release. |
+| US-PORT-001 | Histórico patrimonial | Posições, cotações e avaliações manuais com histórico | API/UI exibem origem/horário, preservam o último valor com aviso e omitem histórico incompleto. Teste live do `BrapiMarketDataClient` cobriu cotação, histórico e busca reais; limites/token da conta contratada seguem pendentes. Avaliação manual persiste no PostgreSQL; autenticação Supabase real não tem conta de homologação. |
 | US-PORT-002 | Visualização e filtragem | Implementada; filtros combinados cobertos em teste | Endpoint oferece tipo, subtipo, emissor, setor, status, busca e paginação. Teste cobre filtros combinados, ordenação e paginação em InMemory e PostgreSQL; CI de `a9ad5ac` passou. |
-| US-SIM-001 | Simulação de investimentos | Fluxo de simulação presente; integração de taxa externa não comprovada | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs), [estratégias](../src/InvestDashboard.Domain/Services/EstrategiaDeterministica.cs) e [tela](../frontend/src/pages/tools/Simulator.tsx). Recebe aportes mensais e taxa informada; ligação com SELIC configurada e validação não foram comprovadas. |
-| US-COMP-001 | Análise de posições | Parcial; carteira, posições, cotações e histórico conectados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) lê carteira, posições e histórico da API, combinando cotações atuais. Dias incompletos são sinalizados e omitidos. Benchmark CDI/Ibovespa aguarda fonte/contrato real. E2E com fixture passou. |
-| US-IMPORT-001 | Importação CSV de operações | Implementada; E2E real e CI validados | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê e valida CSV, envia operações com idempotência e atualiza consultas. [E2E](../frontend/e2e-real-api/csv-import.spec.ts) percorre a UI sem MSW, confirma transações e posições no PostgreSQL; a sessão é controlada pelo teste. Os quatro jobs passaram na CI `9066682` (https://github.com/JonathanBenicio/invest-dashboard/actions/runs/36544411654). [Teste de contrato PostgreSQL](../src/tests/InvestDashboard.IntegrationTests/Controllers/PostgresCsvImportContractTests.cs) complementa replay, rejeição e persistência entre hosts. |
+| US-SIM-001 | Simulação de investimentos | API/UI integradas; taxa informada manualmente | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs) recebe contrato PT-BR (`valorInicial`, `aporteMensal`, `taxaJurosAnual`) para estratégias determinística e Monte Carlo; frontend carrega estratégias da API (`nome/descricao`), exibe resultado e estado de erro. Seleção automática de taxa configurada ainda não integrada. |
+| US-COMP-001 | Análise de posições | Carteira/posições e CDI conectados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) lê carteira, posições, histórico e CDI diário do BCB SGS 12; normaliza ambas as séries em datas completas comuns e mostra origem/atualização. Ibovespa B3 foi movido a funcionalidade futura por decisão do usuário. |
+| US-IMPORT-001 | Importação CSV de operações | Importador genérico implementado; layouts reais aguardam amostras | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê e valida CSV, envia operações com idempotência e atualiza consultas. [E2E](../frontend/e2e-real-api/csv-import.spec.ts) percorre a UI sem MSW e confirma transações/posições no PostgreSQL. [Plano de análise de CSVs de corretoras](plan/broker-csv-import-plan.md) define o procedimento por layout; faltam amostras reais anonimizadas. |
 
 ## US-AUTH-001 — Autenticação segura
 
 **Como** investidor, **quero** realizar login seguro via e-mail/senha ou SSO, **para** acessar meus dados financeiros com privacidade.
 
-**Gap:** Teste multiusuário confirma isolamento de carteira/posição em InMemory e PostgreSQL. Login real, refresh e claims Supabase seguem pendentes para a etapa final de integração com terceiros.
+**Gap:** Teste multiusuário confirma isolamento de carteira/posição em InMemory e PostgreSQL. O teste Supabase live opt-in está pronto, mas aguarda conta confirmada. Instruções e campos locais: [homologação Supabase](plan/supabase-auth-homologation.md).
 
 ## US-CONFIG-001 — Indicadores e taxas
 
@@ -40,7 +40,7 @@ Revisado em 29/09/2026. A implementação frontend/API de análise, importação
 
 **Como** investidor, **quero** que o sistema identifique investimentos que chegaram à data de término e atualize seu status, **para** refletir vencimento e retorno na carteira.
 
-**Gap:** data/projeção de vencimento aparece no domínio/UI; mudança automática de status e crédito de principal/juros não foram encontrados. O comportamento original permanece uma proposta, não capacidade confirmada.
+**Estado:** concluído para escopo aprovado. Worker marca automaticamente “Vencido” por data de São Paulo, idempotente, mantendo valor e ledger; não lança crédito em caixa. Teste PostgreSQL verifica persistência entre hosts.
 
 ## US-TAX-001 — Apuração de lucro e prejuízo
 
@@ -52,7 +52,7 @@ Revisado em 29/09/2026. A implementação frontend/API de análise, importação
 
 **Como** investidor, **quero** que o sistema calcule ou estime Imposto de Renda sobre resultados, **para** compreender o impacto fiscal no lucro líquido.
 
-**Gap:** serviço de domínio isolado contém regras codificadas, mas sua integração com vendas não foi localizada. As regras precisam de critérios e fonte validados antes de serem requisito; este registro não é orientação fiscal.
+**Estado:** primeira estimativa mensal versionada está integrada às vendas e à análise. A regra usa classes/modalidades identificadas, separa perdas por categoria, exibe origem/premissas/exclusões e indica dados incompletos. Revisão fiscal humana ainda é requisito pré-release; não é orientação fiscal.
 
 ## US-PORT-001 — Histórico patrimonial
 
@@ -70,13 +70,15 @@ Revisado em 29/09/2026. A implementação frontend/API de análise, importação
 
 **Como** investidor, **quero** simular aportes futuros com valor, prazo e taxa, **para** projetar resultados antes de investir.
 
-**Gap:** estratégias determinística e Monte Carlo recebem taxa como entrada; integração com SELIC/CDI configurados e execução validada não foram comprovadas.
+**Estado:** contrato JSON PT-BR da API (`valorInicial`, `aporteMensal`, `anos`, `taxaJurosAnual`, `pontos`, `valorFinal`) é alinhado aos DTOs TS; a tela carrega estratégias (`id`, `nome`, `descricao`) via `/simulation/strategies` e apresenta carregamento, erro, resultado, juros e evolução.
+
+**Gap:** a taxa anual segue informada manualmente. Conectar taxas econômicas persistidas à simulação requer escolher indicador/unidade e é uma etapa futura; nenhuma taxa é inventada.
 
 ## US-COMP-001 — Análise de posições
 
 **Como** investidor, **quero** analisar valor, resultado, distribuição e histórico da carteira, **para** acompanhar minhas posições com dados atuais.
 
-**Gap:** benchmark CDI/Ibovespa não é apresentado enquanto o backend não tiver fonte histórica verificável para esses índices. Dias incompletos são omitidos do gráfico e indicados na tela.
+**Estado:** CDI diário oficial do BCB é apresentado em comparação normalizada com a carteira usando dias completos comuns. Ibovespa B3 é uma funcionalidade futura; dias sem dados não são interpolados.
 
 ## US-IMPORT-001 — Importação CSV de operações
 
@@ -84,7 +86,7 @@ Revisado em 29/09/2026. A implementação frontend/API de análise, importação
 
 **Estado:** a implementação valida campos, números brasileiros, datas, compra/venda, compra de renda fixa, carteira de destino e idempotência por linha. Operações são enviadas ao endpoint real e as consultas são invalidadas após sucesso. O MSW usado no E2E da interface é uma fixture explícita. O teste PostgreSQL confirma o contrato HTTP, idempotência, rejeição de linha inválida e persistência do ledger entre hosts.
 
-**Gap:** **Gap:** validar parsing com extratos reais anonimizados de corretoras. XLS/XLSX e conectores diretos de corretora não são suportados.
+**Gap:** validar parsing com extratos reais anonimizados de corretoras. O procedimento está em [broker-csv-import-plan.md](plan/broker-csv-import-plan.md). XLS/XLSX e conectores diretos de corretora não são suportados.
 
 ## Manutenção do catálogo
 

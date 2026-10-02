@@ -6,5 +6,7 @@ namespace InvestDashboard.Application.Interfaces
     {
         Guid? UserId { get; }
         bool IsAuthenticated { get; }
+        string? Email { get; }
+        string? Name { get; }
     }
 }

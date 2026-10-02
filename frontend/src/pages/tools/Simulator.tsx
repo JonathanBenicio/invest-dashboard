@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import { simulationService } from "@/api/services";
-import type { SimulacaoResponse } from "@/api/dtos";
+import type { SimulacaoResponse, SimulacaoEstrategia } from "@/api/dtos";
 import {
   AreaChart,
   Area,
@@ -23,32 +24,41 @@ export default function Simulator() {
   const [monthlyContribution, setMonthlyContribution] = useState<number>(500);
   const [years, setYears] = useState<number>(5);
   const [interestRate, setInterestRate] = useState<number>(10);
-  const [strategy, setStrategy] = useState<string>("deterministic");
+  const [strategy, setStrategy] = useState<SimulacaoEstrategia['id']>("deterministic");
   const [volatility, setVolatility] = useState<number>(15);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<SimulacaoResponse | null>(null);
+  const [simulationError, setSimulationError] = useState<string | null>(null);
+  const { data: strategiesResponse, isLoading: isLoadingStrategies, isError: isStrategiesError } = useQuery({
+    queryKey: ['simulation', 'strategies'],
+    queryFn: () => simulationService.getStrategies(),
+  });
+  const strategies = strategiesResponse?.dados ?? [];
 
   const handleSimulate = async () => {
+    setSimulationError(null);
     setIsLoading(true);
     try {
       const response = await simulationService.simulate({
-        initialAmount,
-        monthlyContribution,
-        years,
-        annualInterestRate: interestRate,
-        strategy: strategy as 'deterministic' | 'montecarlo',
-        volatility: strategy === 'montecarlo' ? volatility : undefined,
-        numberOfSimulations: strategy === 'montecarlo' ? 1000 : undefined,
+        valorInicial: initialAmount,
+        aporteMensal: monthlyContribution,
+        anos: years,
+        taxaJurosAnual: interestRate,
+        estrategia: strategy,
+        volatilidade: strategy === 'montecarlo' ? volatility : undefined,
+        numeroSimulacoes: strategy === 'montecarlo' ? 1000 : undefined,
       });
-      setResult(response.data);
-    } catch {
-      setResult(null);
+      setResult(response.dados);
+    } catch (error) {
+      setSimulationError(error instanceof Error
+        ? error.message
+        : "Não foi possível executar a simulação. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const simulationData = result?.points ?? [];
+  const simulationData = result?.pontos ?? [];
   const finalResult = simulationData[simulationData.length - 1];
 
   return (
@@ -110,13 +120,18 @@ export default function Simulator() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="strategy">Estratégia</Label>
-              <Select value={strategy} onValueChange={setStrategy}>
+                            <Select
+                value={strategy}
+                onValueChange={value => {
+                  if (value === 'deterministic' || value === 'montecarlo') setStrategy(value)
+                }}
+                disabled={isLoadingStrategies || isStrategiesError || strategies.length === 0}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a estratégia" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="deterministic">Matemático (Determinístico)</SelectItem>
-                  <SelectItem value="montecarlo">Estatístico (Monte Carlo)</SelectItem>
+                  {strategies.map(item => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -137,7 +152,7 @@ export default function Simulator() {
             <Button
               className="w-full"
               onClick={handleSimulate}
-              disabled={isLoading}
+              disabled={isLoading || isLoadingStrategies || isStrategiesError || strategies.length === 0}
             >
               {isLoading ? "Simulando..." : "Simular"}
             </Button>
@@ -155,7 +170,7 @@ export default function Simulator() {
                     <CardTitle className="text-sm font-medium text-muted-foreground">Total Investido</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(finalResult.invested)}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(finalResult.investido)}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -163,7 +178,7 @@ export default function Simulator() {
                     <CardTitle className="text-sm font-medium text-muted-foreground">Total em Juros</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-success">{formatCurrency(finalResult.interest)}</div>
+                    <div className="text-2xl font-bold text-success">{formatCurrency(finalResult.juros)}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -180,7 +195,7 @@ export default function Simulator() {
                 <CardHeader>
                   <CardTitle>Evolução do Patrimônio</CardTitle>
                   <CardDescription>
-                    Projeção do crescimento ao longo do tempo — {result.strategyName}
+                    Projeção do crescimento ao longo do tempo — {result.nomeEstrategia}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -202,7 +217,7 @@ export default function Simulator() {
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                         <XAxis
-                          dataKey="month"
+                          dataKey="mes"
                           tickFormatter={(value) => `${Math.floor(value / 12)} anos`}
                           minTickGap={30}
                         />
@@ -227,7 +242,7 @@ export default function Simulator() {
                         />
                         <Area
                           type="monotone"
-                          dataKey="invested"
+                          dataKey="investido"
                           name="Total Investido"
                           stroke="hsl(var(--muted-foreground))"
                           fillOpacity={1}
@@ -241,7 +256,25 @@ export default function Simulator() {
             </>
           )}
 
-          {!result && !isLoading && (
+          {isStrategiesError && (
+            <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">
+              Não foi possível carregar as estratégias pela API. Atualize a página para tentar novamente.
+            </div>
+          )}
+
+          {simulationError && (
+            <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">
+              Falha ao executar a simulação: {simulationError}
+            </div>
+          )}
+
+          {isLoading && (
+            <div role="status" className="rounded-md border p-4 text-sm text-muted-foreground">
+              Calculando com a API do simulador...
+            </div>
+          )}
+
+          {!result && !isLoading && !simulationError && !isStrategiesError && (
             <Card>
               <CardHeader>
                 <CardTitle>Simulação</CardTitle>

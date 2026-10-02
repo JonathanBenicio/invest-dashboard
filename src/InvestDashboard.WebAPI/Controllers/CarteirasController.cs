@@ -12,29 +12,40 @@ namespace InvestDashboard.WebAPI.Controllers;
 public sealed class CarteirasController(ICarteiraAppService portfolioService) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<PaginatedResponse<CarteiraDto>>> GetAll(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 10)
+    public async Task<ActionResult<RespostaPaginada<CarteiraDto>>> GetAll(
+        [FromQuery(Name = "pagina")] int page = 1,
+        [FromQuery(Name = "itensPorPagina")] int pageSize = 10,
+        [FromQuery(Name = "grupoId")] Guid? grupoId = null)
     {
-        var result = await portfolioService.GetUserPortfoliosAsync(page, pageSize);
+        var result = await portfolioService.GetUserPortfoliosAsync(page, pageSize, grupoId);
         return Ok(result);
     }
 
+    [HttpGet("resumo-geral")]
+    public async Task<ActionResult<RespostaApi<ResumoCarteirasDto>>> GetAllSummary(
+        [FromQuery(Name = "grupoId")] Guid? grupoId = null) =>
+        Ok(new RespostaApi<ResumoCarteirasDto>(await portfolioService.GetUserPortfoliosSummaryAsync(grupoId)));
+
+    [HttpGet("projecao-renda-fixa")]
+    public async Task<ActionResult<RespostaApi<ProjecaoRendaFixaConsolidadaDto>>> GetFixedIncomeProjection(
+        [FromQuery(Name = "grupoId")] Guid? grupoId = null) =>
+        Ok(new RespostaApi<ProjecaoRendaFixaConsolidadaDto>(await portfolioService.GetFixedIncomeProjectionAsync(grupoId)));
+
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<CarteiraDto>>> GetById(Guid id)
+    public async Task<ActionResult<RespostaApi<CarteiraDto>>> GetById(Guid id)
     {
         var portfolio = await portfolioService.GetPortfolioByIdAsync(id);
         return portfolio is null
-            ? NotFound(new ApiResponse<CarteiraDto>(null!, false, "Portfolio not found."))
-            : Ok(new ApiResponse<CarteiraDto>(portfolio));
+            ? NotFound(new RespostaApi<CarteiraDto>(null!, false, "Portfolio not found."))
+            : Ok(new RespostaApi<CarteiraDto>(portfolio));
     }
 
     [HttpGet("{id:guid}/summary")]
-    public async Task<ActionResult<ApiResponse<ResumoCarteiraDto>>> GetSummary(Guid id)
+    public async Task<ActionResult<RespostaApi<ResumoCarteiraDto>>> GetSummary(Guid id)
     {
         var portfolio = await portfolioService.GetPortfolioByIdAsync(id);
         if (portfolio is null)
-            return NotFound(new ApiResponse<ResumoCarteiraDto>(null!, false, "Portfolio not found."));
+            return NotFound(new RespostaApi<ResumoCarteiraDto>(null!, false, "Portfolio not found."));
 
         var allocation = portfolio.Positions
             .GroupBy(position => (position.Type, position.Subtype))
@@ -66,47 +77,46 @@ public sealed class CarteirasController(ICarteiraAppService portfolioService) : 
             Currency = portfolio.Currency,
             Positions = portfolio.Positions,
             AssetsCount = portfolio.AssetsCount,
-            AssetAllocation = allocation,
-            PerformanceHistory = []
+            AssetAllocation = allocation
         };
 
-        return Ok(new ApiResponse<ResumoCarteiraDto>(summary));
+        return Ok(new RespostaApi<ResumoCarteiraDto>(summary));
     }
 
     [HttpGet("{id:guid}/history")]
-    public async Task<ActionResult<ApiResponse<IReadOnlyList<PontoHistoricoCarteiraDto>>>> GetHistory(
+    public async Task<ActionResult<RespostaApi<IReadOnlyList<PontoHistoricoCarteiraDto>>>> GetHistory(
         Guid id,
-        [FromQuery] DateOnly? fromDate,
-        [FromQuery] DateOnly? toDate)
+        [FromQuery(Name = "dataDe")] DateOnly? fromDate,
+        [FromQuery(Name = "dataAte")] DateOnly? toDate)
     {
         var points = await portfolioService.GetPortfolioHistoryAsync(id, fromDate, toDate);
         return points is null
-            ? NotFound(new ApiResponse<IReadOnlyList<PontoHistoricoCarteiraDto>>(null!, false, "Portfolio not found."))
-            : Ok(new ApiResponse<IReadOnlyList<PontoHistoricoCarteiraDto>>(points));
+            ? NotFound(new RespostaApi<IReadOnlyList<PontoHistoricoCarteiraDto>>(null!, false, "Portfolio not found."))
+            : Ok(new RespostaApi<IReadOnlyList<PontoHistoricoCarteiraDto>>(points));
     }
 
     [HttpPost]
-    public async Task<ActionResult<ApiResponse<CarteiraDto>>> Create([FromBody] CriarCarteiraDto request)
+    public async Task<ActionResult<RespostaApi<CarteiraDto>>> Create([FromBody] CriarCarteiraDto request)
     {
         var portfolio = await portfolioService.CreatePortfolioAsync(request);
-        return CreatedAtAction(nameof(GetById), new { id = portfolio.Id }, new ApiResponse<CarteiraDto>(portfolio));
+        return CreatedAtAction(nameof(GetById), new { id = portfolio.Id }, new RespostaApi<CarteiraDto>(portfolio));
     }
 
     [HttpPatch("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<CarteiraDto>>> Update(Guid id, [FromBody] AtualizarCarteiraDto request)
+    public async Task<ActionResult<RespostaApi<CarteiraDto>>> Update(Guid id, [FromBody] AtualizarCarteiraDto request)
     {
         var portfolio = await portfolioService.UpdatePortfolioAsync(id, request);
         return portfolio is null
-            ? NotFound(new ApiResponse<CarteiraDto>(null!, false, "Portfolio not found."))
-            : Ok(new ApiResponse<CarteiraDto>(portfolio));
+            ? NotFound(new RespostaApi<CarteiraDto>(null!, false, "Portfolio not found."))
+            : Ok(new RespostaApi<CarteiraDto>(portfolio));
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<bool>>> Delete(Guid id)
+    public async Task<ActionResult<RespostaApi<bool>>> Delete(Guid id)
     {
         var deleted = await portfolioService.DeletePortfolioAsync(id);
         return deleted
-            ? Ok(new ApiResponse<bool>(true, true, "Portfolio deleted."))
-            : NotFound(new ApiResponse<bool>(false, false, "Portfolio not found."));
+            ? Ok(new RespostaApi<bool>(true, true, "Portfolio deleted."))
+            : NotFound(new RespostaApi<bool>(false, false, "Portfolio not found."));
     }
 }

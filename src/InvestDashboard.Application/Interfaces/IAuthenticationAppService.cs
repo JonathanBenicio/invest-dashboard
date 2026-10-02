@@ -4,8 +4,9 @@ namespace InvestDashboard.Application.Interfaces;
 
 public interface IAuthenticationAppService
 {
-    Task<AuthSessionDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default);
-    Task<AuthSessionDto> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken = default);
-    Task<AuthSessionDto> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
+    Task<SessaoAutenticacaoDto> LoginAsync(SolicitacaoLoginDto request, CancellationToken cancellationToken = default);
+    Task<SessaoAutenticacaoDto> RegisterAsync(SolicitacaoCadastroDto request, CancellationToken cancellationToken = default);
+    Task<SessaoAutenticacaoDto> AceitarConviteAsync(Guid groupId, Guid invitationId, string tokenHash, string? accessToken = null, CancellationToken cancellationToken = default);
+    Task<SessaoAutenticacaoDto> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task LogoutAsync(Guid? sessionId, string? refreshToken, CancellationToken cancellationToken = default);
 }

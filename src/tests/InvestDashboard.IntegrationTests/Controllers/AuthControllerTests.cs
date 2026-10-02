@@ -25,9 +25,9 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await ReadApiResponseAsync<AuthSessionResponse>(response);
-        body!.Data!.AccessToken.Should().NotBeNullOrWhiteSpace();
-        body.Data.ExpiresIn.Should().Be(900);
-        body.Data.User.Email.Should().Be(FakeAuthProvider.TestEmail);
+        body!.Dados!.TokenAcesso.Should().NotBeNullOrWhiteSpace();
+        body.Dados.ExpiraEmSegundos.Should().Be(900);
+        body.Dados.Usuario.Email.Should().Be(FakeAuthProvider.TestEmail);
         response.Headers.GetValues("Set-Cookie").Should().ContainSingle(value =>
             value.Contains("refresh_token=", StringComparison.Ordinal)
             && value.Contains("httponly", StringComparison.OrdinalIgnoreCase)
@@ -45,7 +45,7 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             email = "wrong@example.com",
-            password = "WrongPass123"
+            senha = "WrongPass123"
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
@@ -56,20 +56,20 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
     {
         var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
-            name = "New User",
+            nome = "New User",
             email = "newuser@test.com",
-            password = "NewPass@123"
+            senha = "NewPass@123"
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await ReadApiResponseAsync<AuthSessionResponse>(response);
-        body!.Data!.AccessToken.Should().NotBeNullOrWhiteSpace();
-        body.Data.User.Email.Should().Be("newuser@test.com");
+        body!.Dados!.TokenAcesso.Should().NotBeNullOrWhiteSpace();
+        body.Dados.Usuario.Email.Should().Be("newuser@test.com");
 
         var login = await _client.PostAsJsonAsync("/api/v1/auth/login", new
         {
             email = "newuser@test.com",
-            password = "NewPass@123"
+            senha = "NewPass@123"
         });
         login.StatusCode.Should().Be(HttpStatusCode.OK);
     }
@@ -79,9 +79,9 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
     {
         var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new
         {
-            name = FakeAuthProvider.TestName,
+            nome = FakeAuthProvider.TestName,
             email = FakeAuthProvider.TestEmail,
-            password = "NewPass@123"
+            senha = "NewPass@123"
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -92,7 +92,7 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
     {
         var login = await LoginAsync();
         var originalCookie = ReadRefreshCookie(login);
-        var accessToken = (await ReadApiResponseAsync<AuthSessionResponse>(login))!.Data!.AccessToken;
+        var accessToken = (await ReadApiResponseAsync<AuthSessionResponse>(login))!.Dados!.TokenAcesso;
 
         var refresh = await PostRefreshAsync(originalCookie);
         refresh.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -126,8 +126,8 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await ReadApiResponseAsync<UserResponse>(response);
-        body!.Data!.Email.Should().Be(FakeAuthProvider.TestEmail);
-        body.Data.Id.Should().Be(FakeAuthProvider.TestUserId.ToString());
+        body!.Dados!.Email.Should().Be(FakeAuthProvider.TestEmail);
+        body.Dados.Id.Should().Be(FakeAuthProvider.TestUserId.ToString());
         _client.DefaultRequestHeaders.Authorization = null;
     }
 
@@ -144,7 +144,7 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
     {
         var login = await LoginAsync();
         var cookie = ReadRefreshCookie(login);
-        var token = (await ReadApiResponseAsync<AuthSessionResponse>(login))!.Data!.AccessToken;
+        var token = (await ReadApiResponseAsync<AuthSessionResponse>(login))!.Dados!.TokenAcesso;
         using var logoutRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/logout");
         logoutRequest.Headers.Add("Cookie", cookie);
         logoutRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -159,7 +159,7 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
     private async Task<HttpResponseMessage> LoginAsync() => await _client.PostAsJsonAsync("/api/v1/auth/login", new
     {
         email = FakeAuthProvider.TestEmail,
-        password = "Test@123"
+        senha = "Test@123"
     });
 
     private async Task<HttpResponseMessage> PostRefreshAsync(string cookie)
@@ -174,10 +174,10 @@ public sealed class AuthControllerTests(CustomWebApplicationFactory factory) : I
             .Single(value => value.StartsWith("refresh_token=", StringComparison.Ordinal))
             .Split(';', 2)[0];
 
-    private static Task<ApiResponse<T>?> ReadApiResponseAsync<T>(HttpResponseMessage response) =>
-        response.Content.ReadFromJsonAsync<ApiResponse<T>>(JsonOptions);
+    private static Task<RespostaApi<T>?> ReadApiResponseAsync<T>(HttpResponseMessage response) =>
+        response.Content.ReadFromJsonAsync<RespostaApi<T>>(JsonOptions);
 
-    private sealed record ApiResponse<T>(T? Data, bool Success, string? Message);
-    private sealed record AuthSessionResponse(string AccessToken, int ExpiresIn, UserResponse User, bool RequiresEmailConfirmation);
-    private sealed record UserResponse(string Id, string Email, string Name, string Role);
+    private sealed record RespostaApi<T>(T? Dados, bool Sucesso, string? Mensagem);
+    private sealed record AuthSessionResponse(string TokenAcesso, int ExpiraEmSegundos, UserResponse Usuario, bool RequerConfirmacaoEmail);
+    private sealed record UserResponse(string Id, string Email, string Nome, string Perfil);
 }
