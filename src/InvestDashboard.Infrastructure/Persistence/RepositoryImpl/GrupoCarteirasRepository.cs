@@ -7,6 +7,15 @@ namespace InvestDashboard.Infrastructure.Persistence.RepositoryImpl;
 
 public sealed class GrupoCarteirasRepository(InvestDbContext context) : IGrupoCarteirasRepository
 {
+    public async Task LockMembershipChangesAsync(Guid groupId, CancellationToken cancellationToken = default)
+    {
+        if (!context.Database.IsNpgsql()) return;
+
+        await context.Database.SqlQuery<Guid>(
+                $"SELECT id AS \"Value\" FROM portfolio_groups WHERE id = {groupId} FOR UPDATE")
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task AddGroupAsync(GrupoCarteiras group, CancellationToken cancellationToken = default) =>
         await context.PortfolioGroups.AddAsync(group, cancellationToken);
 
@@ -32,6 +41,9 @@ public sealed class GrupoCarteirasRepository(InvestDbContext context) : IGrupoCa
     public Task<MembroGrupo?> GetMemberAsync(Guid groupId, string userId, CancellationToken cancellationToken = default) =>
         context.GroupMembers.FirstOrDefaultAsync(member => member.GrupoId == groupId && member.UsuarioId == userId, cancellationToken);
 
+    public Task ReloadMemberAsync(MembroGrupo member, CancellationToken cancellationToken = default) =>
+        context.Entry(member).ReloadAsync(cancellationToken);
+
     public Task<MembroGrupo?> GetMemberByIdAsync(Guid groupId, Guid memberId, CancellationToken cancellationToken = default) =>
         context.GroupMembers.FirstOrDefaultAsync(member => member.GrupoId == groupId && member.Id == memberId, cancellationToken);
 
@@ -44,6 +56,9 @@ public sealed class GrupoCarteirasRepository(InvestDbContext context) : IGrupoCa
 
     public Task<ConviteGrupo?> GetInvitationAsync(Guid groupId, Guid invitationId, CancellationToken cancellationToken = default) =>
         context.GroupInvitations.FirstOrDefaultAsync(invite => invite.GrupoId == groupId && invite.Id == invitationId, cancellationToken);
+
+    public Task ReloadInvitationAsync(ConviteGrupo invitation, CancellationToken cancellationToken = default) =>
+        context.Entry(invitation).ReloadAsync(cancellationToken);
 
     public Task<int> CountActiveAdminsAsync(Guid groupId, CancellationToken cancellationToken = default) =>
         context.GroupMembers.CountAsync(member => member.GrupoId == groupId && member.Ativo && member.Papel == PapelGrupo.Admin, cancellationToken);

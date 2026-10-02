@@ -135,6 +135,73 @@ public sealed class BrapiMarketDataClientTests
         history.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetDailyHistoryAsync_UsesCryptoHistoryAndAppliesTheRequestedDateRange()
+    {
+        var firstDate = DateTimeOffset.Parse("2025-06-09T00:00:00Z").ToUnixTimeSeconds();
+        var secondDate = DateTimeOffset.Parse("2025-06-10T00:00:00Z").ToUnixTimeSeconds();
+        var outsideDate = DateTimeOffset.Parse("2025-06-11T00:00:00Z").ToUnixTimeSeconds();
+        string? requestedPathAndQuery = null;
+        using var httpClient = CreateHttpClient(request =>
+        {
+            requestedPathAndQuery = request.RequestUri!.PathAndQuery;
+            return JsonResponse(JsonSerializer.Serialize(new
+            {
+                coins = new[]
+                {
+                    new
+                    {
+                        coin = "BTC",
+                        historicalDataPrice = new[]
+                        {
+                            new { date = firstDate, close = 100m },
+                            new { date = secondDate, close = 110m },
+                            new { date = outsideDate, close = 120m }
+                        }
+                    }
+                }
+            }));
+        });
+        var client = CreateMarketDataClient(httpClient);
+
+        var history = await client.GetDailyHistoryAsync(
+            ["BTC"],
+            new DateOnly(2025, 6, 9),
+            new DateOnly(2025, 6, 10));
+
+        history.Should().HaveCount(2);
+        history.Select(point => point.Price).Should().Equal(100m, 110m);
+        requestedPathAndQuery.Should().Contain("/v2/crypto?");
+        requestedPathAndQuery.Should().Contain("coin=BTC");
+        requestedPathAndQuery.Should().Contain("interval=1d");
+    }
+
+    [Fact]
+    public async Task GetQuotesAsync_BatchesMoreThanOneHundredSymbolsWithoutDroppingTheRemainder()
+    {
+        var batchSizes = new List<int>();
+        using var httpClient = CreateHttpClient(request =>
+        {
+            var query = Uri.UnescapeDataString(request.RequestUri!.Query);
+            var symbols = query[(query.IndexOf("symbols=", StringComparison.Ordinal) + "symbols=".Length)..]
+                .Split('&')[0].Split(',');
+            batchSizes.Add(symbols.Length);
+            var results = symbols.Select(symbol => new
+            {
+                symbol,
+                data = new { regularMarketPrice = 1m, regularMarketTime = "2025-06-09T12:00:00Z" }
+            });
+            return JsonResponse(JsonSerializer.Serialize(new { results }));
+        });
+        var client = CreateMarketDataClient(httpClient);
+        var symbols = Enumerable.Range(0, 101).Select(index => $"TEST{index}3").ToArray();
+
+        var quotes = await client.GetQuotesAsync(symbols);
+
+        quotes.Should().HaveCount(101);
+        batchSizes.Should().Equal(100, 1);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized)]
     [InlineData(HttpStatusCode.Forbidden)]

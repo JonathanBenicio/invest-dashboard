@@ -253,7 +253,7 @@ export const handlers = [
       .map(investment => ({
         simbolo: investment.ticker,
         nome: investment.nome,
-        preco: investment.precoAtual,
+        preco: investment.precoAtual + 1,
         observadoEmUtc: '2024-12-18T00:00:00.000Z',
         moeda: investment.moeda,
         setor: investment.setor,

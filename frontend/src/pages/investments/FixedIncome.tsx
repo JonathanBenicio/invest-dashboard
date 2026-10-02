@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { Plus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +27,7 @@ export default function FixedIncome() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedAsset, setSelectedAsset] = useState<RendaFixaDto | null>(null)
   const [groupFilterId, setGroupFilterId] = useState("")
+  const queryClient = useQueryClient()
   const { toast } = useToast()
   const { data: portfolioResponse, isError: isPortfolioError, refetch: refetchPortfolios } = usePortfolios({ pagina: 1, itensPorPagina: 100 })
   const { data: groupsResponse } = useQuery({ queryKey: ['portfolio-groups'], queryFn: groupService.list })
@@ -117,7 +118,10 @@ export default function FixedIncome() {
         title: "Ativo adicionado",
         description: `${newAssetData.nome} foi adicionado à sua carteira.`,
       })
-      refetch()
+      await Promise.all([
+        refetch(),
+        queryClient.invalidateQueries({ queryKey: ['fixed-income-projection'] }),
+      ])
     } catch (error) {
       toast({
         title: "Erro ao adicionar",
@@ -141,7 +145,10 @@ export default function FixedIncome() {
         title: "Ativo atualizado",
         description: "O ativo foi atualizado com sucesso.",
         })
-        refetch()
+        await Promise.all([
+          refetch(),
+          queryClient.invalidateQueries({ queryKey: ['fixed-income-projection'] }),
+        ])
     } catch (error) {
          toast({
         title: "Erro ao atualizar",
@@ -161,7 +168,10 @@ export default function FixedIncome() {
         title: "Ativo removido",
         description: "O ativo foi removido da sua carteira.",
         })
-        refetch()
+        await Promise.all([
+          refetch(),
+          queryClient.invalidateQueries({ queryKey: ['fixed-income-projection'] }),
+        ])
     } catch (error) {
         toast({
             title: "Erro ao remover",

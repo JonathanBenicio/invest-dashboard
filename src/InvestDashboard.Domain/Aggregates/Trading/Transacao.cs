@@ -118,8 +118,12 @@ public class Transacao : AggregateRoot<Guid>
         decimal unitPrice,
         decimal brokerageFee,
         DateTime transactionDate,
-        string? notes)
+        string? notes,
+        ModalidadeFiscal modalidadeFiscal)
     {
+        if (!Enum.IsDefined(modalidadeFiscal))
+            throw new ArgumentOutOfRangeException(nameof(modalidadeFiscal));
+
         var replacement = new Transacao(
             Id,
             UserId,
@@ -133,7 +137,7 @@ public class Transacao : AggregateRoot<Guid>
             transactionDate,
             notes,
             IdempotencyKey,
-            ModalidadeFiscal,
+            modalidadeFiscal,
             TitularId);
 
         Type = replacement.Type;
@@ -142,8 +146,9 @@ public class Transacao : AggregateRoot<Guid>
         BrokerageFee = replacement.BrokerageFee;
         TransactionDate = replacement.TransactionDate;
         Notes = replacement.Notes;
-        if (Type != TipoTransacao.Sell)
-            ModalidadeFiscal = global::InvestDashboard.Domain.Aggregates.Trading.ModalidadeFiscal.NaoInformada;
+        ModalidadeFiscal = Type == TipoTransacao.Sell
+            ? replacement.ModalidadeFiscal
+            : global::InvestDashboard.Domain.Aggregates.Trading.ModalidadeFiscal.NaoInformada;
         RealizedGain = 0;
         RealizedCostBasis = 0;
     }

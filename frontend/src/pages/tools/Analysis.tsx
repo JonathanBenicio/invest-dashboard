@@ -99,10 +99,12 @@ export default function Analysis() {
       const gain = currentValue - position.totalInvestido
       return {
         ...position,
-        currentPrice: quote.preco,
-        currentValue,
-        gain,
-        gainPercentage: position.totalInvestido > 0 ? gain / position.totalInvestido * 100 : 0,
+        precoAtual: quote.preco,
+        origemPrecoAtual: quote.origem,
+        precoObservadoEmUtc: quote.observadoEmUtc,
+        valorAtual: currentValue,
+        ganho: gain,
+        percentualGanho: position.totalInvestido > 0 ? gain / position.totalInvestido * 100 : 0,
       }
     }), [portfolio?.posicoes, quotesBySymbol])
 

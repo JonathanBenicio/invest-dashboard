@@ -90,5 +90,6 @@ export type {
 export type {
   TransacaoDto,
   RegistrarTransacaoRequest,
+  AtualizarTransacaoRequest,
   TransacaoFiltros,
 } from './transacao.dto'

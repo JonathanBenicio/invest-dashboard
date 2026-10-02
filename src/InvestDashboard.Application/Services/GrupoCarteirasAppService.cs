@@ -41,11 +41,18 @@ public sealed class GrupoCarteirasAppService(
         var caller = await repository.GetMemberAsync(grupoId, usuarioId, cancellationToken);
         if (caller is null || !caller.Ativo || caller.Papel != PapelGrupo.Admin) return null;
         if (!Enum.TryParse<PapelGrupo>(papel, true, out var role) || !Enum.IsDefined(role)) return false;
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        await repository.LockMembershipChangesAsync(grupoId, cancellationToken);
+        await repository.ReloadMemberAsync(caller, cancellationToken);
+        if (!caller.Ativo || caller.Papel != PapelGrupo.Admin) return null;
+
         var member = await repository.GetMemberByIdAsync(grupoId, membroId, cancellationToken);
         if (member is null) return false;
         if (member.Papel == PapelGrupo.Admin && role != PapelGrupo.Admin && await repository.CountActiveAdminsAsync(grupoId, cancellationToken) <= 1) return false;
         member.AlterarPapel(role);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return true;
     }
 
@@ -53,11 +60,18 @@ public sealed class GrupoCarteirasAppService(
     {
         var caller = await repository.GetMemberAsync(grupoId, usuarioId, cancellationToken);
         if (caller is null || !caller.Ativo || caller.Papel != PapelGrupo.Admin) return null;
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        await repository.LockMembershipChangesAsync(grupoId, cancellationToken);
+        await repository.ReloadMemberAsync(caller, cancellationToken);
+        if (!caller.Ativo || caller.Papel != PapelGrupo.Admin) return null;
+
         var member = await repository.GetMemberByIdAsync(grupoId, membroId, cancellationToken);
         if (member is null) return false;
         if (member.Papel == PapelGrupo.Admin && await repository.CountActiveAdminsAsync(grupoId, cancellationToken) <= 1) return false;
         member.Desativar();
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return true;
     }
 
@@ -96,6 +110,12 @@ public sealed class GrupoCarteirasAppService(
         var invitation = await repository.GetInvitationAsync(grupoId, conviteId, cancellationToken);
         if (invitation is null || !invitation.EstaPendente(timeProvider.GetUtcNow().UtcDateTime)) return false;
         if (!string.Equals(invitation.Email, email, StringComparison.OrdinalIgnoreCase)) return null;
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        await repository.LockMembershipChangesAsync(grupoId, cancellationToken);
+        await repository.ReloadInvitationAsync(invitation, cancellationToken);
+        if (!invitation.EstaPendente(timeProvider.GetUtcNow().UtcDateTime)) return false;
+
         var member = await repository.GetMemberAsync(grupoId, usuarioId, cancellationToken);
         if (member is null)
             await repository.AddMemberAsync(new MembroGrupo(Guid.NewGuid(), grupoId, usuarioId, email, nome, invitation.Papel,
@@ -109,6 +129,7 @@ public sealed class GrupoCarteirasAppService(
         }
         invitation.Aceitar(timeProvider.GetUtcNow().UtcDateTime);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return true;
     }
 }

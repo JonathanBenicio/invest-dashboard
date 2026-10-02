@@ -156,7 +156,26 @@ public sealed class TransacaoAppService(
             ?? throw new KeyNotFoundException("Portfolio not found.");
         if (!await portfolios.CanManageAsync(portfolio.Id, userId))
             throw new KeyNotFoundException("Transaction not found.");
-        transaction.UpdateDetails(type, dto.Quantity, dto.UnitPrice, dto.BrokerageFee, dto.TransactionDate, dto.Notes);
+
+        var modality = transaction.ModalidadeFiscal;
+        if (!string.IsNullOrWhiteSpace(dto.ModalidadeFiscal))
+        {
+            if (!Enum.TryParse<ModalidadeFiscal>(dto.ModalidadeFiscal, true, out modality) || !Enum.IsDefined(modality))
+                throw new ArgumentException("Fiscal modality must be Comum or DayTrade.");
+        }
+        else if (type != TipoTransacao.Sell || transaction.Type != TipoTransacao.Sell)
+        {
+            modality = ModalidadeFiscal.NaoInformada;
+        }
+
+        var asset = transaction.AtivoId.HasValue
+            ? await assets.GetByIdAsync(transaction.AtivoId.Value)
+            : null;
+        if (type == TipoTransacao.Sell && asset is not null && RequiresFiscalModality(asset) &&
+            modality == ModalidadeFiscal.NaoInformada)
+            throw new ArgumentException("Fiscal modality is required for stock and real estate fund sales.");
+
+        transaction.UpdateDetails(type, dto.Quantity, dto.UnitPrice, dto.BrokerageFee, dto.TransactionDate, dto.Notes, modality);
 
         var history = await transactions.GetByPortfolioIdAsync(portfolio.Id);
         try

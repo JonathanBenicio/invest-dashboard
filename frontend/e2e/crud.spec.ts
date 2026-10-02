@@ -86,11 +86,55 @@ test.describe('Acompanhamento de posições', () => {
     await expect(page.getByText(/112\.500,00/)).toBeVisible()
     await expect(page.getByText('Posições pendentes: TESOURO-IPCA-2029')).toBeVisible()
   })
+
+  test('atualiza a projeção consolidada após registrar um novo contrato', async ({ page }) => {
+    await page.evaluate(() => {
+      const originalFetch = window.fetch.bind(window)
+      const trackedWindow = window as Window & { fixedIncomeProjectionCalls?: number }
+      trackedWindow.fixedIncomeProjectionCalls = 0
+      window.fetch = (input, init) => {
+        const url = input instanceof Request ? input.url : input.toString()
+        if (url.includes('/portfolios/projecao-renda-fixa')) {
+          trackedWindow.fixedIncomeProjectionCalls = (trackedWindow.fixedIncomeProjectionCalls ?? 0) + 1
+        }
+        return originalFetch(input, init)
+      }
+    })
+    await page.getByRole('link', { name: 'Renda Fixa' }).click()
+    await expect(page.getByText('Projeção bruta até o vencimento')).toBeVisible()
+    await page.getByRole('button', { name: 'Adicionar contrato' }).click()
+    await page.getByText('Selecione a carteira').click()
+    await page.getByRole('option', { name: 'Carteira Principal' }).click()
+    await page.locator('#name').fill(`CDB projeção ${Date.now()}`)
+    await page.locator('#institution').fill('Banco de teste')
+    await page.locator('#investedValue').fill('1000')
+    await page.locator('#rate').fill('110')
+    await page.locator('#statementValue').fill('1010')
+    await page.locator('#purchaseDate').fill(new Date().toISOString().slice(0, 10))
+    await page.locator('#maturityDate').fill('2027-01-15')
+    await page.getByRole('button', { name: 'Adicionar', exact: true }).click()
+
+    await expect.poll(() => page.evaluate(() =>
+      (window as Window & { fixedIncomeProjectionCalls?: number }).fixedIncomeProjectionCalls ?? 0,
+    )).toBeGreaterThan(1)
+  })
+
   test('analisa posições da carteira usando os contratos da API', async ({ page }) => {
     await page.getByRole('link', { name: 'Análise' }).click()
 
     await expect(page.getByRole('heading', { name: 'Análise da carteira' })).toBeVisible()
     await expect(page.getByText(/Valores calculados a partir das posições/)).toBeVisible()
+    await page.getByRole('combobox', { name: 'Selecionar carteira' }).click()
+    await page.getByRole('option', { name: 'Renda Variável' }).click()
+    await expect(page.getByText(/47\.310,00/)).toBeVisible()
+  })
+
+  test('renderiza a alocação do resumo de carteira com os campos portugueses', async ({ page }) => {
+    await page.getByRole('link', { name: 'Carteiras' }).click()
+    await page.getByRole('button', { name: 'Abrir' }).first().click()
+    await page.getByRole('tab', { name: 'Gráficos' }).click()
+    await expect(page.getByText('Alocação por Tipo')).toBeVisible()
+    await expect(page.locator('.recharts-pie-sector')).toHaveCount(5)
   })
 
   test('abre detalhes de renda fixa com os campos portugueses do histórico', async ({ page }) => {

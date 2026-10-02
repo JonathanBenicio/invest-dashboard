@@ -41,6 +41,16 @@ export interface RegistrarTransacaoRequest {
   observacoes?: string
 }
 
+export interface AtualizarTransacaoRequest {
+  tipo: 'Buy' | 'Sell'
+  quantidade: number
+  precoUnitario: number
+  taxas: number
+  modalidadeFiscal?: 'NaoInformada' | 'Comum' | 'DayTrade'
+  dataTransacao: string
+  observacoes?: string
+}
+
 export interface TransacaoFiltros {
   carteiraId?: string
   tipo?: string

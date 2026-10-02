@@ -320,6 +320,8 @@ export const mockAllInvestments: (RendaFixaDto | RendaVariavelDto)[] = [
   ...mockVariableIncomeInvestments,
 ]
 
+mockPortfolios[1].posicoes = [...mockVariableIncomeInvestments]
+
 // Investment Summary
 export const mockInvestmentSummary: ResumoInvestimentoDto = {
   totalInvestido: 149350,

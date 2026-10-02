@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using InvestDashboard.Application.DTOs.MarketData;
 using InvestDashboard.Application.Exceptions;
@@ -35,13 +37,28 @@ public sealed class BcbCdiBenchmarkProvider(
         using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(BaseUri + query));
         request.Headers.UserAgent.Add(new ProductInfoHeaderValue("InvestDashboard", "1.0"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        using var response = await httpClient.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-            throw new MarketDataUnavailableException();
+        List<BcbSgsPoint> rows;
+        try
+        {
+            using var response = await httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+                throw new MarketDataUnavailableException();
 
-        var rows = await response.Content.ReadFromJsonAsync<List<BcbSgsPoint>>(cancellationToken);
-        if (rows is null)
+            rows = await response.Content.ReadFromJsonAsync<List<BcbSgsPoint>>(cancellationToken)
+                ?? throw new MarketDataUnavailableException();
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
             throw new MarketDataUnavailableException();
+        }
+        catch (HttpRequestException)
+        {
+            throw new MarketDataUnavailableException();
+        }
+        catch (JsonException)
+        {
+            throw new MarketDataUnavailableException();
+        }
 
         decimal index = 100m;
         var points = new List<PontoBenchmarkCdiDto>(rows.Count);

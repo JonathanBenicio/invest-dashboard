@@ -35,6 +35,45 @@ public sealed class BcbCdiBenchmarkProviderTests
         result.Origem.Should().Contain("SGS série 12");
     }
 
+    [Fact]
+    public async Task GetCdiAsync_MapsTransportFailuresToUnavailable()
+    {
+        using var client = new HttpClient(new CallbackHandler(_ => throw new HttpRequestException("Network unavailable.")));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var provider = new BcbCdiBenchmarkProvider(client, cache, TimeProvider.System);
+
+        var action = () => provider.GetCdiAsync(new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 2));
+
+        await action.Should().ThrowAsync<InvestDashboard.Application.Exceptions.MarketDataUnavailableException>();
+    }
+
+    [Fact]
+    public async Task GetCdiAsync_MapsTimeoutsToUnavailable()
+    {
+        using var client = new HttpClient(new CallbackHandler(_ => throw new TaskCanceledException("Request timed out.")));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var provider = new BcbCdiBenchmarkProvider(client, cache, TimeProvider.System);
+
+        var action = () => provider.GetCdiAsync(new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 2));
+
+        await action.Should().ThrowAsync<InvestDashboard.Application.Exceptions.MarketDataUnavailableException>();
+    }
+
+    [Fact]
+    public async Task GetCdiAsync_MapsInvalidJsonToUnavailable()
+    {
+        using var client = new HttpClient(new CallbackHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("not-json", Encoding.UTF8, "application/json")
+        }));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var provider = new BcbCdiBenchmarkProvider(client, cache, TimeProvider.System);
+
+        var action = () => provider.GetCdiAsync(new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 2));
+
+        await action.Should().ThrowAsync<InvestDashboard.Application.Exceptions.MarketDataUnavailableException>();
+    }
+
     private sealed class CallbackHandler(Func<HttpRequestMessage, HttpResponseMessage> callback) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>

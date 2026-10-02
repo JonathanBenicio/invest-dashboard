@@ -420,8 +420,9 @@ export default function PortfolioDetails() {
                         cy="50%"
                         innerRadius={60}
                         outerRadius={100}
-                        dataKey="value"
-                        label={({ category, percentage }) => `${category}: ${percentage}%`}
+                        dataKey="valor"
+                        nameKey="categoria"
+                        label={({ categoria, percentual }) => `${categoria}: ${percentual}%`}
                       >
                         {(summary?.alocacaoAtivos || []).map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.cor || 'hsl(var(--primary))'} />
