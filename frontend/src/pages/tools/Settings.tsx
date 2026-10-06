@@ -18,8 +18,8 @@ export default function Settings() {
         <CardHeader>
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={user?.avatar} alt={user?.name ?? 'Usuário'} />
-              <AvatarFallback>{user?.name.split(' ').map(part => part[0]).join('') || 'U'}</AvatarFallback>
+              <AvatarImage src={user?.avatar} alt={user?.nome ?? 'Usuário'} />
+              <AvatarFallback>{user?.nome.split(' ').map(part => part[0]).join('') || 'U'}</AvatarFallback>
             </Avatar>
             <div>
               <CardTitle>Perfil</CardTitle>
@@ -30,7 +30,7 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="profile-name">Nome</Label>
-            <Input id="profile-name" value={user?.name ?? ''} readOnly />
+            <Input id="profile-name" value={user?.nome ?? ''} readOnly />
           </div>
           <div className="space-y-2">
             <Label htmlFor="profile-email">E-mail</Label>
@@ -38,7 +38,7 @@ export default function Settings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="profile-role">Perfil de acesso</Label>
-            <Input id="profile-role" value={user?.role ?? ''} readOnly />
+            <Input id="profile-role" value={user?.perfil ?? ''} readOnly />
           </div>
         </CardContent>
       </Card>

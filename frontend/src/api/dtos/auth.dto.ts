@@ -3,85 +3,85 @@
  * Types for login, register, and token operations
  */
 
-import type { BaseEntity } from './base.dto'
+import type { EntidadeBase } from './base.dto'
 
 /**
  * Login request payload
  */
-export interface LoginRequest {
+export interface SolicitacaoLogin {
   email: string
-  password: string
-  rememberMe?: boolean
+  senha: string
+  lembrarMe?: boolean
 }
 
 /**
  * Register request payload
  */
-export interface RegisterRequest {
-  name: string
+export interface SolicitacaoCadastro {
+  nome: string
   email: string
-  password: string
+  senha: string
 }
 
-export interface AuthenticatedUserDto {
+export interface UsuarioAutenticadoDto {
   id: string
-  name: string
+  nome: string
   email: string
-  role: 'user' | 'admin'
+  perfil: 'user' | 'admin'
   avatar?: string
 }
 
-export interface AuthSessionDto {
-  accessToken: string
-  expiresIn: number
-  user: AuthenticatedUserDto
-  requiresEmailConfirmation: boolean
+export interface SessaoAutenticacaoDto {
+  tokenAcesso: string
+  expiraEmSegundos: number
+  usuario: UsuarioAutenticadoDto
+  requerConfirmacaoEmail: boolean
 }
 
 /**
  * User profile data
  */
-export interface UserDto extends BaseEntity {
-  name: string
+export interface UsuarioDto extends EntidadeBase {
+  nome: string
   email: string
   avatar?: string
-  role: 'user' | 'admin' | 'edit' | 'view'
-  isEmailVerified: boolean
-  isActive: boolean
+  perfil: 'user' | 'admin' | 'edit' | 'view'
+  emailVerificado: boolean
+  ativo: boolean
   parentesco?: string
 }
 
 /**
  * Authentication response with token and user
  */
-export interface AuthResponse {
-  user: UserDto
-  accessToken: string
-  refreshToken: string
-  expiresIn: number
+export interface RespostaAutenticacao {
+  usuario: UsuarioDto
+  tokenAcesso: string
+  tokenAtualizacao: string
+  expiraEmSegundos: number
 }
 
 /**
  * Token refresh response
  */
-export interface TokenResponse {
-  accessToken: string
-  refreshToken: string
-  expiresIn: number
+export interface RespostaToken {
+  tokenAcesso: string
+  tokenAtualizacao: string
+  expiraEmSegundos: number
 }
 
 /**
  * Password reset request
  */
-export interface PasswordResetRequest {
+export interface SolicitacaoRedefinicaoSenha {
   email: string
 }
 
 /**
  * Password change request
  */
-export interface PasswordChangeRequest {
-  currentPassword: string
-  newPassword: string
-  confirmPassword: string
+export interface SolicitacaoAlteracaoSenha {
+  senhaAtual: string
+  novaSenha: string
+  confirmarSenha: string
 }

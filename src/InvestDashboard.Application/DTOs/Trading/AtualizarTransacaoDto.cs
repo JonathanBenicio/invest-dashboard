@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace InvestDashboard.Application.DTOs.Trading;
 
@@ -13,8 +14,13 @@ public sealed class AtualizarTransacaoDto
     [Range(typeof(decimal), "0.00000001", "100000000000000", ParseLimitsInInvariantCulture = true)]
     public decimal UnitPrice { get; set; }
 
+    [JsonPropertyName("taxas")]
     [Range(typeof(decimal), "0", "100000000000000", ParseLimitsInInvariantCulture = true)]
     public decimal BrokerageFee { get; set; }
+
+    [JsonPropertyName("modalidadeFiscal")]
+    [StringLength(20)]
+    public string? ModalidadeFiscal { get; set; }
 
     public DateTime TransactionDate { get; set; }
 

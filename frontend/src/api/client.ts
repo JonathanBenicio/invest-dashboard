@@ -1,6 +1,6 @@
 import { API_CONFIG, getApiUrl } from './env'
 import { ApiError, NotFoundError, UnauthorizedError, ValidationError } from './errors'
-import type { ApiResponse, AuthSessionDto } from './dtos'
+import type { RespostaApi, SessaoAutenticacaoDto } from './dtos'
 import { useAuthStore } from '@/store/authStore'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -79,8 +79,8 @@ const refreshAccessToken = (): Promise<string | null> => {
       .then(async (response) => {
         if (!response.ok) return null
 
-        const result = await response.json() as ApiResponse<AuthSessionDto>
-        const token = result.data?.accessToken
+        const result = await response.json() as RespostaApi<SessaoAutenticacaoDto>
+        const token = result.dados?.tokenAcesso
         if (token) useAuthStore.getState().setAccessToken(token)
         return token ?? null
       })

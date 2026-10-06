@@ -10,6 +10,10 @@ public interface ITaxaEconomicaRepository
 {
     Task<TaxaEconomica?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<List<TaxaEconomica>> GetAllAsync(CancellationToken cancellationToken = default);
+    Task<TaxaEconomica?> GetByIdInGroupAsync(Guid id, Guid groupId, CancellationToken cancellationToken = default);
+    Task<List<TaxaEconomica>> GetAllInGroupAsync(Guid groupId, CancellationToken cancellationToken = default);
+    Task AddHistoryAsync(TaxaEconomicaHistorico history, CancellationToken cancellationToken = default);
+    Task<List<TaxaEconomicaHistorico>> GetHistoryAsync(Guid rateId, CancellationToken cancellationToken = default);
     Task AddAsync(TaxaEconomica taxa, CancellationToken cancellationToken = default);
     void Update(TaxaEconomica taxa);
     void Delete(TaxaEconomica taxa);

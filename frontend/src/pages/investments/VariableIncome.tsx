@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, localDateInputToISOString, toLocalDateInputValue } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
@@ -17,7 +17,7 @@ import { useMarketQuotes } from "@/hooks/use-market-quotes"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { StockSearch } from "@/components/investments/StockSearch"
 import { investmentService } from "@/api/services/investment.service"
-import type { RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, CriarRendaVariavelRequest, MarketSearchResultDto } from "@/api/dtos"
+import type { RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, CriarRendaVariavelRequest, ResultadoBuscaMercadoDto } from "@/api/dtos"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -26,13 +26,13 @@ export default function VariableIncome() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedAsset, setSelectedAsset] = useState<RendaVariavelDto | null>(null)
-  const [selectedQuote, setSelectedQuote] = useState<MarketSearchResultDto | null>(null)
+  const [selectedQuote, setSelectedQuote] = useState<ResultadoBuscaMercadoDto | null>(null)
   const [ticker, setTicker] = useState("")
   const [name, setName] = useState("")
   const [sector, setSector] = useState("")
   const idempotencyKey = useRef(crypto.randomUUID())
-  const { data: portfolioResponse } = usePortfolios({ page: 1, pageSize: 100 })
-  const portfolios = portfolioResponse?.data ?? []
+  const { data: portfolioResponse, isError: isPortfolioError, refetch: refetchPortfolios } = usePortfolios({ pagina: 1, itensPorPagina: 100 })
+  const portfolios = portfolioResponse?.dados ?? []
   const { toast } = useToast()
 
   // Table State
@@ -47,56 +47,56 @@ export default function VariableIncome() {
   // Construct filters for API
   const filters: InvestimentoFiltros = useMemo(() => {
     const apiFilters: InvestimentoFiltros = {
-      page: pagination.pageIndex + 1,
-      pageSize: pagination.pageSize,
-      search: globalFilter || undefined,
-      sortBy: sorting[0]?.id,
-      sortOrder: sorting[0]?.desc ? 'desc' : 'asc',
+      pagina: pagination.pageIndex + 1,
+      itensPorPagina: pagination.pageSize,
+      busca: globalFilter || undefined,
+      ordenarPor: sorting[0]?.id,
+      ordem: sorting[0]?.desc ? 'desc' : 'asc',
     }
 
-    const subtypeFilter = columnFilters.find(f => f.id === 'subtype')?.value
+    const subtypeFilter = columnFilters.find(f => f.id === 'subtipo')?.value
     if (subtypeFilter) {
-      apiFilters.subtype = subtypeFilter as TipoRendaVariavel
+      apiFilters.subtipo = subtypeFilter as TipoRendaVariavel
     }
 
-    const sectorFilter = columnFilters.find(f => f.id === 'sector')?.value
-    if (typeof sectorFilter === 'string') apiFilters.sector = sectorFilter
+    const sectorFilter = columnFilters.find(f => f.id === 'setor')?.value
+    if (typeof sectorFilter === 'string') apiFilters.setor = sectorFilter
 
     return apiFilters
   }, [pagination, sorting, columnFilters, globalFilter])
 
-  const { data: investmentsData, isLoading, refetch } = useVariableIncomeInvestments(filters)
+  const { data: investmentsData, isLoading, isError, refetch } = useVariableIncomeInvestments(filters)
 
   // Extrair tickers para assinar via SignalR
   const tickers = useMemo(() => {
-    return (investmentsData?.data || []).map(asset => asset.ticker)
-  }, [investmentsData?.data])
+    return (investmentsData?.dados || []).map(asset => asset.ticker)
+  }, [investmentsData?.dados])
 
   const { quotesBySymbol, unavailableSymbols, isLoading: isLoadingQuotes } = useMarketQuotes(tickers)
 
   // Mapeia os ativos injetando os preços em tempo real
   const assets = useMemo(() => {
-    const originalAssets = (investmentsData?.data || []) as RendaVariavelDto[]
+    const originalAssets = (investmentsData?.dados || []) as RendaVariavelDto[]
     return originalAssets.map(asset => {
       const quote = quotesBySymbol.get(asset.ticker.toUpperCase())
       if (quote) {
         return {
           ...asset,
-          currentPrice: quote.price,
-          currentPriceSource: quote.source,
-          currentPriceObservedAtUtc: quote.observedAtUtc,
-          currentValue: asset.quantity * quote.price,
-          gain: (asset.quantity * quote.price) - asset.totalInvested,
-          gainPercentage: asset.totalInvested > 0 ? (((asset.quantity * quote.price) - asset.totalInvested) / asset.totalInvested) * 100 : 0
+          precoAtual: quote.preco,
+          origemPrecoAtual: quote.origem,
+          precoObservadoEmUtc: quote.observadoEmUtc,
+          valorAtual: asset.quantidade * quote.preco,
+          ganho: (asset.quantidade * quote.preco) - asset.totalInvestido,
+          percentualGanho: asset.totalInvestido > 0 ? (((asset.quantidade * quote.preco) - asset.totalInvestido) / asset.totalInvestido) * 100 : 0
         }
       }
       return asset
     })
-  }, [investmentsData?.data, quotesBySymbol])
-  const pageCount = investmentsData?.pagination?.totalPages || 0
+  }, [investmentsData?.dados, quotesBySymbol])
+  const pageCount = investmentsData?.paginacao?.totalPaginas || 0
 
-  const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvested, 0)
-  const totalCurrent = assets.reduce((acc, asset) => acc + asset.currentValue, 0)
+  const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvestido, 0)
+  const totalCurrent = assets.reduce((acc, asset) => acc + asset.valorAtual, 0)
   const totalProfit = totalCurrent - totalInvested
 
   const assetTypes = ['ACAO', 'FII', 'ETF', 'BDR']
@@ -106,18 +106,16 @@ export default function VariableIncome() {
     const formData = new FormData(e.currentTarget)
 
     const newAssetData: CriarRendaVariavelRequest = {
-      portfolioId: formData.get('portfolioId') as string,
+      carteiraId: formData.get('portfolioId') as string,
       ticker: ticker.toUpperCase(),
-      subtype: formData.get('type') as TipoRendaVariavel,
-      quantity: parseInt(formData.get('quantity') as string),
-      unitPrice: Number(formData.get('averagePrice')),
-      fees: Number(formData.get('fees') || 0),
-      transactionDate: new Date(
-        `${formData.get('transactionDate')}T12:00:00`,
-      ).toISOString(),
-      idempotencyKey: idempotencyKey.current,
-      name,
-      sector,
+      subtipo: formData.get('type') as TipoRendaVariavel,
+      quantidade: parseInt(formData.get('quantity') as string),
+      precoUnitario: Number(formData.get('averagePrice')),
+      taxas: Number(formData.get('fees') || 0),
+      dataTransacao: localDateInputToISOString(String(formData.get('transactionDate'))),
+      chaveIdempotencia: idempotencyKey.current,
+      nome: name,
+      setor: sector,
     }
 
     try {
@@ -138,11 +136,11 @@ export default function VariableIncome() {
     }
   }
 
-  const handleStockSelect = (quote: MarketSearchResultDto) => {
+  const handleStockSelect = (quote: ResultadoBuscaMercadoDto) => {
     setSelectedQuote(quote)
-    setTicker(quote.symbol)
-    setName(quote.name)
-    setSector(quote.sector ?? '')
+    setTicker(quote.simbolo)
+    setName(quote.nome)
+    setSector(quote.setor ?? '')
   }
 
   const handleEditAsset = async (updatedAsset: RendaVariavelDto, valuationDate: string) => {
@@ -150,8 +148,8 @@ export default function VariableIncome() {
 
     try {
       await investmentService.update(selectedAsset.id, {
-        totalValue: updatedAsset.currentValue,
-        date: new Date(`${valuationDate}T12:00:00`).toISOString(),
+        valorTotal: updatedAsset.valorAtual,
+        data: new Date(`${valuationDate}T12:00:00`).toISOString(),
       })
 
       setIsEditDialogOpen(false)
@@ -230,7 +228,7 @@ export default function VariableIncome() {
                     <SelectContent>
                       {portfolios.map((portfolio) => (
                         <SelectItem key={portfolio.id} value={portfolio.id}>
-                          {portfolio.name}
+                          {portfolio.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -304,8 +302,8 @@ export default function VariableIncome() {
                     id="transactionDate"
                     name="transactionDate"
                     type="date"
-                    max={new Date().toISOString().slice(0, 10)}
-                    defaultValue={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)}
+                    max={toLocalDateInputValue()}
+                    defaultValue={toLocalDateInputValue()}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -323,6 +321,10 @@ export default function VariableIncome() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {isPortfolioError && <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">Não foi possível carregar carteiras para registrar uma operação. <Button variant="outline" size="sm" onClick={() => void refetchPortfolios()}>Tentar novamente</Button></div>}
+      {isError && <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">Não foi possível carregar as posições de renda variável. <Button variant="outline" size="sm" onClick={() => void refetch()}>Tentar novamente</Button></div>}
+      {!isLoading && !isError && assets.length === 0 && <p role="status" className="rounded-md border p-4 text-sm text-muted-foreground">Nenhuma posição de renda variável encontrada.</p>}
 
       {/* Summary Cards */}
       < div className="grid gap-4 md:grid-cols-3" >
@@ -396,7 +398,7 @@ export default function VariableIncome() {
         investment={selectedAsset}
         type="variable"
         onSave={(updated, date) => {
-          if (updated.type === 'variable_income') void handleEditAsset(updated as RendaVariavelDto, date)
+          if (updated.tipo === 'variable_income') void handleEditAsset(updated as RendaVariavelDto, date)
         }}
       />
 

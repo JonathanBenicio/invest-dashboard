@@ -78,6 +78,8 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             // Replace IAuthProvider with FakeAuthProvider
             services.RemoveAll(typeof(IAuthProvider));
             services.AddScoped<IAuthProvider, FakeAuthProvider>();
+            services.RemoveAll(typeof(IInvitationEmailSender));
+            services.AddScoped<IInvitationEmailSender, FakeInvitationEmailSender>();
 
             services.RemoveAll(typeof(IRefreshTokenSessionRepository));
             services.AddSingleton<IRefreshTokenSessionRepository, FakeRefreshTokenSessionRepository>();

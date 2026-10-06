@@ -21,7 +21,7 @@ public class SimulacaoController : ControllerBase
     }
 
     [HttpPost]
-    public ActionResult<ApiResponse<SimulacaoResponseDto>> Simulate([FromBody] SimulacaoRequestDto request)
+    public ActionResult<RespostaApi<SimulacaoResponseDto>> Simulate([FromBody] SimulacaoRequestDto request)
     {
         var parametros = new SimulacaoParametros
         {
@@ -56,11 +56,11 @@ public class SimulacaoController : ControllerBase
             NomeEstrategia = resultado.NomeEstrategia
         };
 
-        return Ok(new ApiResponse<SimulacaoResponseDto>(resposta));
+        return Ok(new RespostaApi<SimulacaoResponseDto>(resposta));
     }
 
     [HttpGet("strategies")]
-    public ActionResult<ApiResponse<object>> GetStrategies()
+    public ActionResult<RespostaApi<object>> GetStrategies()
     {
         var estrategias = new[]
         {
@@ -68,6 +68,6 @@ public class SimulacaoController : ControllerBase
             new { id = "montecarlo", nome = _estrategiaMonteCarlo.Nome, descricao = _estrategiaMonteCarlo.Descricao }
         };
 
-        return Ok(new ApiResponse<object>(estrategias));
+        return Ok(new RespostaApi<object>(estrategias));
     }
 }

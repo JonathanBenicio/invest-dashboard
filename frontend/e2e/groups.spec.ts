@@ -1,0 +1,50 @@
+import { expect, test } from '@playwright/test'
+
+test('admin can invite a group member and choose a group portfolio visibility', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill('admin@investpro.com')
+  await page.getByLabel('Senha').fill('password')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page.getByText(/Patrim.*Total/).first()).toBeVisible({ timeout: 10_000 })
+
+  await page.getByRole('link', { name: 'Grupos e usuários' }).click()
+  await expect(page.getByRole('heading', { name: 'Grupos e usuários' })).toBeVisible()
+  await page.locator('#invite-email').fill('investidor@example.com')
+  await page.locator('#invite-role').selectOption('Investidor')
+  await page.getByRole('button', { name: 'Enviar convite' }).click()
+  await expect(page.getByText('Convite enviado', { exact: true })).toBeVisible()
+
+  await page.getByRole('link', { name: 'Carteiras' }).click()
+  await page.getByRole('button', { name: 'Nova carteira' }).click()
+  await page.locator('#portfolio-name').fill(`Carteira pública ${Date.now()}`)
+  await page.locator('#portfolio-holder').fill('Titular sem conta')
+  await page.locator('#portfolio-visibility').selectOption('PublicaDoGrupo')
+  await expect(page.locator('#portfolio-visibility')).toHaveValue('PublicaDoGrupo')
+})
+
+
+test('cadastra perfil de titular e reutiliza na carteira com instituição estável', async ({ page }) => {
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill('admin@investpro.com')
+  await page.getByLabel('Senha').fill('password')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('link', { name: 'Grupos e usuários' }).click()
+  await page.getByRole('button', { name: 'Novo titular', exact: true }).click()
+  const holderName = `Titular família ${Date.now()}`
+  await page.locator('#holder-profile-name').fill(holderName)
+  await page.locator('#holder-profile-relationship').fill('Mãe')
+  await page.getByRole('button', { name: 'Salvar titular' }).click()
+  await expect(page.getByText('Perfil de titular salvo', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Carteiras', exact: true }).click()
+  await page.getByRole('button', { name: 'Nova carteira', exact: true }).click()
+  await page.locator('#portfolio-name').fill(`Carteira ${Date.now()}`)
+  await page.locator('#portfolio-holder-profile').selectOption({ label: `${holderName} · Mãe` })
+  await expect(page.locator('#portfolio-holder')).toHaveValue(holderName)
+  await page.locator('#portfolio-institution').selectOption('10000000-0000-4000-8000-000000000001')
+  const request = page.waitForRequest(request => request.method() === 'POST' && request.url().endsWith('/portfolios'))
+  await page.getByRole('button', { name: 'Criar carteira', exact: true }).click()
+  const payload = (await request).postDataJSON()
+  expect(payload.titularId).toBeTruthy()
+  expect(payload.instituicaoFinanceiraId).toBe('10000000-0000-4000-8000-000000000001')
+  await expect(page.getByText('A carteira foi salva.', { exact: true })).toBeVisible()
+})

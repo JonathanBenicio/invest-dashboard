@@ -51,11 +51,30 @@ public sealed class FakeAuthProvider : IAuthProvider
 
     public Task RevokeAsync(string accessToken, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    public Task<AuthResponseDto> VerifyInvitationAsync(string tokenHash, CancellationToken cancellationToken = default) =>
+        Task.FromResult(tokenHash == "invite-second-user"
+            ? new AuthResponseDto
+            {
+                AccessToken = GenerateJwtForUser(SecondTestUserId, SecondTestSessionId, SecondTestEmail, SecondTestName),
+                RefreshToken = "invited-upstream-token",
+                User = new UsuarioAutenticadoDto { Id = SecondTestUserId.ToString(), Email = SecondTestEmail, Name = SecondTestName }
+            }
+            : CreateResponse(TestEmail, TestName));
+
+    public Task<AuthResponseDto> ValidateAccessTokenAsync(string accessToken, CancellationToken cancellationToken = default) =>
+        Task.FromResult(accessToken == "upstream-invited-access"
+            ? new AuthResponseDto
+            {
+                AccessToken = accessToken,
+                User = new UsuarioAutenticadoDto { Id = SecondTestUserId.ToString(), Email = SecondTestEmail, Name = SecondTestName }
+            }
+            : throw new AuthenticationException("Upstream access token is invalid."));
+
     private static AuthResponseDto CreateResponse(string email, string name) => new()
     {
         AccessToken = GenerateJwt(email),
         RefreshToken = "upstream-session-token-that-must-never-be-returned",
-        User = new UserInfoDto { Id = TestUserId.ToString(), Email = email, Name = name }
+        User = new UsuarioAutenticadoDto { Id = TestUserId.ToString(), Email = email, Name = name }
     };
 
     public static string GenerateJwt(string email, int expiresInMinutes = 15)

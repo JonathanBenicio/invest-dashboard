@@ -37,22 +37,22 @@ public sealed class PostgresCsvImportContractTests
         var transactionsResponse = await restartedClient.GetAsync($"/api/v1/transactions/portfolio/{portfolioId}");
         transactionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var transactionsJson = JsonDocument.Parse(await transactionsResponse.Content.ReadAsStringAsync());
-        var transactions = transactionsJson.RootElement.GetProperty("data");
+        var transactions = transactionsJson.RootElement.GetProperty("dados");
         transactions.GetArrayLength().Should().Be(2);
         transactions.EnumerateArray().Select(item => item.GetProperty("ticker").GetString())
             .Should().BeEquivalentTo("PETR4", "RFABC1");
         transactions.EnumerateArray().Count(item => item.GetProperty("id").GetGuid() == stockTransactionId)
             .Should().Be(1);
 
-        var positionsResponse = await restartedClient.GetAsync($"/api/v1/investments?portfolioId={portfolioId}");
+        var positionsResponse = await restartedClient.GetAsync($"/api/v1/investments?carteiraId={portfolioId}");
         positionsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var positionsJson = JsonDocument.Parse(await positionsResponse.Content.ReadAsStringAsync());
-        var positions = positionsJson.RootElement.GetProperty("data");
+        var positions = positionsJson.RootElement.GetProperty("dados");
         positions.GetArrayLength().Should().Be(2);
         positions.EnumerateArray().Single(item => item.GetProperty("ticker").GetString() == "PETR4")
-            .GetProperty("quantity").GetDecimal().Should().Be(10m);
+            .GetProperty("quantidade").GetDecimal().Should().Be(10m);
         positions.EnumerateArray().Single(item => item.GetProperty("ticker").GetString() == "RFABC1")
-            .GetProperty("currentValue").GetDecimal().Should().Be(1010m);
+            .GetProperty("valorAtual").GetDecimal().Should().Be(1010m);
     }
 
     private static HttpClient CreateAuthenticatedClient(CustomWebApplicationFactory factory)
@@ -65,10 +65,10 @@ public sealed class PostgresCsvImportContractTests
 
     private static async Task<Guid> CreatePortfolioAsync(HttpClient client)
     {
-        var response = await client.PostAsJsonAsync("/api/v1/portfolios", new { name = "CSV import contract" });
+        var response = await client.PostAsJsonAsync("/api/v1/portfolios", new { instituicaoFinanceiraId = Guid.Parse("10000000-0000-4000-8000-000000000001"),  nome = "CSV import contract" });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return json.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+        return json.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
     }
 
     private static async Task<Guid> PostTransactionAsync(
@@ -83,54 +83,54 @@ public sealed class PostgresCsvImportContractTests
             return Guid.Empty;
 
         using var json = JsonDocument.Parse(content);
-        return json.RootElement.GetProperty("data").GetProperty("id").GetGuid();
+        return json.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
     }
 
     private static object CreateStockRow(Guid portfolioId) => new
     {
-        portfolioId,
+        carteiraId = portfolioId,
         ticker = "PETR4",
-        type = "Buy",
-        assetClass = "ACAO",
-        name = "Petrobras",
-        sector = "Energia",
-        quantity = 10m,
-        unitPrice = 35.50m,
-        fees = 1m,
-        transactionDate = DateTime.UtcNow.AddDays(-1),
-        idempotencyKey = Guid.NewGuid()
+        tipo = "Buy",
+        classeAtivo = "ACAO",
+        nome = "Petrobras",
+        setor = "Energia",
+        quantidade = 10m,
+        precoUnitario = 35.50m,
+        taxas = 1m,
+        dataTransacao = DateTime.UtcNow.AddDays(-1),
+        chaveIdempotencia = Guid.NewGuid()
     };
 
     private static object CreateFixedIncomeRow(Guid portfolioId) => new
     {
-        portfolioId,
+        carteiraId = portfolioId,
         ticker = "RFABC1",
-        type = "Buy",
-        assetClass = "RENDA_FIXA",
-        name = "CDB",
-        issuer = "Banco de teste",
-        subtype = "CDB",
-        indexer = "CDI",
-        interestRate = 110m,
-        maturityDate = DateTime.UtcNow.AddYears(2),
-        initialStatementValue = 1010m,
-        quantity = 1000m,
-        unitPrice = 1m,
-        fees = 0m,
-        transactionDate = DateTime.UtcNow.AddDays(-1),
-        idempotencyKey = Guid.NewGuid()
+        tipo = "Buy",
+        classeAtivo = "RENDA_FIXA",
+        nome = "CDB",
+        emissor = "Banco de teste",
+        subtipo = "CDB",
+        indexador = "CDI",
+        taxaJuros = 110m,
+        dataVencimento = DateTime.UtcNow.AddYears(2),
+        valorInicialExtrato = 1010m,
+        quantidade = 1000m,
+        precoUnitario = 1m,
+        taxas = 0m,
+        dataTransacao = DateTime.UtcNow.AddDays(-1),
+        chaveIdempotencia = Guid.NewGuid()
     };
 
     private static object CreateInvalidRow(Guid portfolioId) => new
     {
-        portfolioId,
+        carteiraId = portfolioId,
         ticker = "BAD1",
-        type = "Buy",
-        assetClass = "ACAO",
-        quantity = 0m,
-        unitPrice = 10m,
-        fees = 0m,
-        transactionDate = DateTime.UtcNow.AddDays(-1),
-        idempotencyKey = Guid.NewGuid()
+        tipo = "Buy",
+        classeAtivo = "ACAO",
+        quantidade = 0m,
+        precoUnitario = 10m,
+        taxas = 0m,
+        dataTransacao = DateTime.UtcNow.AddDays(-1),
+        chaveIdempotencia = Guid.NewGuid()
     };
 }

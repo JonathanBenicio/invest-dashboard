@@ -68,7 +68,7 @@ import {
 } from "lucide-react"
 import { userService } from "@/api/services/userService"
 import { queryKeys } from "@/api/query-keys"
-import type { UserDto } from "@/api/dtos"
+import type { UsuarioDto } from "@/api/dtos"
 import { toast } from "sonner"
 
 // Form Schema
@@ -95,11 +95,11 @@ export default function Users() {
 
   // State for Create/Edit Dialog
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingUser, setEditingUser] = useState<UserDto | null>(null)
+  const [editingUser, setEditingUser] = useState<UsuarioDto | null>(null)
 
   // State for Delete Alert
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [userToDelete, setUserToDelete] = useState<UserDto | null>(null)
+  const [userToDelete, setUserToDelete] = useState<UsuarioDto | null>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.users.list({ page, pageSize, search }),
@@ -181,19 +181,19 @@ export default function Users() {
     setIsDialogOpen(true)
   }
 
-  const handleEdit = (user: UserDto) => {
+  const handleEdit = (user: UsuarioDto) => {
     setEditingUser(user)
     form.reset({
-      name: user.name,
+      name: user.nome,
       email: user.email,
-      role: user.role,
-      isActive: user.isActive,
+      role: user.perfil,
+      isActive: user.ativo,
       parentesco: user.parentesco || "",
     })
     setIsDialogOpen(true)
   }
 
-  const handleDeleteClick = (user: UserDto) => {
+  const handleDeleteClick = (user: UsuarioDto) => {
     setUserToDelete(user)
     setIsDeleteDialogOpen(true)
   }
@@ -359,7 +359,7 @@ export default function Users() {
             <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta ação não pode ser desfeita. Isso excluirá permanentemente o usuário
-              <b> {userToDelete?.name} </b> e removerá seus dados do servidor.
+              <b> {userToDelete?.nome} </b> e removerá seus dados do servidor.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -394,19 +394,19 @@ export default function Users() {
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
-        ) : data?.data.length === 0 ? (
+        ) : data?.dados.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             Nenhum usuário encontrado.
           </div>
         ) : (
-          data?.data.map((user) => (
+          data?.dados.map((user) => (
             <div key={user.id} className="p-4 rounded-lg border bg-card">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium truncate">{user.name}</p>
-                    {getRoleBadge(user.role)}
-                    {getStatusBadge(user.isActive)}
+                    <p className="font-medium truncate">{user.nome}</p>
+                    {getRoleBadge(user.perfil)}
+                    {getStatusBadge(user.ativo)}
                   </div>
                   <p className="text-sm text-muted-foreground truncate mt-1">{user.email}</p>
                   {user.parentesco && (
@@ -462,24 +462,24 @@ export default function Users() {
                   Carregando...
                 </TableCell>
               </TableRow>
-            ) : data?.data.length === 0 ? (
+            ) : data?.dados.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center">
                   Nenhum usuário encontrado.
                 </TableCell>
               </TableRow>
             ) : (
-              data?.data.map((user) => (
+              data?.dados.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{user.name}</p>
+                      <p className="font-medium">{user.nome}</p>
                       <p className="text-xs text-muted-foreground lg:hidden">{user.email}</p>
                     </div>
                   </TableCell>
                   <TableCell className="hidden lg:table-cell">{user.email}</TableCell>
-                  <TableCell>{getRoleBadge(user.role)}</TableCell>
-                  <TableCell>{getStatusBadge(user.isActive)}</TableCell>
+                  <TableCell>{getRoleBadge(user.perfil)}</TableCell>
+                  <TableCell>{getStatusBadge(user.ativo)}</TableCell>
                   <TableCell className="hidden lg:table-cell">{user.parentesco || "-"}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -527,7 +527,7 @@ export default function Users() {
           variant="outline"
           size="sm"
           onClick={() => setPage((p) => p + 1)}
-          disabled={!data?.pagination.hasNextPage || isLoading}
+          disabled={!data?.paginacao.temProximaPagina || isLoading}
         >
           Próximo
         </Button>

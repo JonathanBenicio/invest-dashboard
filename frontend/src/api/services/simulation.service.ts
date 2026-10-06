@@ -1,12 +1,12 @@
 import { api } from '../client'
-import type { ApiResponse, SimulacaoResponse, SimulacaoRequest, SimulacaoEstrategia } from '../dtos'
+import type { RespostaApi, SimulacaoResponse, SimulacaoRequest, SimulacaoEstrategia } from '../dtos'
 
 const BASE = '/simulation'
 
 export const simulationService = {
   simulate: (data: SimulacaoRequest) =>
-    api.post<ApiResponse<SimulacaoResponse>>(BASE, data),
+    api.post<RespostaApi<SimulacaoResponse>>(BASE, data),
 
   getStrategies: () =>
-    api.get<ApiResponse<SimulacaoEstrategia[]>>(`${BASE}/strategies`),
+    api.get<RespostaApi<SimulacaoEstrategia[]>>(`${BASE}/strategies`),
 }

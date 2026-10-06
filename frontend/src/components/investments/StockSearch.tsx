@@ -5,10 +5,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { marketDataService } from '@/api/services/market-data.service'
-import type { MarketSearchResultDto } from '@/api/dtos'
+import type { ResultadoBuscaMercadoDto } from '@/api/dtos'
 
 interface StockSearchProps {
-  onSelect: (quote: MarketSearchResultDto) => void
+  onSelect: (quote: ResultadoBuscaMercadoDto) => void
   defaultValue?: string
 }
 
@@ -16,32 +16,45 @@ export function StockSearch({ onSelect, defaultValue = '' }: StockSearchProps) {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState(defaultValue)
   const [search, setSearch] = useState('')
-  const [results, setResults] = useState<MarketSearchResultDto[]>([])
+  const [results, setResults] = useState<ResultadoBuscaMercadoDto[]>([])
   const [loading, setLoading] = useState(false)
+  const [searchError, setSearchError] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     if (!search || search.length < 2) {
       setResults([])
+      setSearchError(false)
+      setLoading(false)
       return
     }
 
+    let cancelled = false
+    setResults([])
+    setSearchError(false)
+    setLoading(true)
     const delayDebounceFn = setTimeout(async () => {
-      setLoading(true)
       try {
         const response = await marketDataService.search(search)
-        setResults(response.data.slice(0, 10))
-      } catch (error) {
-        console.error('Error searching tickers:', error)
+        if (!cancelled) setResults(response.dados.slice(0, 10))
+      } catch {
+        if (!cancelled) {
+          setResults([])
+          setSearchError(true)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }, 500)
 
-    return () => clearTimeout(delayDebounceFn)
-  }, [search])
+    return () => {
+      cancelled = true
+      clearTimeout(delayDebounceFn)
+    }
+  }, [search, retryCount])
 
-  const handleSelect = (quote: MarketSearchResultDto) => {
-    setValue(quote.symbol)
+  const handleSelect = (quote: ResultadoBuscaMercadoDto) => {
+    setValue(quote.simbolo)
     setOpen(false)
     onSelect(quote)
   }
@@ -66,16 +79,29 @@ export function StockSearch({ onSelect, defaultValue = '' }: StockSearchProps) {
             onValueChange={setSearch}
           />
           <CommandList>
-            <CommandEmpty>Nenhum ativo encontrado.</CommandEmpty>
+            <CommandEmpty>
+              {searchError ? (
+                <div className="flex flex-col items-center gap-2 p-2">
+                  <p role="alert">Não foi possível pesquisar ativos.</p>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setRetryCount(count => count + 1)}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              ) : loading ? (
+                'Pesquisando ativos...'
+              ) : (
+                'Nenhum ativo encontrado.'
+              )}
+            </CommandEmpty>
             <CommandGroup>
               {results.map((quote) => (
                 <CommandItem
-                  key={quote.symbol}
-                  value={quote.symbol}
+                  key={quote.simbolo}
+                  value={quote.simbolo}
                   onSelect={() => handleSelect(quote)}
                 >
                   <div className="flex w-full items-center justify-between gap-3">
-                    <span>{quote.symbol} · {quote.name}</span>
+                    <span>{quote.simbolo} · {quote.nome}</span>
                   </div>
                 </CommandItem>
               ))}

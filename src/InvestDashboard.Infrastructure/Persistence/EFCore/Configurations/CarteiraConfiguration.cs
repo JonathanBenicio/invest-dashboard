@@ -29,6 +29,14 @@ public class CarteiraConfiguration : IEntityTypeConfiguration<Carteira>
             .HasMaxLength(100)
             .IsRequired();
 
+        builder.Property(p => p.GrupoId).HasColumnName("group_id");
+        builder.Property(p => p.TitularId).HasColumnName("holder_profile_id");
+        builder.Property(p => p.Titular).HasColumnName("holder_name").HasMaxLength(160).IsRequired();
+        builder.Property(p => p.InstituicaoFinanceira).HasColumnName("financial_institution").HasMaxLength(120);
+        builder.Property(p => p.TipoInstituicao).HasColumnName("financial_institution_type").HasConversion<string>().HasMaxLength(20);
+        builder.Property(p => p.InstituicaoFinanceiraId).HasColumnName("financial_institution_id");
+        builder.Property(p => p.Visibilidade).HasColumnName("visibility").HasConversion<string>().HasMaxLength(24).IsRequired();
+
         builder.Property(p => p.Description)
             .HasColumnName("description")
             .HasMaxLength(500);
@@ -52,6 +60,13 @@ public class CarteiraConfiguration : IEntityTypeConfiguration<Carteira>
 
         builder.HasIndex(p => p.UserId)
             .HasDatabaseName("idx_portfolios_user_id");
+
+        builder.HasIndex(p => new { p.GrupoId, p.Visibilidade }).HasDatabaseName("idx_portfolios_group_visibility");
+        builder.HasOne<GrupoCarteiras>().WithMany().HasForeignKey(p => p.GrupoId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(p => p.TitularId).HasDatabaseName("idx_portfolios_holder_profile_id");
+        builder.HasOne(p => p.TitularProfile).WithMany().HasForeignKey(p => p.TitularId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(p => p.InstituicaoFinanceiraId).HasDatabaseName("idx_portfolios_financial_institution_id");
+        builder.HasOne(p => p.InstituicaoFinanceiraProfile).WithMany().HasForeignKey(p => p.InstituicaoFinanceiraId).OnDelete(DeleteBehavior.Restrict);
 
         // Map private collection field to the navigation property
         builder.HasMany(p => p.Positions)

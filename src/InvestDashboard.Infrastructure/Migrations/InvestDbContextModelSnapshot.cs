@@ -191,6 +191,10 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("description");
 
+                    b.Property<Guid?>("GroupId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
                     b.Property<DateTime>("LastUpdate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_update");
@@ -201,9 +205,19 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
+                    b.Property<string>("Periodicity")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("periodicity");
+
                     b.Property<decimal>("PreviousValue")
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("previous_value");
+
+                    b.Property<DateOnly>("ReferenceDate")
+                        .HasColumnType("date")
+                        .HasColumnName("reference_date");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -217,12 +231,91 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("symbol");
 
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("unit");
+
+                    b.Property<string>("UpdatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("updated_by_user_id");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Symbol")
-                        .HasDatabaseName("idx_economic_rates_symbol");
+                    b.HasIndex("GroupId", "Symbol")
+                        .HasDatabaseName("idx_economic_rates_group_symbol");
 
                     b.ToTable("economic_rates", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.MarketData.TaxaEconomicaHistorico", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("AtualizadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<DateOnly>("DataReferencia")
+                        .HasColumnType("date")
+                        .HasColumnName("reference_date");
+
+                    b.Property<string>("Origem")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("source");
+
+                    b.Property<string>("PeriodicidadeAnterior")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("previous_periodicity");
+
+                    b.Property<string>("PeriodicidadeNova")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("new_periodicity");
+
+                    b.Property<string>("ResponsavelUserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<Guid>("TaxaId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rate_id");
+
+                    b.Property<string>("UnidadeAnterior")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("previous_unit");
+
+                    b.Property<string>("UnidadeNova")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("new_unit");
+
+                    b.Property<decimal>("ValorAnterior")
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("previous_value");
+
+                    b.Property<decimal>("ValorNovo")
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("new_value");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaxaId", "AtualizadoEmUtc")
+                        .HasDatabaseName("idx_economic_rate_history_rate_date");
+
+                    b.ToTable("economic_rate_history", (string)null);
                 });
 
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.Carteira", b =>
@@ -240,6 +333,19 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("description");
+
+                    b.Property<Guid?>("GrupoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("InstituicaoFinanceira")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("financial_institution");
+
+                    b.Property<Guid?>("InstituicaoFinanceiraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("financial_institution_id");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -259,6 +365,21 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("realized_gain");
 
+                    b.Property<string>("TipoInstituicao")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("financial_institution_type");
+
+                    b.Property<string>("Titular")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("holder_name");
+
+                    b.Property<Guid?>("TitularId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("holder_profile_id");
+
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -272,12 +393,351 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("version");
 
+                    b.Property<string>("Visibilidade")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("visibility");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("InstituicaoFinanceiraId")
+                        .HasDatabaseName("idx_portfolios_financial_institution_id");
+
+                    b.HasIndex("TitularId")
+                        .HasDatabaseName("idx_portfolios_holder_profile_id");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("idx_portfolios_user_id");
 
+                    b.HasIndex("GrupoId", "Visibilidade")
+                        .HasDatabaseName("idx_portfolios_group_visibility");
+
                     b.ToTable("portfolios", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.ConviteGrupo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("AceitoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at_utc");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CriadoPorUsuarioId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("invited_by_user_id");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTime>("ExpiraEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at_utc");
+
+                    b.Property<Guid>("GrupoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("Papel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("role");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrupoId", "Email", "AceitoEmUtc")
+                        .HasDatabaseName("idx_group_invitations_pending");
+
+                    b.ToTable("portfolio_group_invitations", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("CreatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("idx_portfolio_groups_created_by");
+
+                    b.ToTable("portfolio_groups", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.InstituicaoFinanceira", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("AtualizadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("category");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid?>("GrupoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NomeNormalizado")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("normalized_name");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NomeNormalizado")
+                        .IsUnique()
+                        .HasDatabaseName("ux_financial_institutions_global_name")
+                        .HasFilter("group_id IS NULL");
+
+                    b.HasIndex("GrupoId", "NomeNormalizado")
+                        .IsUnique()
+                        .HasDatabaseName("ux_financial_institutions_group_name")
+                        .HasFilter("group_id IS NOT NULL");
+
+                    b.ToTable("financial_institutions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000001"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Banco",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Banco do Brasil",
+                            NomeNormalizado = "BANCO DO BRASIL"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000002"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Banco",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Bradesco",
+                            NomeNormalizado = "BRADESCO"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000003"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Banco",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Caixa",
+                            NomeNormalizado = "CAIXA"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000004"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Banco",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Itaú",
+                            NomeNormalizado = "ITAÚ"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000005"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Banco",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Nubank",
+                            NomeNormalizado = "NUBANK"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000006"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Banco",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Santander",
+                            NomeNormalizado = "SANTANDER"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000007"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Banco",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Banco Inter",
+                            NomeNormalizado = "BANCO INTER"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000008"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Corretora",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Ágora",
+                            NomeNormalizado = "ÁGORA"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000009"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Corretora",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Clear",
+                            NomeNormalizado = "CLEAR"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000010"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Corretora",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Genial",
+                            NomeNormalizado = "GENIAL"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000011"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Corretora",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Nu Invest",
+                            NomeNormalizado = "NU INVEST"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000012"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Corretora",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "Rico",
+                            NomeNormalizado = "RICO"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000013"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Corretora",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "XP Investimentos",
+                            NomeNormalizado = "XP INVESTIMENTOS"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000014"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "DTVM",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "BTG Pactual DTVM",
+                            NomeNormalizado = "BTG PACTUAL DTVM"
+                        },
+                        new
+                        {
+                            Id = new Guid("10000000-0000-4000-8000-000000000015"),
+                            AtualizadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Categoria = "Banco",
+                            CriadoEmUtc = new DateTime(2026, 9, 30, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Nome = "BTG Pactual",
+                            NomeNormalizado = "BTG PACTUAL"
+                        });
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.MembroGrupo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("active");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<Guid>("GrupoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<DateTime>("IngressouEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("joined_at_utc");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Papel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("role");
+
+                    b.Property<string>("UsuarioId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrupoId", "Ativo")
+                        .HasDatabaseName("idx_group_members_active");
+
+                    b.HasIndex("GrupoId", "UsuarioId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_group_member_user");
+
+                    b.ToTable("portfolio_group_members", (string)null);
                 });
 
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.PosicaoInvestimento", b =>
@@ -302,6 +762,10 @@ namespace InvestDashboard.Infrastructure.Migrations
                     b.Property<decimal>("CurrentPrice")
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("current_price");
+
+                    b.Property<DateTime?>("MaturedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("matured_at_utc");
 
                     b.Property<DateTime?>("PurchaseDateUtc")
                         .HasColumnType("timestamp with time zone")
@@ -335,7 +799,100 @@ namespace InvestDashboard.Infrastructure.Migrations
                     b.HasIndex("CarteiraId")
                         .HasDatabaseName("idx_asset_positions_portfolio_id");
 
+                    b.HasIndex("TipoAtivo", "MaturedAtUtc")
+                        .HasDatabaseName("idx_asset_positions_maturity_scan");
+
                     b.ToTable("asset_positions", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.TitularCarteira", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("AtualizadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("GrupoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("group_id");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NomeNormalizado")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<string>("Parentesco")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("relationship");
+
+                    b.Property<string>("UsuarioId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GrupoId", "NomeNormalizado")
+                        .HasDatabaseName("idx_portfolio_holders_group_unlinked_name")
+                        .HasFilter("user_id IS NULL");
+
+                    b.HasIndex("GrupoId", "UsuarioId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_portfolio_holders_group_user")
+                        .HasFilter("user_id IS NOT NULL");
+
+                    b.ToTable("portfolio_holders", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.ValuacaoPosicao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("DataObservadaUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at_utc");
+
+                    b.Property<Guid>("PosicaoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("position_id");
+
+                    b.Property<decimal>("PrecoUnitario")
+                        .HasColumnType("numeric(18,8)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<decimal>("QuantidadeObservada")
+                        .HasColumnType("numeric(18,8)")
+                        .HasColumnName("observed_quantity");
+
+                    b.Property<DateTime>("RegistradaEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PosicaoId", "DataObservadaUtc", "RegistradaEmUtc", "Id")
+                        .HasDatabaseName("idx_position_valuations_latest");
+
+                    b.ToTable("position_valuations", (string)null);
                 });
 
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Trading.Transacao", b =>
@@ -361,6 +918,14 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("idempotency_key");
 
+                    b.Property<string>("ModalidadeFiscal")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("NaoInformada")
+                        .HasColumnName("tax_modality");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)")
@@ -382,6 +947,10 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)")
                         .HasColumnName("ticker");
+
+                    b.Property<Guid?>("TitularId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("holder_profile_id");
 
                     b.Property<DateTime>("TransactionDate")
                         .HasColumnType("timestamp with time zone")
@@ -408,6 +977,9 @@ namespace InvestDashboard.Infrastructure.Migrations
                     b.HasIndex("AtivoId");
 
                     b.HasIndex("CarteiraId");
+
+                    b.HasIndex("TitularId")
+                        .HasDatabaseName("idx_transactions_holder_profile_id");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("idx_transactions_user_id");
@@ -463,6 +1035,11 @@ namespace InvestDashboard.Infrastructure.Migrations
                 {
                     b.HasBaseType("InvestDashboard.Domain.Aggregates.MarketData.Ativo");
 
+                    b.Property<string>("Convention")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("convention");
+
                     b.Property<string>("Indexer")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -481,6 +1058,11 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasDefaultValue("Desconhecido")
                         .HasColumnName("issuer");
 
+                    b.Property<string>("Liquidity")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("liquidity");
+
                     b.Property<DateTime>("MaturityDate")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("maturity_date");
@@ -493,6 +1075,71 @@ namespace InvestDashboard.Infrastructure.Migrations
                     b.HasOne("InvestDashboard.Domain.Aggregates.MarketData.Ativo", null)
                         .WithMany()
                         .HasForeignKey("AtivoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.MarketData.TaxaEconomica", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.MarketData.TaxaEconomicaHistorico", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.MarketData.TaxaEconomica", null)
+                        .WithMany()
+                        .HasForeignKey("TaxaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.Carteira", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", null)
+                        .WithMany()
+                        .HasForeignKey("GrupoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.InstituicaoFinanceira", "InstituicaoFinanceiraProfile")
+                        .WithMany()
+                        .HasForeignKey("InstituicaoFinanceiraId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.TitularCarteira", "TitularProfile")
+                        .WithMany()
+                        .HasForeignKey("TitularId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("InstituicaoFinanceiraProfile");
+
+                    b.Navigation("TitularProfile");
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.ConviteGrupo", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", null)
+                        .WithMany()
+                        .HasForeignKey("GrupoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.InstituicaoFinanceira", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", null)
+                        .WithMany()
+                        .HasForeignKey("GrupoId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.MembroGrupo", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", null)
+                        .WithMany()
+                        .HasForeignKey("GrupoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -514,6 +1161,24 @@ namespace InvestDashboard.Infrastructure.Migrations
                     b.Navigation("Ativo");
                 });
 
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.TitularCarteira", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", null)
+                        .WithMany()
+                        .HasForeignKey("GrupoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.ValuacaoPosicao", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.PosicaoInvestimento", null)
+                        .WithMany()
+                        .HasForeignKey("PosicaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Trading.Transacao", b =>
                 {
                     b.HasOne("InvestDashboard.Domain.Aggregates.MarketData.Ativo", null)
@@ -526,6 +1191,11 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasForeignKey("CarteiraId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.TitularCarteira", null)
+                        .WithMany()
+                        .HasForeignKey("TitularId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.Carteira", b =>

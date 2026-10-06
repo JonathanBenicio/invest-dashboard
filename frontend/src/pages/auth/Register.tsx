@@ -33,8 +33,8 @@ export default function Register() {
     setIsLoading(true)
 
     try {
-      const session = await register({ name, email, password })
-      if (session.requiresEmailConfirmation) {
+      const session = await register({ nome: name, email, senha: password })
+      if (session.requerConfirmacaoEmail) {
         toast({
           title: "Confirme seu e-mail",
           description: "Enviamos um link para confirmar sua conta antes do primeiro acesso.",

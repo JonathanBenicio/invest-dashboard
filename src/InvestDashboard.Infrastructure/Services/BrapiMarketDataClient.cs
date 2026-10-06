@@ -18,30 +18,29 @@ public sealed class BrapiMarketDataClient(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<IReadOnlyList<MarketQuoteDto>> GetQuotesAsync(
+    public async Task<IReadOnlyList<CotacaoMercadoDto>> GetQuotesAsync(
         IReadOnlyCollection<string> symbols,
         CancellationToken cancellationToken = default)
     {
         var normalized = symbols.Select(symbol => symbol.Trim().ToUpperInvariant())
             .Where(symbol => !string.IsNullOrWhiteSpace(symbol))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(100)
             .ToArray();
         if (normalized.Length == 0) return [];
 
         var cryptoSymbols = normalized.Where(symbol => !symbol.Any(char.IsDigit)).ToArray();
         var stockSymbols = normalized.Except(cryptoSymbols, StringComparer.OrdinalIgnoreCase).ToArray();
-        var quotes = new List<MarketQuoteDto>();
+        var quotes = new List<CotacaoMercadoDto>();
 
-        if (stockSymbols.Length > 0)
+        foreach (var stockBatch in stockSymbols.Chunk(100))
         {
-            var uri = BuildUri("v2/stocks/quote", ("symbols", string.Join(',', stockSymbols)));
+            var uri = BuildUri("v2/stocks/quote", ("symbols", string.Join(',', stockBatch)));
             using var request = CreateRequest(uri);
             var response = await SendAsync<BrapiQuoteResponse>(request, cancellationToken);
             quotes.AddRange(response.Results
                 .Select(result => (Result: result, ObservedAt: ParseDate(result.Data?.RegularMarketTime)))
                 .Where(item => item.Result.Data?.RegularMarketPrice is not null && item.ObservedAt.HasValue)
-                .Select(item => new MarketQuoteDto(
+                .Select(item => new CotacaoMercadoDto(
                     item.Result.Symbol,
                     item.Result.Data!.LongName ?? item.Result.Data.ShortName ?? item.Result.Symbol,
                     item.Result.Data.RegularMarketPrice!.Value,
@@ -51,15 +50,15 @@ public sealed class BrapiMarketDataClient(
                     null)));
         }
 
-        if (cryptoSymbols.Length > 0)
+        foreach (var cryptoBatch in cryptoSymbols.Chunk(100))
         {
-            var uri = BuildUri("v2/crypto", ("coin", string.Join(',', cryptoSymbols)), ("currency", "BRL"));
+            var uri = BuildUri("v2/crypto", ("coin", string.Join(',', cryptoBatch)), ("currency", "BRL"));
             using var request = CreateRequest(uri);
             var response = await SendAsync<BrapiCryptoResponse>(request, cancellationToken);
             quotes.AddRange(response.Coins
                 .Select(coin => (Coin: coin, ObservedAt: ParseDate(coin.RegularMarketTime)))
                 .Where(item => item.Coin.RegularMarketPrice is not null && item.ObservedAt.HasValue)
-                .Select(item => new MarketQuoteDto(
+                .Select(item => new CotacaoMercadoDto(
                     item.Coin.Coin,
                     item.Coin.CoinName ?? item.Coin.Coin,
                     item.Coin.RegularMarketPrice!.Value,
@@ -72,7 +71,7 @@ public sealed class BrapiMarketDataClient(
         return quotes;
     }
 
-    public async Task<IReadOnlyList<MarketHistoryPointDto>> GetDailyHistoryAsync(
+    public async Task<IReadOnlyList<PontoHistoricoMercadoDto>> GetDailyHistoryAsync(
         IReadOnlyCollection<string> symbols,
         DateOnly startDate,
         DateOnly endDate,
@@ -88,35 +87,83 @@ public sealed class BrapiMarketDataClient(
             .ToArray();
         if (normalized.Length == 0) return [];
 
-        var uri = BuildUri(
-            "v2/stocks/historical",
-            ("symbols", string.Join(',', normalized)),
-            ("startDate", startDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
-            ("endDate", endDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
-            ("interval", "1d"),
-            ("sortOrder", "asc"),
-            ("includeRaw", "true"));
-        using var request = CreateRequest(uri);
-        var response = await SendAsync<BrapiHistoryResponse>(request, cancellationToken);
+        var cryptoSymbols = normalized.Where(symbol => !symbol.Any(char.IsDigit)).ToArray();
+        var stockSymbols = normalized.Except(cryptoSymbols, StringComparer.OrdinalIgnoreCase).ToArray();
+        var history = new List<PontoHistoricoMercadoDto>();
 
-        return response.Results.SelectMany(result => (result.Data?.History ?? [])
-            .Where(point => point.RawClose is not null)
-            .Select(point => new MarketHistoryPointDto(
-                result.Symbol,
-                DateTimeOffset.FromUnixTimeSeconds(point.Date).UtcDateTime,
-                point.RawClose!.Value,
-                "brapi",
-                false)))
-            .ToList();
+        if (stockSymbols.Length > 0)
+        {
+            var uri = BuildUri(
+                "v2/stocks/historical",
+                ("symbols", string.Join(',', stockSymbols)),
+                ("startDate", startDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                ("endDate", endDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                ("interval", "1d"),
+                ("sortOrder", "asc"));
+            using var request = CreateRequest(uri);
+            var response = await SendAsync<BrapiHistoryResponse>(request, cancellationToken);
+
+            history.AddRange(response.Results.SelectMany(result => (result.Data?.History ?? [])
+                .Where(point => point.AdjustedClose is not null || point.Close is not null)
+                .Select(point => new PontoHistoricoMercadoDto(
+                    result.Symbol,
+                    DateTimeOffset.FromUnixTimeSeconds(point.Date).UtcDateTime,
+                    point.AdjustedClose ?? point.Close!.Value,
+                    "brapi",
+                    point.AdjustedClose.HasValue))));
+        }
+
+        if (cryptoSymbols.Length > 0)
+        {
+            var range = GetCryptoHistoryRange(startDate);
+            var uri = BuildUri(
+                "v2/crypto",
+                ("coin", string.Join(',', cryptoSymbols)),
+                ("currency", "BRL"),
+                ("range", range),
+                ("interval", "1d"));
+            using var request = CreateRequest(uri);
+            var response = await SendAsync<BrapiCryptoResponse>(request, cancellationToken);
+
+            history.AddRange(response.Coins.SelectMany(coin => (coin.History ?? [])
+                .Where(point => point.AdjustedClose is not null || point.Close is not null)
+                .Select(point => new PontoHistoricoMercadoDto(
+                    coin.Coin,
+                    DateTimeOffset.FromUnixTimeSeconds(point.Date).UtcDateTime,
+                    point.AdjustedClose ?? point.Close!.Value,
+                    "brapi",
+                    point.AdjustedClose.HasValue)))
+                .Where(point => DateOnly.FromDateTime(point.DateUtc) >= startDate &&
+                    DateOnly.FromDateTime(point.DateUtc) <= endDate));
+        }
+
+        return history.OrderBy(point => point.DateUtc).ToList();
     }
 
-    public async Task<IReadOnlyList<MarketSearchResultDto>> SearchAsync(string query, CancellationToken cancellationToken = default)
+    private static string GetCryptoHistoryRange(DateOnly startDate)
+    {
+        var daysSinceStart = DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - startDate.DayNumber;
+        return daysSinceStart switch
+        {
+            <= 5 => "5d",
+            <= 31 => "1mo",
+            <= 92 => "3mo",
+            <= 183 => "6mo",
+            <= 366 => "1y",
+            <= 731 => "2y",
+            <= 1826 => "5y",
+            <= 3652 => "10y",
+            _ => "max"
+        };
+    }
+
+    public async Task<IReadOnlyList<ResultadoBuscaMercadoDto>> SearchAsync(string query, CancellationToken cancellationToken = default)
     {
         var uri = BuildUri("quote/list", ("search", query.Trim()), ("limit", "20"), ("page", "1"));
         using var request = CreateRequest(uri);
         var response = await SendAsync<BrapiSearchResponse>(request, cancellationToken);
 
-        return response.Stocks.Select(stock => new MarketSearchResultDto(
+        return response.Stocks.Select(stock => new ResultadoBuscaMercadoDto(
             stock.Stock,
             stock.Name,
             "BRL",
@@ -135,15 +182,33 @@ public sealed class BrapiMarketDataClient(
 
     private async Task<T> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        using var response = await client.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            logger.LogWarning("Brapi returned status {StatusCode}.", response.StatusCode);
+            using var response = await client.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Brapi returned status {StatusCode}.", response.StatusCode);
+                throw new MarketDataUnavailableException();
+            }
+
+            return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken)
+                ?? throw new MarketDataUnavailableException();
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning("Brapi request timed out.");
             throw new MarketDataUnavailableException();
         }
-
-        return await response.Content.ReadFromJsonAsync<T>(JsonOptions, cancellationToken)
-            ?? throw new MarketDataUnavailableException();
+        catch (HttpRequestException exception)
+        {
+            logger.LogWarning(exception, "Brapi request failed.");
+            throw new MarketDataUnavailableException();
+        }
+        catch (JsonException exception)
+        {
+            logger.LogWarning(exception, "Brapi returned an invalid response.");
+            throw new MarketDataUnavailableException();
+        }
     }
 
     private Uri BuildUri(string path, params (string Name, string Value)[] query)
@@ -220,6 +285,8 @@ public sealed class BrapiMarketDataClient(
         public decimal? RegularMarketPrice { get; init; }
         [JsonPropertyName("regularMarketTime")]
         public string? RegularMarketTime { get; init; }
+        [JsonPropertyName("historicalDataPrice")]
+        public List<BrapiHistoryPoint>? History { get; init; }
     }
 
     private sealed class BrapiHistoryResponse
@@ -246,8 +313,10 @@ public sealed class BrapiMarketDataClient(
     {
         [JsonPropertyName("date")]
         public long Date { get; init; }
-        [JsonPropertyName("rawClose")]
-        public decimal? RawClose { get; init; }
+        [JsonPropertyName("close")]
+        public decimal? Close { get; init; }
+        [JsonPropertyName("adjustedClose")]
+        public decimal? AdjustedClose { get; init; }
     }
 
     private sealed class BrapiSearchResponse

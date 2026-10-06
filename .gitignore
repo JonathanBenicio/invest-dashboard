@@ -18,6 +18,7 @@ release/
 out/
 *.apk
 *.aab
+*.tsbuildinfo
 
 # Testing
 coverage/
@@ -25,6 +26,9 @@ playwright-report/
 test-results/
 test_output.txt
 test_output_*.txt
+
+# Local runtime logs
+/dev_server.log
 
 # Editor / IDE
 .vscode/
@@ -44,6 +48,8 @@ Thumbs.db
 # .NET
 [Bb]in/
 [Oo]bj/
+**/TestResults/
+*.trx
 *.dll
 *.exe
 *.pdb

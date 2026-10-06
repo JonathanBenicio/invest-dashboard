@@ -20,69 +20,62 @@ public class CarteiraRepository : ICarteiraRepository
     public async Task<Carteira?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Portfolios
+            .Include(p => p.TitularProfile)
+            .Include(p => p.InstituicaoFinanceiraProfile)
             .Include(p => p.Positions)
             .ThenInclude(position => position.Ativo)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
-    public async Task<Carteira?> GetByIdForUserAsync(Guid id, string userId, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(userId))
-            return null;
+    private IQueryable<Carteira> Accessible(string userId) =>
+        _context.Portfolios.Where(portfolio =>
+            portfolio.GrupoId == null && portfolio.UserId == userId ||
+            portfolio.GrupoId.HasValue && _context.GroupMembers.Any(member =>
+                member.GrupoId == portfolio.GrupoId && member.UsuarioId == userId && member.Ativo &&
+                (portfolio.Visibilidade == VisibilidadeCarteira.PublicaDoGrupo || member.Papel == PapelGrupo.Admin ||
+                 _context.PortfolioHolders.Any(holder => holder.Id == portfolio.TitularId &&
+                     holder.GrupoId == portfolio.GrupoId && holder.UsuarioId == userId))));
 
-        return await _context.Portfolios
-            .Include(portfolio => portfolio.Positions)
-            .ThenInclude(position => position.Ativo)
-            .FirstOrDefaultAsync(portfolio => portfolio.Id == id && portfolio.UserId == userId, cancellationToken);
-    }
+    private static IQueryable<Carteira> WithDetails(IQueryable<Carteira> query) => query
+        .Include(portfolio => portfolio.TitularProfile)
+        .Include(portfolio => portfolio.InstituicaoFinanceiraProfile)
+        .Include(portfolio => portfolio.Positions).ThenInclude(position => position.Ativo);
 
-    public async Task<Carteira?> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(userId))
-            return null;
+    public Task<Carteira?> GetByIdForUserAsync(Guid id, string userId, CancellationToken cancellationToken = default) =>
+        WithDetails(Accessible(userId)).FirstOrDefaultAsync(portfolio => portfolio.Id == id, cancellationToken);
 
-        return await _context.Portfolios
-            .Include(p => p.Positions)
-            .ThenInclude(position => position.Ativo)
-            .FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
-    }
+    public Task<Carteira?> GetByUserIdAsync(string userId, CancellationToken cancellationToken = default) =>
+        WithDetails(Accessible(userId)).OrderBy(portfolio => portfolio.Name).FirstOrDefaultAsync(cancellationToken);
 
     public async Task<IReadOnlyList<Carteira>> GetByUserIdPageAsync(
-        string userId,
-        int skip,
-        int take,
-        CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(userId))
-            return Array.Empty<Carteira>();
+        string userId, int skip, int take, Guid? groupId = null, CancellationToken cancellationToken = default) =>
+        await WithDetails(Accessible(userId)).AsNoTracking()
+            .Where(portfolio => !groupId.HasValue || portfolio.GrupoId == groupId)
+            .OrderBy(portfolio => portfolio.Name).ThenBy(portfolio => portfolio.Id)
+            .Skip(skip).Take(take).ToListAsync(cancellationToken);
 
-        return await _context.Portfolios
-            .AsNoTracking()
-            .Include(portfolio => portfolio.Positions)
-            .ThenInclude(position => position.Ativo)
-            .Where(portfolio => portfolio.UserId == userId)
-            .OrderBy(portfolio => portfolio.Name)
-            .ThenBy(portfolio => portfolio.Id)
-            .Skip(skip)
-            .Take(take)
-            .ToListAsync(cancellationToken);
+    public Task<int> CountByUserIdAsync(string userId, Guid? groupId = null, CancellationToken cancellationToken = default) =>
+        Accessible(userId).CountAsync(portfolio => !groupId.HasValue || portfolio.GrupoId == groupId, cancellationToken);
+
+    public async Task<bool> CanManageAsync(Guid portfolioId, string userId, CancellationToken cancellationToken = default)
+    {
+        var portfolio = await Accessible(userId).AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == portfolioId, cancellationToken);
+        if (portfolio is null) return false;
+        if (portfolio.GrupoId is null) return portfolio.UserId == userId;
+        return await _context.GroupMembers.AnyAsync(member =>
+            member.GrupoId == portfolio.GrupoId && member.UsuarioId == userId && member.Ativo &&
+            (member.Papel == PapelGrupo.Admin || member.Papel == PapelGrupo.Investidor &&
+             (portfolio.Visibilidade == VisibilidadeCarteira.PublicaDoGrupo ||
+              _context.PortfolioHolders.Any(holder => holder.Id == portfolio.TitularId &&
+                  holder.GrupoId == portfolio.GrupoId && holder.UsuarioId == userId))), cancellationToken);
     }
 
-    public Task<int> CountByUserIdAsync(string userId, CancellationToken cancellationToken = default) =>
-        _context.Portfolios.CountAsync(portfolio => portfolio.UserId == userId, cancellationToken);
-
     public async Task<(Carteira Portfolio, PosicaoInvestimento Position)?> GetPositionByIdForUserAsync(
-        Guid positionId,
-        string userId,
-        CancellationToken cancellationToken = default)
+        Guid positionId, string userId, CancellationToken cancellationToken = default)
     {
-        var portfolio = await _context.Portfolios
-            .Include(item => item.Positions)
-            .ThenInclude(position => position.Ativo)
-            .FirstOrDefaultAsync(
-                item => item.UserId == userId && item.Positions.Any(position => position.Id == positionId),
-                cancellationToken);
-
+        var portfolio = await WithDetails(Accessible(userId))
+            .FirstOrDefaultAsync(item => item.Positions.Any(position => position.Id == positionId), cancellationToken);
         var position = portfolio?.Positions.FirstOrDefault(item => item.Id == positionId);
         return position is null ? null : (portfolio!, position);
     }

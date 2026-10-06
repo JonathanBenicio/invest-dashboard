@@ -10,9 +10,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { PosicaoInvestimentoDto, RendaFixaDto, RendaVariavelDto } from '@/api/dtos'
+import type { PosicaoInvestimentoDto } from '@/api/dtos'
 
-type Investment = PosicaoInvestimentoDto | RendaFixaDto | RendaVariavelDto
+type Investment = PosicaoInvestimentoDto
 
 interface EditInvestmentDialogProps {
   open: boolean
@@ -33,7 +33,7 @@ export function EditInvestmentDialog({
   const [valuationDate, setValuationDate] = useState('')
 
   useEffect(() => {
-    setTotalValue(investment?.currentValue.toString() ?? '')
+    setTotalValue(investment?.valorAtual.toString() ?? '')
     setValuationDate(new Date().toISOString().slice(0, 10))
   }, [investment])
 
@@ -41,15 +41,15 @@ export function EditInvestmentDialog({
     event.preventDefault()
     if (!investment) return
     const value = Number(totalValue)
-    const currentPrice = investment.quantity > 0 ? value / investment.quantity : 0
-    const gain = value - investment.totalInvested
+    const currentPrice = investment.quantidade > 0 ? value / investment.quantidade : 0
+    const gain = value - investment.totalInvestido
 
     onSave({
       ...investment,
-      currentValue: value,
-      currentPrice,
-      gain,
-      gainPercentage: investment.totalInvested > 0 ? gain / investment.totalInvested * 100 : 0,
+      valorAtual: value,
+      precoAtual: currentPrice,
+      ganho: gain,
+      percentualGanho: investment.totalInvestido > 0 ? gain / investment.totalInvestido * 100 : 0,
     }, valuationDate)
   }
 

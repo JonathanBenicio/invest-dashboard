@@ -12,30 +12,34 @@ test('fixed-income statement valuation persists through the real UI and API', as
 
   const portfolioResponse = await request.post(`${apiUrl}/api/v1/portfolios`, {
     headers: authorization,
-    data: { name: portfolioName },
+    data: {
+      nome: portfolioName,
+      instituicaoFinanceiraId: '10000000-0000-4000-8000-000000000001',
+    },
   })
-  expect(portfolioResponse.status()).toBe(201)
-  const portfolio = (await portfolioResponse.json()).data as { id: string }
+  const createdPortfolio = await portfolioResponse.json()
+  expect(portfolioResponse.status(), JSON.stringify(createdPortfolio)).toBe(201)
+  const portfolio = createdPortfolio.dados as { id: string }
 
   const purchaseResponse = await request.post(`${apiUrl}/api/v1/investments/fixed-income`, {
     headers: authorization,
     data: {
-      portfolioId: portfolio.id,
-      name: assetName,
-      subtype: 'CDB',
-      issuer: 'Banco de teste',
-      principal: 5000,
-      statementValue: 5075,
-      interestRate: 110,
-      indexer: 'CDI',
-      purchaseDate: `${dateOnly(-30)}T12:00:00.000Z`,
-      maturityDate: `${dateOnly(365)}T12:00:00.000Z`,
-      idempotencyKey: crypto.randomUUID(),
+      carteiraId: portfolio.id,
+      nome: assetName,
+      subtipo: 'CDB',
+      emissor: 'Banco de teste',
+      valorPrincipal: 5000,
+      valorExtrato: 5075,
+      taxaJuros: 110,
+      indexador: 'CDI',
+      dataCompra: new Date(`${dateOnly(0)}T00:00:00`).toISOString(),
+      dataVencimento: `${dateOnly(365)}T12:00:00.000Z`,
+      chaveIdempotencia: crypto.randomUUID(),
     },
   })
   expect(purchaseResponse.status()).toBe(201)
-  const purchase = (await purchaseResponse.json()).data as { id: string; currentValue: number }
-  expect(purchase.currentValue).toBe(5075)
+  const purchase = (await purchaseResponse.json()).dados as { id: string; valorAtual: number }
+  expect(purchase.valorAtual).toBe(5075)
 
   await page.goto('/renda-fixa')
   await expect(page.getByRole('heading', { name: 'Renda Fixa' })).toBeVisible()
@@ -57,17 +61,17 @@ test('fixed-income statement valuation persists through the real UI and API', as
     { headers: authorization },
   )
   expect(positionResponse.status()).toBe(200)
-  const position = (await positionResponse.json()).data as { currentValue: number }
-  expect(position.currentValue).toBe(5200)
+  const position = (await positionResponse.json()).dados as { valorAtual: number }
+  expect(position.valorAtual).toBe(5200)
 
   const historyResponse = await request.get(
     `${apiUrl}/api/v1/investments/${purchase.id}/history`,
     { headers: authorization },
   )
   expect(historyResponse.status()).toBe(200)
-  const history = (await historyResponse.json()).data as Array<{ date: string; price: number; source: string }>
+  const history = (await historyResponse.json()).dados as Array<{ data: string; preco: number; origem: string }>
   expect(history).toEqual(expect.arrayContaining([
-    expect.objectContaining({ date: expect.stringContaining(valuationDate), price: 1.04, source: 'statement' }),
+    expect.objectContaining({ data: expect.stringContaining(valuationDate), preco: 1.04, origem: 'statement' }),
   ]))
 
   const transactionsResponse = await request.get(
@@ -75,6 +79,6 @@ test('fixed-income statement valuation persists through the real UI and API', as
     { headers: authorization },
   )
   expect(transactionsResponse.status()).toBe(200)
-  const transactions = (await transactionsResponse.json()).data as Array<{ ticker: string }>
+  const transactions = (await transactionsResponse.json()).dados as Array<{ ticker: string }>
   expect(transactions).toHaveLength(1)
 })

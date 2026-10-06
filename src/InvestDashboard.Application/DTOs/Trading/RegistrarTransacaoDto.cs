@@ -6,10 +6,10 @@ namespace InvestDashboard.Application.DTOs.Trading
 {
     public class RegistrarTransacaoDto
     {
-        [JsonPropertyName("portfolioId")]
+        [JsonPropertyName("carteiraId")]
         [Required]
         public Guid CarteiraId { get; set; }
-        [JsonPropertyName("assetId")]
+        [JsonPropertyName("ativoId")]
         public Guid? AtivoId { get; set; }
         [StringLength(20)]
         public string? Ticker { get; set; }
@@ -29,6 +29,10 @@ namespace InvestDashboard.Application.DTOs.Trading
         public string? Indexer { get; set; }
         public decimal? InterestRate { get; set; }
         public DateTime? MaturityDate { get; set; }
+        [StringLength(80)]
+        public string? Liquidity { get; set; }
+        [StringLength(80)]
+        public string? Convention { get; set; }
         [Required]
         public Guid IdempotencyKey { get; set; }
         [Range(typeof(decimal), "0", "100000000000000", ParseLimitsInInvariantCulture = true)]
@@ -37,9 +41,12 @@ namespace InvestDashboard.Application.DTOs.Trading
         public decimal Quantity { get; set; }
         [Range(typeof(decimal), "0.00000001", "100000000000000", ParseLimitsInInvariantCulture = true)]
         public decimal UnitPrice { get; set; }
-        [JsonPropertyName("fees")]
+        [JsonPropertyName("taxas")]
         [Range(typeof(decimal), "0", "100000000000000", ParseLimitsInInvariantCulture = true)]
         public decimal BrokerageFee { get; set; }
+        [JsonPropertyName("modalidadeFiscal")]
+        [StringLength(20)]
+        public string? ModalidadeFiscal { get; set; }
         public DateTime TransactionDate { get; set; } = DateTime.UtcNow;
         public string? Notes { get; set; }
     }
