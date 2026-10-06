@@ -1,6 +1,6 @@
 # Plano para fechar os gaps das telas que usavam mocks
 
-> Estado em 05/10/2026: implementação e validação local concluídas para os três achados da revisão do PR #44. Consulte o [plano de correção](pr-44-review-fixes.md) e o [relatório de validação](../validation/pr-44-review-fixes.md). O PR remoto ainda precisa receber a nova revisão/CI; pendências pós-merge seguem abaixo.
+> Estado em 05/10/2026: implementação e validação local/remota concluídas para os três achados da revisão do PR #44 no commit `d10f2af`; os quatro checks de CI passaram. Consulte o [plano de correção](pr-44-review-fixes.md) e o [relatório de validação](../validation/pr-44-review-fixes.md). Pendências pós-merge seguem abaixo.
 
 ## Escopo decidido
 

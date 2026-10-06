@@ -1,6 +1,6 @@
 # Concluir o plano ativo de posições
 
-> Atualização em 05/10/2026: a implementação local dos três achados da revisão do PR #44 passou nas verificações de API/PostgreSQL e frontend. Aguardam commit/publicação no PR; consulte o [plano de correção](pr-44-review-fixes.md) e o [relatório atual](../validation/pr-44-review-fixes.md). Contagens antigas desta página continuam sendo evidência histórica.
+> Atualização em 05/10/2026: os três achados da revisão do PR #44 foram corrigidos no commit `d10f2af`; API/PostgreSQL, frontend e os quatro checks de CI passaram. Consulte o [plano de correção](pr-44-review-fixes.md) e o [relatório atual](../validation/pr-44-review-fixes.md). Contagens antigas desta página continuam sendo evidência histórica.
 
 Objetivo: fechar os gaps de acompanhamento de posições sem acrescentar fluxo de caixa, que está no [backlog futuro de baixa prioridade](future-low-priority.md).
 

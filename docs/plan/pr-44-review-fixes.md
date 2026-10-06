@@ -1,6 +1,6 @@
 # Plano — corrigir os achados da revisão do PR #44
 
-- Estado: implementação concluída e validada localmente; PR aguarda commit/publicação e nova revisão.
+- Estado: commit `d10f2af` publicado no PR #44; quatro checks remotos passaram e os três tópicos de revisão foram respondidos/resolvidos.
 - Data: 05/10/2026 (America/Sao_Paulo).
 - PR: [#44](https://github.com/JonathanBenicio/invest-dashboard/pull/44).
 - Issue: pendente; esta etapa cria somente o plano local, sem publicação externa.
@@ -35,7 +35,7 @@ Na revisão, testes existentes em Docker SDK .NET 10: 52 unitários e 59 integra
 | T2 [x] / P1 | Avaliações isoladas por posição, migration/backfill conservador, autorização via position lookup e histórico público separado. | T1 | Isolamento entre usuários, acesso à posição alheia negado; migration PostgreSQL testada com ativo único e ativo compartilhado. |
 | T3 [x] / P2 | Posição, gráfico e projeção usam avaliação vigente por data observada, registro e desempate estável; compras iniciais preservam a cotação da própria carteira. | T2 | Extrato 1.200, revisão na mesma data 1.250 e extrato retroativo 1.100 mantêm posição/projeção em 1.250; histórico guarda as três observações. |
 | T4 [x] / P2 | Cards de `InvestmentDetails.tsx` usam o mesmo DTO recalculado pela cotação. | T1 | E2E mostra preço R$ 39,75, valor R$ 7.950, ganho R$ 1.450 e percentual 22.31% para a posição PETR4 de fixture. |
-| T5 [x] / P1 | Validação local concluída, evidências registradas abaixo e documentação sincronizada. | T2–T4 | Suites locais passaram; checklist registra dois avisos SEO fora do escopo. O PR ainda precisa receber este commit. |
+| T5 [x] / P1 | Validação local/remota concluída, evidências registradas abaixo e documentação sincronizada. | T2–T4 | Suites locais passaram; quatro checks de CI passaram no commit `d10f2af`; comentários de revisão foram respondidos e resolvidos. |
 
 ## Critérios de aceite e validação final
 
@@ -47,7 +47,7 @@ Na revisão, testes existentes em Docker SDK .NET 10: 52 unitários e 59 integra
 - [x] Backend `dotnet test InvestDashboard.slnx --configuration Release --no-restore` em Docker SDK 10 com PostgreSQL descartável: 52 unitários e 75 integração passaram; 2 testes live externos foram ignorados.
 - [x] Typecheck, ESLint, build de produção, 17 E2E MSW e 11 E2E UI/API/PostgreSQL passaram. O E2E live Supabase foi ignorado sem conta dedicada. Bun não está instalado neste WSL; os comandos equivalentes foram executados com Node/Vite/Playwright.
 - [x] `git diff --check` passou. `checklist.py` passou segurança, lint, schema, teste e UX; falhou SEO por múltiplos `<h1>` preexistentes em `frontend/src/pages/dashboard/Dashboard.tsx` e `frontend/src/pages/tools/Taxes.tsx` (ver nota abaixo; fora do escopo).
-- [x] Resultados detalhados em [relatório de validação](../validation/pr-44-review-fixes.md). Revisão da nova SHA e CI remota ainda pendentes.
+- [x] Resultados detalhados em [relatório de validação](../validation/pr-44-review-fixes.md). CI remota passou nos quatro checks; merge permanece separado desta execução.
 
 ## Riscos e conclusão
 

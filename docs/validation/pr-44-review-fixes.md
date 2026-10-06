@@ -3,7 +3,7 @@
 - Data: 05/10/2026 (America/Sao_Paulo).
 - Branch de trabalho: `feature/mock-era-parity-coverage`.
 - Base revisada: `fdeba36870dd7b050c9a5f13e25ee7a8824b2a9e`.
-- Estado: código e testes validados localmente; a nova revisão/CI remota depende de publicar o commit.
+- Estado: commit `d10f2af` publicado no PR #44; CI remoto passou nos quatro checks; os três tópicos inline foram respondidos e resolvidos.
 
 ## Evidências
 
@@ -20,6 +20,7 @@
 | E2E real API/PostgreSQL | Playwright 1.57, API local Testing e PostgreSQL 15 descartável; suite `frontend/e2e-real-api` | passou | 11 passaram; 1 teste live Supabase ignorado por exigir uma conta de homologação. Nenhum serviço externo foi usado. |
 | Checklist do projeto | `python3 .agents/scripts/checklist.py .` com alias temporário `python` para o Python 3 disponível | falhou parcialmente | Segurança, lint, schema, testes e UX passaram. SEO falhou em dois arquivos preexistentes: `frontend/src/pages/dashboard/Dashboard.tsx` e `frontend/src/pages/tools/Taxas.tsx` contêm múltiplos `<h1>`. Essas telas não foram alteradas nesta correção. Lighthouse foi ignorado por ausência de URL. |
 | `git diff --check` | Checkout WSL do PR | passou | Sem erros de whitespace no diff. |
+| CI do PR #44 | Execução 37403017029 no commit `d10f2af` | passou | `backend`, `docker-smoke`, `csv-import-e2e` e `frontend` passaram. |
 
 ## Limitações
 
