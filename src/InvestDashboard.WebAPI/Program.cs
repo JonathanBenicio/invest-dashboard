@@ -49,7 +49,8 @@ builder.Services.AddScoped<ITaxasAppService, TaxasAppService>();
 builder.Services.AddScoped<IGrupoCarteirasAppService, GrupoCarteirasAppService>();
 builder.Services.AddScoped<IInstituicoesFinanceirasAppService, InstituicoesFinanceirasAppService>();
 builder.Services.AddScoped<TitularesAppService>();
-builder.Services.AddHttpClient<IInvitationEmailSender, SupabaseInvitationEmailSender>(client => client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient<IInvitationEmailSender, SupabaseInvitationEmailSender>(client => client.Timeout = TimeSpan.FromSeconds(15))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<IEstimativaImpostoAppService, EstimativaImpostoAppService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient<IBenchmarkCdiProvider, BcbCdiBenchmarkProvider>(client =>
