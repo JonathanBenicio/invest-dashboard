@@ -68,8 +68,8 @@ export default function InvestmentDetails() {
     return {
       ...storedAsset,
       precoAtual: quote.preco,
-      currentValue,
-      gain,
+      valorAtual: currentValue,
+      ganho: gain,
       percentualGanho: storedAsset.totalInvestido > 0 ? (gain / storedAsset.totalInvestido) * 100 : 0,
     }
   }, [quote, storedAsset])

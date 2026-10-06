@@ -1,5 +1,7 @@
 # Plano para fechar os gaps das telas que usavam mocks
 
+> Estado em 05/10/2026: implementação e validação local concluídas para os três achados da revisão do PR #44. Consulte o [plano de correção](pr-44-review-fixes.md) e o [relatório de validação](../validation/pr-44-review-fixes.md). O PR remoto ainda precisa receber a nova revisão/CI; pendências pós-merge seguem abaixo.
+
 ## Escopo decidido
 
 - Titular é um perfil separado da conta de login, criado dentro do grupo, com nome e parentesco opcional. Parentesco é informativo e não concede acesso. Um perfil pode ser vinculado a um membro ativo; carteira particular fica acessível ao titular vinculado e aos Admins. Sem vínculo, só Admin acessa. O autor de cada movimentação permanece separado do titular.

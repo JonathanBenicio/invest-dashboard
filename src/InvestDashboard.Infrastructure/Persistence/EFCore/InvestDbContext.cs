@@ -17,6 +17,7 @@ public class InvestDbContext : DbContext
     public DbSet<Transacao> Transactions => Set<Transacao>();
     public DbSet<Carteira> Portfolios => Set<Carteira>();
     public DbSet<PosicaoInvestimento> AssetPositions => Set<PosicaoInvestimento>();
+    public DbSet<ValuacaoPosicao> PositionValuations => Set<ValuacaoPosicao>();
     public DbSet<TaxaEconomica> EconomicRates => Set<TaxaEconomica>();
     public DbSet<RefreshTokenSession> RefreshTokenSessions => Set<RefreshTokenSession>();
     public DbSet<GrupoCarteiras> PortfolioGroups => Set<GrupoCarteiras>();

@@ -18,6 +18,7 @@ namespace InvestDashboard.Application.Services
         private readonly ICarteiraRepository _carteiraRepository;
         private readonly ITransacaoRepository _transacaoRepository;
         private readonly IPrecoHistoricoRepository _precoHistoricoRepository;
+        private readonly IValuacaoPosicaoRepository _valuacaoPosicaoRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IUsuarioAtualService _usuarioAtualService;
         private readonly IGrupoCarteirasRepository _grupoRepository;
@@ -30,6 +31,7 @@ namespace InvestDashboard.Application.Services
             ICarteiraRepository carteiraRepository,
             ITransacaoRepository transacaoRepository,
             IPrecoHistoricoRepository precoHistoricoRepository,
+            IValuacaoPosicaoRepository valuacaoPosicaoRepository,
             IUnitOfWork unitOfWork,
             IUsuarioAtualService usuarioAtualService,
             IGrupoCarteirasRepository grupoRepository,
@@ -41,6 +43,7 @@ namespace InvestDashboard.Application.Services
             _carteiraRepository = carteiraRepository;
             _transacaoRepository = transacaoRepository;
             _precoHistoricoRepository = precoHistoricoRepository;
+            _valuacaoPosicaoRepository = valuacaoPosicaoRepository;
             _unitOfWork = unitOfWork;
             _usuarioAtualService = usuarioAtualService;
             _grupoRepository = grupoRepository;
@@ -194,21 +197,21 @@ namespace InvestDashboard.Application.Services
         private async Task<ProjecaoRendaFixaDto> CalculateFixedIncomeProjectionAsync(PosicaoInvestimento position, Guid? groupId)
         {
             var asset = position.Ativo as RendaFixa;
-            var priceHistory = await _precoHistoricoRepository.GetByAtivoIdAsync(position.AtivoId);
-            var latestStatement = priceHistory.Where(price => price.Source == "statement").OrderByDescending(price => price.Date).FirstOrDefault();
-            var observedValue = latestStatement is null ? position.CurrentValue : latestStatement.Price * position.Quantity;
+            var latestStatement = await _valuacaoPosicaoRepository.GetLatestAsync(position.Id);
+            var observedValue = latestStatement is null ? position.CurrentValue : latestStatement.PrecoUnitario * position.Quantity;
             var maturityDate = asset?.MaturityDate ?? DateTime.MinValue;
             if (asset is null || latestStatement is null)
-                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, latestStatement?.Date, null, maturityDate, "sem_base_observada", "Registre um valor de extrato antes de estimar.");
+                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, latestStatement?.DataObservadaUtc, null, maturityDate, "sem_base_observada", "Registre um valor de extrato antes de estimar.");
+            var observedAt = latestStatement.DataObservadaUtc;
             if (!string.Equals(asset.Convention?.Trim(), "365 dias corridos", StringComparison.OrdinalIgnoreCase))
-                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, latestStatement.Date, null, maturityDate, "sem_premissa", "Informe a taxa contratual e a convenção '365 dias corridos'.");
+                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, observedAt, null, maturityDate, "sem_premissa", "Informe a taxa contratual e a convenção '365 dias corridos'.");
             if (asset.InterestRate <= 0)
-                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, latestStatement.Date, null, maturityDate, "sem_premissa", "Informe uma taxa contratual positiva.");
+                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, observedAt, null, maturityDate, "sem_premissa", "Informe uma taxa contratual positiva.");
 
-            var observationDate = DateOnly.FromDateTime(latestStatement.Date);
+            var observationDate = DateOnly.FromDateTime(observedAt);
             var maturityDay = DateOnly.FromDateTime(maturityDate);
             if (maturityDay <= observationDate)
-                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, latestStatement.Date, observedValue, maturityDate, "vencido", "A estimativa preserva o valor observado e não gera saldo em caixa.");
+                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, observedAt, observedValue, maturityDate, "vencido", "A estimativa preserva o valor observado e não gera saldo em caixa.");
             var days = maturityDay.DayNumber - observationDate.DayNumber;
             decimal annualRate;
             TaxaEconomica? observedRate = null;
@@ -220,15 +223,15 @@ namespace InvestDashboard.Application.Services
             else
             {
                 if (!groupId.HasValue)
-                    return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, latestStatement.Date, null, maturityDate, "sem_premissa", "A taxa do indexador precisa estar cadastrada no grupo.");
+                    return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, observedAt, null, maturityDate, "sem_premissa", "A taxa do indexador precisa estar cadastrada no grupo.");
                 observedRate = (await _taxaRepository.GetAllInGroupAsync(groupId.Value))
                     .Where(rate => string.Equals(rate.Symbol, asset.Indexer, StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(rate.Unit, "Percentual", StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(rate => rate.ReferenceDate).FirstOrDefault();
                 if (observedRate is null)
-                    return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, latestStatement.Date, null, maturityDate, "sem_premissa", $"Cadastre uma taxa {asset.Indexer} periódica e datada no grupo.");
+                    return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, observedAt, null, maturityDate, "sem_premissa", $"Cadastre uma taxa {asset.Indexer} periódica e datada no grupo.");
                 if (string.Equals(observedRate.Periodicity, "Pontual", StringComparison.OrdinalIgnoreCase))
-                    return MapProjection(position, observedValue, latestStatement.Date, null, maturityDate, "sem_premissa",
+                    return MapProjection(position, observedValue, observedAt, null, maturityDate, "sem_premissa",
                         $"A taxa {observedRate.Symbol} observada em {observedRate.ReferenceDate:dd/MM/yyyy} é pontual e não pode ser usada na projeção.",
                         observedRate, null, null, null);
 
@@ -239,7 +242,7 @@ namespace InvestDashboard.Application.Services
                 rateValidity = freshness.Validity;
                 rateValidityUnit = freshness.Unit;
                 if (freshness.IsStale)
-                    return MapProjection(position, observedValue, latestStatement.Date, null, maturityDate, "taxa_desatualizada",
+                    return MapProjection(position, observedValue, observedAt, null, maturityDate, "taxa_desatualizada",
                         $"Atualize {observedRate.Symbol}: o valor observado ({observedRate.CurrentValue.ToString("0.####", CultureInfo.GetCultureInfo("pt-BR"))} {observedRate.Unit}) é de {observedRate.ReferenceDate:dd/MM/yyyy} e ultrapassou a validade de {freshness.Validity} {freshness.Unit}.",
                         observedRate, rateAge, rateValidity, rateValidityUnit);
 
@@ -249,7 +252,7 @@ namespace InvestDashboard.Application.Services
                     : indexRate * asset.InterestRate / 100m;
             }
             var projected = observedValue * (decimal)Math.Pow((double)(1 + annualRate), days / 365d);
-            return MapProjection(position, observedValue, latestStatement.Date,
+            return MapProjection(position, observedValue, observedAt,
                 decimal.Round(projected, 2, MidpointRounding.AwayFromZero), maturityDate, "estimativa_bruta",
                 "Estimativa bruta com taxa do contrato e premissa vigente do grupo; não inclui impostos, aportes ou reinvestimento.",
                 observedRate, rateAge, rateValidity, rateValidityUnit);
@@ -358,14 +361,11 @@ namespace InvestDashboard.Application.Services
             if (position.Quantity <= 0)
                 throw new InvalidOperationException("A closed position cannot be valued.");
 
-            var price = totalValue / position.Quantity;
-            position.UpdateCurrentPrice(price);
-            await _precoHistoricoRepository.AddAsync(new PrecoHistorico(
-                Guid.NewGuid(),
-                position.AtivoId,
-                price,
-                observedAtUtc,
-                "statement"));
+            var latest = await _valuacaoPosicaoRepository.GetLatestAsync(position.Id);
+            var valuation = new ValuacaoPosicao(Guid.NewGuid(), position.Id, observedAtUtc,
+                totalValue / position.Quantity, position.Quantity, _timeProvider.GetUtcNow().UtcDateTime);
+            await _valuacaoPosicaoRepository.AddAsync(valuation);
+            if (valuation.IsNewerThan(latest)) position.UpdateCurrentPrice(valuation.PrecoUnitario);
 
             _carteiraRepository.Update(result.Value.Portfolio);
             await _unitOfWork.SaveChangesAsync();
@@ -378,13 +378,23 @@ namespace InvestDashboard.Application.Services
             if (position is null) return [];
 
             var prices = await _precoHistoricoRepository.GetByAtivoIdAsync(position.AtivoId, fromDate);
+            var valuations = await _valuacaoPosicaoRepository.GetByPositionIdAsync(position.Id, fromDate);
             return prices.Select(price => new PrecoHistoricoDto
-            {
-                Date = price.Date,
-                Price = price.Price,
-                Source = price.Source,
-                IsAdjusted = price.IsAdjusted
-            }).ToList();
+                {
+                    Date = price.Date,
+                    Price = price.Price,
+                    Source = price.Source,
+                    IsAdjusted = price.IsAdjusted
+                })
+                .Concat(valuations.Select(valuation => new PrecoHistoricoDto
+                {
+                    Date = valuation.DataObservadaUtc,
+                    Price = valuation.PrecoUnitario,
+                    Source = "statement",
+                    IsAdjusted = false
+                }))
+                .OrderBy(price => price.Date)
+                .ToList();
         }
 
         public async Task<IReadOnlyList<PontoHistoricoCarteiraDto>?> GetPortfolioHistoryAsync(
@@ -415,9 +425,15 @@ namespace InvestDashboard.Application.Services
                 .ToDictionary(
                     group => group.Key,
                     group => group.OrderBy(price => price.Date).ToArray());
+            var positionAssetIds = portfolio.Positions.ToDictionary(position => position.Id, position => position.AtivoId);
+            var positionValuations = (await _valuacaoPosicaoRepository.GetByPositionIdsAsync(positionAssetIds.Keys.ToArray()))
+                .GroupBy(valuation => positionAssetIds[valuation.PosicaoId])
+                .ToDictionary(group => group.Key, group => group.ToArray());
 
             var dates = prices.Select(price => DateOnly.FromDateTime(price.Date))
                 .Concat(transactions.Select(transaction => DateOnly.FromDateTime(transaction.TransactionDate)))
+                .Concat(positionValuations.Values.SelectMany(valuations => valuations)
+                    .Select(valuation => DateOnly.FromDateTime(valuation.DataObservadaUtc)))
                 .Where(date => date >= start && date <= end)
                 .Distinct()
                 .OrderBy(date => date)
@@ -440,22 +456,27 @@ namespace InvestDashboard.Application.Services
                 var missingTickers = new List<string>();
                 foreach (var (assetId, quantity) in quantities.Where(entry => entry.Value > 0))
                 {
-                    if (!dailyPrices.TryGetValue(assetId, out var series))
+                    var ticker = transactions.First(transaction => transaction.AtivoId == assetId).Ticker ?? assetId.ToString();
+                    var marketPrice = dailyPrices.TryGetValue(assetId, out var series)
+                        ? series.LastOrDefault(price => DateOnly.FromDateTime(price.Date) <= date)
+                        : null;
+                    if (marketPrice is not null)
                     {
-                        missingTickers.Add(transactions.First(transaction => transaction.AtivoId == assetId).Ticker ?? assetId.ToString());
+                        value += quantity * marketPrice.Price;
                         continue;
                     }
 
-                    var latest = series.LastOrDefault(price => DateOnly.FromDateTime(price.Date) <= date);
-                    if (latest is null)
+                    var statement = positionValuations.GetValueOrDefault(assetId)?
+                        .LastOrDefault(valuation => DateOnly.FromDateTime(valuation.DataObservadaUtc) <= date);
+                    if (statement is null)
                     {
-                        missingTickers.Add(transactions.First(transaction => transaction.AtivoId == assetId).Ticker ?? assetId.ToString());
+                        missingTickers.Add(ticker);
                         continue;
                     }
 
-                    value += quantity * latest.Price;
-                    if (latest.Source == "statement" && DateOnly.FromDateTime(latest.Date) < date)
-                        missingTickers.Add(transactions.First(transaction => transaction.AtivoId == assetId).Ticker ?? assetId.ToString());
+                    value += quantity * statement.PrecoUnitario;
+                    if (DateOnly.FromDateTime(statement.DataObservadaUtc) < date)
+                        missingTickers.Add(ticker);
                 }
 
                 result.Add(new PontoHistoricoCarteiraDto

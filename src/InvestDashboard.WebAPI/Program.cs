@@ -34,6 +34,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 // Register Scoped Repositories
 builder.Services.AddScoped<IAtivoRepository, AtivoRepository>();
 builder.Services.AddScoped<IPrecoHistoricoRepository, PrecoHistoricoRepository>();
+builder.Services.AddScoped<IValuacaoPosicaoRepository, ValuacaoPosicaoRepository>();
 builder.Services.AddScoped<ITransacaoRepository, TransacaoRepository>();
 builder.Services.AddScoped<ICarteiraRepository, CarteiraRepository>();
 builder.Services.AddScoped<ITitularCarteiraRepository, TitularCarteiraRepository>();

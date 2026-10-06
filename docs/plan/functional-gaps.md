@@ -2,7 +2,9 @@
 
 Atualizado em 29/09/2026 após auditoria das telas, contratos e integrações. O foco atual é acompanhamento de posições. Este documento separa bloqueios de integração, gaps que dependem de regra de negócio e a fase futura do Tesouro Transparente; não transforma decisões pendentes em comportamento presumido. Fluxo de caixa e proventos foram movidos para o [plano futuro de baixa prioridade](future-low-priority.md).
 
-## P0 — Finalizar dados reais de mercado e autenticação
+## P0 — Homologação pós-merge de mercado e autenticação
+
+**Decisão em 05/10/2026:** executar a homologação real Supabase/Brapi após o merge do PR #44. Não é bloqueio de merge; segue como requisito antes do deploy. As correções locais do PR e seus testes estão no [plano de revisão](pr-44-review-fixes.md) e no [relatório de validação](../validation/pr-44-review-fixes.md).
 
 ### P0.1 — Homologar Brapi
 
@@ -67,7 +69,9 @@ Atualizado em 29/09/2026 após auditoria das telas, contratos e integrações. O
 
 **Aceite:** comparação carteira/CDI concluída. Ibovespa explicitamente adiado para plano futuro.
 
-### P1.4 — Importação com extratos reais de corretoras
+### P1.4 — Importação com extratos reais de corretoras (pós-merge)
+
+**Decisão em 05/10/2026:** amostras e validação dos formatos específicos serão tratadas após o merge do PR #44; não bloqueiam seu aceite.
 
 **Estado:** importador genérico CSV validado contra API/PostgreSQL. Foi criado o plano específico de descoberta/análise de formatos e implementação de adaptadores de corretoras em [broker-csv-import-plan.md](broker-csv-import-plan.md). Extratos reais anonimizados ainda não foram fornecidos/validados; parser específico aguarda as amostras.
 
@@ -93,13 +97,15 @@ Atualizado em 29/09/2026 após auditoria das telas, contratos e integrações. O
 
 **Aceite:** seguir os critérios detalhados no plano vinculado: reprocessamento sem duplicatas, grandes CSVs em streaming, alertas por dataset/data, dados públicos separados de posição pessoal e comparação somente com instrumento/unidade/vencimento compatíveis.
 
-## P3 — Gate final de release
+## P3 — Requisitos de release (pós-merge)
+
+**Decisão em 05/10/2026:** executar as verificações de release após o merge do PR #44 e antes de colocar em produção. Não são requisitos para merge; continuam pendentes, sem serem declaradas concluídas.
 
 1. [x] Builds .NET e frontend; 47 testes unitários (2 live ignorados), 66 integrações PostgreSQL, E2E MSW 14/14 e E2E real API/PostgreSQL 11/11 passaram. Smoke Compose anterior confirmou `/health/live`, `/health/ready` e frontend 200. Live Brapi público passou pelo cliente real. O teste live de Supabase segue ignorado sem conta dedicada.
-2. [~] Supabase/Brapi com credenciais reais não foram homologados. Supabase sem conta de teste; Brapi sem token/limites da conta. PostgreSQL local não substitui autenticação externa.
+2. [~] **Pós-merge:** Supabase/Brapi com credenciais reais não foram homologados. Supabase sem conta de teste; Brapi sem token/limites da conta. PostgreSQL local não substitui autenticação externa.
 3. Revisar logs/configuração para excluir credenciais; verificar que produção, GitHub Pages e Android build usam `VITE_USE_MSW=false`.
 4. [x] Atualizar dependências sem `--force`, sincronizar `bun.lock` e `package-lock.json`; `npm audit` atual: zero advisories.
-5. [ ] Deploy permanece bloqueado até homologação da autenticação Supabase, limites Brapi, licença/contrato B3 e revisão de segurança/configuração do ambiente de destino.
+5. [ ] Antes do deploy: concluir homologação pós-merge da autenticação Supabase e dos limites Brapi, revisão fiscal da estimativa e revisão de segurança/configuração do destino. Licença/contrato B3 permanece na funcionalidade futura de Ibovespa (P2.1), sem bloquear o merge/release do escopo atual.
 
 ## Relação com MSW
 

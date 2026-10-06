@@ -26,7 +26,7 @@ public class PrecoHistoricoRepository : IPrecoHistoricoRepository
     {
         var query = _context.HistoricalPrices
             .AsNoTracking()
-            .Where(hp => hp.AtivoId == assetId);
+            .Where(hp => hp.AtivoId == assetId && hp.Source != "statement");
 
         if (fromDate.HasValue)
         {
@@ -48,7 +48,7 @@ public class PrecoHistoricoRepository : IPrecoHistoricoRepository
             return Array.Empty<PrecoHistorico>();
 
         var query = _context.HistoricalPrices.AsNoTracking()
-            .Where(price => assetIds.Contains(price.AtivoId));
+            .Where(price => assetIds.Contains(price.AtivoId) && price.Source != "statement");
 
         if (fromDate.HasValue)
         {

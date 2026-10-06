@@ -1,5 +1,7 @@
 # Plano: analisar e importar CSVs de corretoras
 
+**Estado:** planejado para pós-merge do PR #44, por decisão do usuário em 05/10/2026. Obter/analisar as amostras e implementar adaptadores específicos não bloqueia o merge. O importador CSV genérico permanece no escopo atual.
+
 Este plano prepara a importação de extratos reais sem presumir layouts antes de receber amostras. O importador CSV genérico atual continua disponível e grava transações pela API; os adaptadores abaixo devem ser adicionados somente após verificar arquivos representativos.
 
 ## Resultado esperado

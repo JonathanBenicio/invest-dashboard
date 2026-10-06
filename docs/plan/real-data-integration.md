@@ -104,7 +104,9 @@ O MSW pode continuar como ferramenta de testes e demonstração local. Ele não 
 
 **Aceite:** cada tela de negócio roteada possui contrato explícito, estado de erro real e teste de integração que cobre a conexão relevante.
 
-### Fase 6 — homologação
+### Fase 6 — homologação e requisitos de release pós-merge
+
+**Decisão em 05/10/2026:** executar Supabase/Brapi e requisitos de release depois do merge do PR #44, antes do deploy; não tratar esta etapa como requisito para merge. Amostras e adaptadores específicos de corretoras também ficam para pós-merge, conforme o [plano de CSVs](broker-csv-import-plan.md).
 
 1. Configurar em ambiente de homologação URL/API, Supabase e Brapi via secrets do ambiente, sem versionar credenciais.
 2. Verificar login/refresh, isolamento de carteiras, criação de transação, cotações/histórico e comportamento de timeout.

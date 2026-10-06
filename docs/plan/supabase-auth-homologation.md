@@ -1,5 +1,7 @@
 # Homologação de autenticação Supabase
 
+**Agendamento:** pós-merge do PR #44, por decisão do usuário em 05/10/2026. Não bloqueia o merge; validar antes do deploy. Os passos abaixo permanecem pendentes de execução.
+
 ## Criar/selecionar uma conta de teste
 
 No projeto **Invest Dashboard**, abra **Authentication → Users → Add user**. O painel atual oferece **Create new user** e **Send invitation**. Use uma conta dedicada de teste, com e-mail acessível e senha conhecida. Se convidar, complete o link de confirmação recebido por e-mail antes de testar: a configuração observada deste projeto exige confirmação de e-mail para entrar. Evite usar a conta pessoal que administra o projeto.

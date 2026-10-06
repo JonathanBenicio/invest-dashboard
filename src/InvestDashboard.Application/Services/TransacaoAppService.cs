@@ -13,7 +13,7 @@ public sealed class TransacaoAppService(
     ITransacaoRepository transactions,
     ICarteiraRepository portfolios,
     IAtivoRepository assets,
-    IPrecoHistoricoRepository priceHistory,
+    IValuacaoPosicaoRepository valuations,
     IUnitOfWork unitOfWork,
     IUsuarioAtualService currentUser) : ITransacaoAppService
 {
@@ -117,12 +117,12 @@ public sealed class TransacaoAppService(
         if (asset is RendaFixa && dto.InitialStatementValue.HasValue)
         {
             var unitPrice = dto.InitialStatementValue.Value / dto.Quantity;
-            await priceHistory.AddAsync(new PrecoHistorico(
-                Guid.NewGuid(),
-                asset.Id,
-                unitPrice,
-                dto.TransactionDate,
-                "statement"));
+            var position = portfolio.Positions.Single(item => item.AtivoId == asset.Id);
+            var valuation = new ValuacaoPosicao(Guid.NewGuid(), position.Id, dto.TransactionDate,
+                unitPrice, position.Quantity, DateTime.UtcNow);
+            var latestValuation = await valuations.GetLatestAsync(position.Id);
+            await valuations.AddAsync(valuation);
+            if (valuation.IsNewerThan(latestValuation)) position.UpdateCurrentPrice(unitPrice);
         }
 
         portfolios.Update(portfolio);
@@ -244,9 +244,17 @@ public sealed class TransacaoAppService(
             if (!item.AtivoId.HasValue || !assetMap.TryGetValue(item.AtivoId.Value, out var asset))
                 throw new InvalidOperationException("Transaction references a missing asset.");
 
-            var marketPrice = asset.TipoAtivo == TipoAtivo.RendaFixa
-                ? previousFixedIncomePrices.GetValueOrDefault(asset.Id, asset.CurrentPrice)
-                : asset.CurrentPrice;
+            var marketPrice = asset.CurrentPrice;
+            if (asset.TipoAtivo == TipoAtivo.RendaFixa)
+            {
+                marketPrice = previousFixedIncomePrices.TryGetValue(asset.Id, out var positionPrice)
+                    ? positionPrice
+                    : history.Where(candidate => candidate.AtivoId == asset.Id && candidate.Type == TipoTransacao.Buy)
+                        .OrderByDescending(candidate => candidate.TransactionDate)
+                        .ThenByDescending(candidate => candidate.Id)
+                        .Select(candidate => candidate.UnitPrice)
+                        .FirstOrDefault(asset.CurrentPrice);
+            }
 
             portfolio.ProcessTransaction(item, marketPrice, asset.TipoAtivo, stablePositionIds);
         }

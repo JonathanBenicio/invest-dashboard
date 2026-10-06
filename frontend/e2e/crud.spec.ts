@@ -79,6 +79,23 @@ test.describe('Acompanhamento de posições', () => {
     await expect(page.getByRole('status')).toHaveCount(0)
   })
 
+  test('atualiza valor, ganho e percentual dos detalhes com a cotação atual', async ({ page }) => {
+    await page.getByRole('link', { name: /Renda Vari/ }).click()
+    const stockRow = page.getByRole('row').filter({ hasText: 'PETR4' })
+    await stockRow.getByRole('button').click()
+    await page.getByRole('menuitem', { name: 'Ver Detalhes' }).click()
+    await expect(page.getByRole('heading', { name: 'Petrobras PN' })).toBeVisible()
+
+    const position = page.getByText('Valor da posição').locator('xpath=../..')
+    const quote = page.getByText('Cotação atual').locator('xpath=../..')
+    const result = page.getByText('Resultado não realizado').locator('xpath=../..')
+
+    await expect(quote).toContainText('R$ 39,75')
+    await expect(position).toContainText('R$ 7.950,00')
+    await expect(result).toContainText('R$ 1.450,00')
+    await expect(result).toContainText('22.31%')
+  })
+
   test('mostra a projeção consolidada e identifica posições sem premissa', async ({ page }) => {
     await page.getByRole('link', { name: 'Renda Fixa' }).click()
     await expect(page.getByText('Projeção bruta até o vencimento')).toBeVisible()

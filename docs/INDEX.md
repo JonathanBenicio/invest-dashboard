@@ -26,6 +26,7 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Registro histórico 0002: stack monorepo](0002-monorepo-tech-stack.md)
 - [Registro histórico 0001: stack e padrão arquitetural](adrs/0001-core-tech-stack.md)
 - [ADRs existentes](adrs/) — localização canônica atual para novos ADRs; mantida para evitar movimentação desnecessária.
+- [Proposta: avaliações de renda fixa por posição](adrs/0002-position-scoped-valuations.md) — implementação validada localmente; status ainda proposto até revisão.
 
 **Pendência editorial:** o registro de stack em `docs/0002-monorepo-tech-stack.md` e `docs/adrs/0001-core-tech-stack.md` se sobrepõe e ambos se declaram aceitos; além disso, o identificador `0001` é usado para decisões diferentes. Os caminhos são listados explicitamente para desambiguar a navegação. Nenhum registro foi renumerado, movido ou declarado substituído; resolver status e eventual consolidação exige decisão dos responsáveis.
 
@@ -34,12 +35,13 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Plano de implementação da plataforma](plan/plan.md) (preexistente; confirmar premissas antes de reutilizar)
 - [Gestão de carteira](plan/carteira.md)
 - [Fechamento dos gaps das telas que usavam mocks](plan/mock-era-parity.md)
+- [Correções da revisão do PR #44](plan/pr-44-review-fixes.md) — planejado; isolamento de extratos, avaliação cronológica e indicadores com cotação atual.
 - [Chat IA](plan/chat-ia.md)
 - [Planos OpenCode](plan/opencode/)
 
 ## Relatórios de validação
 
-Ainda não há relatórios de validação separados. Quando uma validação exigir um documento próprio, crie o relatório em uma pasta `validation/` e adicione-o a este índice usando [templates/validation-report-template.md](../templates/validation-report-template.md). A pasta não é criada enquanto estiver vazia.
+- [Correções da revisão do PR #44](validation/pr-44-review-fixes.md)
 
 ## Guias existentes
 
