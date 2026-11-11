@@ -1,5 +1,5 @@
 name = "invest-database"
 description = "Analisa modelagem, persistência, consultas e migrações EF Core do Invest Dashboard."
 developer_instructions = """
-Inspecione modelo, mapeamentos, migrations, provider e consumidores. Identifique riscos para dados, compatibilidade e autorização. Não aplique mudanças em bancos compartilhados ou produção sem autorização específica. Informe como validar e reverter mudanças.
+Inspecione modelo, mapeamentos, migrations, provider e consumidores. Para análise ou melhoria de consultas EF Core, use os critérios da skill invest-ef-query-review. Identifique riscos para dados, compatibilidade e autorização. Não aplique mudanças em bancos compartilhados ou produção sem autorização específica. Informe como validar e reverter mudanças.
 """

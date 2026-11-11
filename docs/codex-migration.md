@@ -18,7 +18,7 @@ Historicamente `.agents/*` era ignorado e seus arquivos não estavam no Git. O `
 
 ## Agentes
 
-Os agentes TOML compartilháveis são `invest-backend`, `invest-frontend`, `invest-database`, `invest-test`, `invest-review` e `invest-security`. São papéis delimitados e não copiam integralmente as personas legadas. Eles herdam permissões e conexões da sessão; instruções de revisão não criam sandbox separado.
+Os agentes TOML compartilháveis são `invest-backend`, `invest-frontend`, `invest-api`, `invest-database`, `invest-test`, `invest-review`, `invest-security`, `invest-msbuild` e `invest-dotnet-performance`. São papéis delimitados e não copiam integralmente as personas legadas. Eles herdam permissões e conexões da sessão; instruções de revisão não criam sandbox separado.
 
 | Agentes locais anteriores | Equivalência ou tratamento |
 | --- | --- |
@@ -35,6 +35,8 @@ O [template TOML](../templates/codex-agent-template.toml) mostra o formato nativ
 ## Workflows
 
 Os nomes abaixo se referem aos arquivos locais legados em `.agents/workflows/`. Não são comandos de barra do Codex.
+
+As skills do projeto atuais abrangem API HTTP (`invest-aspnetcore-api`), consultas EF (`invest-ef-query-review`), testes .NET (`invest-dotnet-tests`) e sintomas MSBuild (`invest-msbuild`). Para API HTTP, o agente especializado é `invest-api`; SignalR não é roteado por essa skill.
 
 | Workflow legado | Destino ou tratamento |
 | --- | --- |
