@@ -60,3 +60,9 @@ frontend/android/
 
 # Custom
 .agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/invest-mapped-module/
+!.agents/skills/invest-ef-migration/
+!.agents/skills/invest-ui-page/
+!.agents/skills/invest-pr-review/

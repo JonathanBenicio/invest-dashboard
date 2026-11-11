@@ -1,0 +1,45 @@
+# Revisão das skills candidatas
+
+Revisão em 11/11/2026 das 17 candidatas de [codex-legacy-audit.md](codex-legacy-audit.md), contra o projeto React 19/Vite/Bun e .NET 10 e amostras do [awesome-copilot no commit `eaaffd5`](https://github.com/github/awesome-copilot/tree/eaaffd5d020b756a2777a4b1b161d2bdc126d9a0). A classificação considera instruções, metadados, scripts presentes, proveniência local e sobreposição com capacidades disponíveis nesta sessão. Não é auditoria exaustiva de segurança nem avaliação jurídica de licença.
+
+**Decisão:** não promover cópias literais nesta rodada. As capacidades já cobertas ficam nas skills/agentes do projeto ou em ferramentas disponíveis; para lacunas futuras, criar instruções específicas e validar comportamento, dependências, origem e licença. Os arquivos legados permanecem locais e ignorados pelo Git. Skills e plugins da sessão não são necessariamente instalados em outros ambientes.
+
+| Candidata | Avaliação e destino |
+| --- | --- |
+| `api-patterns` | Guia genérico e referências; `api_validator.py` não valida controllers C#. Não portar scripts; contratos existentes e template de endpoint são a referência do projeto. Versão e licença da cópia local não identificadas. |
+| `architecture` | Orientações genéricas sobre trade-offs; sobrepõe decisões e ADRs do projeto. Sem versão/licença local identificada; não copiar literalmente. |
+| `database-design` | Pode informar modelagem, mas `schema_validator.py` procura Prisma/Drizzle, não EF Core. Preferir instruções de `src/AGENTS.md` e `invest-ef-migration`; origem/licença não identificadas. |
+| `deployment-procedures` | Instruções genéricas de deploy; conferir workflows reais e autorização da tarefa. Sem versão/licença local identificada; não promover. |
+| `dotnet-best-practices` | O conteúdo local coincide com [a skill upstream](https://github.com/github/awesome-copilot/blob/eaaffd5d020b756a2777a4b1b161d2bdc126d9a0/skills/dotnet-best-practices/SKILL.md) após normalizar finais de linha. Ela pressupõe .NET 8, MSTest, Semantic Kernel e convenções que não são padrão deste projeto; não portar literalmente. A identidade textual não comprova o histórico da cópia. A licença MIT do repositório upstream exige preservar seus avisos se houver redistribuição de cópias ou partes substanciais. |
+| `supabase-postgres-best-practices` | A cópia local declara Supabase, MIT e v1.1.0, mas não acompanha arquivo de licença; o plugin Supabase disponível nesta sessão declara v1.1.1 e tem conteúdo diferente. Preferir o plugin quando disponível; não assumir que exista em todos os ambientes. |
+| `nextjs-react-expert` | Declara `react-best-practices`; mistura recomendações React com Next/SSR, inclusive `next/image`, inadequadas ao Vite. `react_performance_checker.py` usa glob com chaves não expandido por `pathlib`; `convert_rules.py` escreve arquivos. Não portar scripts nem copiar o guia sem identificar licença e separar escopo. |
+| `performance-profiling` | A ideia de medir antes/depois é útil, porém o runner Lighthouse legado pode retornar código 0 em erro. Sem versão/licença local identificada; usar ferramentas reais conforme tarefa e não promover o script. |
+| `i18n-localization` | Guia pressupõe bibliotecas de i18n que o projeto não declara. Em teste isolado com 60 arquivos, o checker leu 50, mas informou ter analisado 60; não prova ausência de strings. Sem versão/licença local identificada; não impor internacionalização ou portar o script. |
+| `web-design-guidelines` | Declara referência Vercel e depende de busca externa; há skill homônima disponível nesta sessão. Não duplicar sem comprovar origem/licença e necessidade no checkout. |
+| `webapp-testing` | Runner legado pode retornar código 0 em erro e usa suposições diferentes do Playwright do frontend. `invest-ui-page`, `invest-test` e ferramentas Playwright disponíveis cobrem casos relacionados; não portar runner. A [referência upstream de teste web](https://github.com/github/awesome-copilot/blob/eaaffd5d020b756a2777a4b1b161d2bdc126d9a0/skills/webapp-testing/SKILL.md) é alternativa para comparação, não prova a origem da cópia local. |
+| `code-review-checklist` | Lista genérica sobrepõe `invest-pr-review` e `invest-review`; versão/licença local não identificadas. Não promover cópia. |
+| `documentation-templates` | Sobrepõe os modelos em `templates/`; não presumir licença do projeto com base em exemplos. Sem versão/licença local identificada; não promover. |
+| `systematic-debugging` | Declara fonte `obra/superpowers`; o [upstream atual é MIT](https://github.com/obra/superpowers/blob/main/LICENSE), mas o commit e a proveniência da cópia local não foram comprovados. Métodos genéricos não justificam duplicação sem necessidade específica. |
+| `tdd-workflow` | Prescreve TDD de forma universal; adequar testes ao pedido e risco. Sem versão/licença local identificada; não promover literalmente. |
+| `testing-patterns` | Orientação genérica; `test_runner.py` supõe npm/npx ou pytest e não demonstra cobertura .NET/Bun do monorepo. Preferir `invest-test` e comandos reais do projeto; sem versão/licença local identificada. |
+| `vulnerability-scanner` | Scanner legado depende de heurísticas e npm audit, sem demonstrar cobertura Bun/.NET; sobrepõe ferramentas especializadas disponíveis nesta sessão. Sem versão/licença local identificada; não promover script ou afirmar cobertura de segurança. |
+
+## Base externa e limitações
+
+O [awesome-copilot](https://github.com/github/awesome-copilot/tree/eaaffd5d020b756a2777a4b1b161d2bdc126d9a0) é um catálogo comunitário; seus exemplos precisam ser adaptados ao produto. Foram examinadas amostras para .NET, Playwright, PostgreSQL, React 19 e segurança, não uma comparação exaustiva do catálogo com cada arquivo legado. Por exemplo, a skill upstream PostgreSQL contém recomendações prescritivas que exigem análise contextual antes de aplicação; a de React 19 é dirigida a migração. A licença [MIT do repositório awesome-copilot](https://github.com/github/awesome-copilot/blob/eaaffd5d020b756a2777a4b1b161d2bdc126d9a0/LICENSE) não comprova automaticamente a licença ou origem dos demais arquivos locais.
+
+Os scripts foram analisados por inspeção, pelas reproduções isoladas descritas na auditoria anterior e pelo teste sintético do checker de i18n acima; não houve varreduras do projeto ou instalação de dependências nesta revisão. Não foram executados testes comportamentais das 17 skills, e a classificação não prova que os agentes sempre escolherão a capacidade correta.
+
+## Referência adicional: dotnet/skills
+
+Amostras do [repositório dotnet/skills no commit `96c3d68`](https://github.com/dotnet/skills/tree/96c3d68dad2855e3ab5178aa1a262789d86a1466) oferecem alternativas específicas, distribuídas sob [MIT](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/LICENSE). Sua documentação distingue skills portáteis de agentes `.agent.md` do Copilot; estes não se tornam automaticamente agentes TOML do Codex.
+
+| Recurso examinado | Aplicabilidade e cuidados |
+| --- | --- |
+| [optimizing-ef-core-queries](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md) | Forte candidata para consultas EF: diferencia inspeção estática de medições e exige preservar contratos. Revisar o pacote completo, suas referências e validar em tarefa real antes de instalar. |
+| [run-tests](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-test/skills/run-tests/SKILL.md) | Distingue plataformas e sintaxes de `dotnet test`, úteis a .NET 10; possui overlay opcional e referências a outras skills. Verificar dependências e sobreposição com `invest-test` antes de instalar. |
+| [dotnet-webapi](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md) | Abrange controllers, mas impõe algumas convenções universais de DTO e serialização. Não instalar literalmente sem resolver conflitos com contratos existentes; SignalR está fora do escopo declarado. |
+| [csharp-expert](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet/skills/csharp-expert/SKILL.md) | Roteador dependente de especialistas instalados e referência de marketplace; sobrepõe roteamento do projeto e requer adaptação ao host. Não instalar como substituto automático. |
+| [analyzing-dotnet-performance](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-diag/skills/analyzing-dotnet-performance/SKILL.md) | Tem referências adicionais e exige triagem de padrões; avaliar somente para desempenho solicitado, com medições reais, sem tratar heurísticas como prova de gargalo. |
+
+Essas são recomendações de avaliação, não instalações. Antes de distribuir cópias ou adaptações substanciais, preservar os avisos de licença aplicáveis e revisar todos os recursos exigidos. Não foi testada a execução dessas skills nesta sessão.

@@ -1,75 +1,36 @@
-# AGENTS.md - Invest Dashboard
+# Invest Dashboard — instruções para agentes
 
-Monorepo: React 19 + Vite frontend (`frontend/`) + .NET 10 DDD backend (`src/`).
+Monorepo com frontend React 19, Vite, TypeScript e Bun em `frontend/`, e backend .NET 10 em `src/`. Leia também o `AGENTS.md` da área alterada. Confirme detalhes no código antes de fazer suposições.
 
-## Commands
+## Comandos
 
-| Task | Command |
-|------|---------|
-| Full stack up | `docker-compose up -d --build` |
-| Frontend dev | `cd frontend && bun install && bun run dev` |
-| Backend dev | `cd src && dotnet restore && dotnet build InvestDashboard.slnx && dotnet run --project InvestDashboard.WebAPI` |
-| Frontend build | `cd frontend && bunx msw init public --save && bun run build` |
-| Backend tests | `cd src && dotnet test` |
-| Frontend E2E | `cd frontend && bun run test` |
-| Mobile Android | `cd frontend && bun run mobile:android` |
-| AI validation | `python .agents/scripts/checklist.py .` |
+- Stack: `docker compose up -d --build`.
+- Frontend: `cd frontend && bun install && bun run dev`; build: `cd frontend && bun run build`; lint: `cd frontend && bun run lint`; E2E: `cd frontend && bun run test`.
+- Backend: `cd src && dotnet restore && dotnet build InvestDashboard.slnx`; executar API: `cd src && dotnet run --project InvestDashboard.WebAPI`; testes: `cd src && dotnet test`.
+- Android: `cd frontend && bun run mobile:android`; diretório nativo é gerado e ignorado pelo Git.
+- Escolha as verificações proporcionais aos arquivos alterados; informe as que não puder executar e a razão. Não execute instalações ou serviços sem necessidade para a tarefa.
 
-## Critical Gotchas
+## Convenções gerais
 
-- **Bun, not npm** — frontend uses `bun@1.3.4`. `npm install` works but `bun` is the package manager.
-- **`.slnx` not `.sln`** — solution file is `src/InvestDashboard.slnx` (modern XML format).
-- **Port 5000 conflict** — Vite dev server and API both default to 5000. Docker maps API to `5000:8080`. Local dev: API runs on 5000, Vite on 5173.
-- **MSW service worker** — run `bunx msw init public --save` only for builds that explicitly set `VITE_USE_MSW=true`; normal development and production builds keep it disabled.
-- **GitHub Pages build** — needs `GITHUB_PAGES=true`, `VITE_USE_MSW=false`, and `cp dist/index.html dist/404.html` for SPA routing.
-- **`android/` is gitignored** — Capacitor native dirs are generated. Run `bun run cap:sync` to recreate.
-- **Integration tests are empty** — only a placeholder `Test1()` exists. Unit tests cover domain logic only.
-- **No backend CI/CD** — only frontend has GitHub Actions workflows.
+- O frontend usa Bun (`bun@1.3.4` em `frontend/package.json`); a solução backend é `.slnx`.
+- O domínio usa termos em português; preserve os nomes existentes e armazene tickers em maiúsculas com `ToUpperInvariant()` onde aplicável. Valores monetários do produto são em BRL.
+- Não introduza novos segredos, credenciais, fallbacks inseguros ou dados simulados como se fossem dados reais. Há débitos existentes nesse sentido; verifique o código antes de alterá-los.
+- `frontend/vite.config.ts` configura a porta 5000, que pode conflitar com a API local. Confira a porta efetiva antes de iniciar serviços.
+- Para GitHub Pages, consulte `.github/workflows/deploy.yml`: build com `GITHUB_PAGES=true`, `VITE_USE_MSW=false`, variável `VITE_API_URL` e cópia de `dist/index.html` para `dist/404.html`.
+- Para criar um artefato documental solicitado ou pertinente ao trabalho, consulte `templates/README.md` e leia o modelo correspondente antes de escrevê-lo. Use `conductor/workflow.md` para critérios e destinos; adapte o modelo ao escopo, sem inventar IDs, decisões ou evidências. O modelo não autoriza criar issues, PRs ou outros recursos externos por si só.
 
-## Architecture
+## Seleção de templates
 
-### Backend (src/) — DDD Clean Architecture
+- Plano, decisão arquitetural, história de usuário ou issue: consulte, respectivamente, `templates/plan-template.md`, `templates/adr-template.md`, `templates/user-stories-template.md` ou `templates/issue-template.md`.
+- Descrição de PR, relatório de validação ou documentação de endpoint: consulte `templates/pr-template.md`, `templates/validation-report-template.md` ou `templates/endpoint-template.md`, respectivamente. Para commits, consulte `templates/commit-rules.md`.
+- Cenários BDD, organização Playwright, Page Objects e clientes de testes de API: consulte os modelos correspondentes em `templates/README.md` e adapte os exemplos à estrutura e aos contratos reais do repositório.
+- Para criar um subagente personalizado do Codex, use `templates/codex-agent-template.toml`; o manifesto YAML legado atende outro formato.
 
-```
-Domain (net10.0, no deps)
-  ← Application (refs Domain)
-    ← Infrastructure (refs Domain + Application, EF Core, SignalR, Workers)
-      ← WebAPI (refs Infrastructure + Application, Controllers, JWT, OpenAPI)
-```
+## Configuração de agentes
 
-- **Domain language**: Portuguese (`Carteira`, `Transacao`, `Ativo`, `TaxaEconomica`). Infrastructure/frontend: English.
-- **TPH inheritance**: `Ativo` base class with discriminator `TipoAtivo` for `Acao`/`FundoImobiliario`/`Criptoativo`/`RendaFixa`.
-- **EF Core**: Fluent API in isolated config classes, snake_case column mapping, private parameterless constructors for deserialization.
-- **SignalR**: `DadosMercadoHub` — JWT-authorized, ticker-based group subscriptions via query string `access_token`.
-- **Background worker**: `AtualizadorDadosMercadoWorker` — fetches from Brapi API, falls back to random-walk simulation.
-- **Auto-asset creation**: `TransacaoAppService` infers asset type from ticker patterns (`*11` = FII, `*3/*4` = Acao).
-
-### Frontend (frontend/)
-
-- **Router**: TanStack Router (programmatic route tree, not file-based). Dynamic base path: `/` for native, `/invest-dashboard/` for GitHub Pages.
-- **Auth**: Supabase Auth + Zustand store. `AuthInitializer` calls `checkAuth()` on mount.
-- **API client**: Typed `fetch` wrapper in `src/api/client.ts`, 10s timeout, auto-logout on 401.
-- **MSW**: 909 lines of mock handlers in `src/mocks/`. Falls back to mock admin user when no auth token (dev convenience).
-- **Charts**: Recharts, Chart.js + financial plugin, LightningChart, TradingView widgets, lightweight-charts.
-
-## Known Issues (Do Not Reproduce)
-
-- **Hardcoded portfolio fallbacks** in `CarteirasController` — returns simulated data when DB is null. Leaks into production.
-- **JWT secret fallback** — hardcoded `default_very_long_fallback_secret_for_security_compliance` in `Program.cs` if none configured.
-- **Supabase credentials** in `src/InvestDashboard.WebAPI/appsettings.json` — should be user secrets or env vars.
-- **Random-walk bias** — price simulation uses `0.49` instead of `0.50`, creating slight upward drift.
-
-## .agents/ System
-
-- **20 specialist agents**, **36 skills**, **18 workflows** in `.agents/`
-- **GEMINI.md** rules in `.agents/rules/` define agent routing protocol — read appropriate agent file before implementation
-- **Global rules**: `.agents/rules/dot-net-standards.md`, `front.md`, `database-rules.md`, `arquitetura-mappers.md`
-- **Validation**: `checklist.py` (core checks), `verify_all.py` (full suite with Lighthouse + Playwright)
-
-## Conventions
-
-- Tickers stored as uppercase via `.ToUpperInvariant()`
-- All monetary values in BRL
-- Nullable reference types enabled in all .NET projects
-- shadcn-ui components in `frontend/src/components/ui/`
-- Status colors: success=emerald, warning=amber, error=rose, info=blue
+- Instruções específicas ficam em `frontend/AGENTS.md` e `src/AGENTS.md`; workflows reutilizáveis estão em `.agents/skills/invest-*/` e agentes personalizados em `.codex/agents/`.
+- Aplique automaticamente as instruções e skills pertinentes à intenção do pedido, mesmo sem menção explícita. Consulte os templates vinculados quando o trabalho envolver o respectivo artefato; preserve as permissões da sessão e a prioridade das instruções do usuário.
+- Ao receber pedido de revisão de PR ou de mudanças, aplique `invest-pr-review` e, quando a sessão permitir delegação e houver análises independentes, delegue revisão de corretude a `invest-review`, riscos de segurança a `invest-security` e cobertura a `invest-test`. Aguarde os resultados, verifique os achados e consolide-os; para mudanças pequenas ou sem delegação disponível, faça a revisão diretamente e informe limitações relevantes.
+- Para páginas React, módulos mapeados e migrações EF, aplique respectivamente `invest-ui-page`, `invest-mapped-module` e `invest-ef-migration` quando pertinentes. Para trabalho independente relevante, delegue a `invest-frontend`, `invest-backend` ou `invest-database` conforme a área, se as ferramentas e instruções da sessão permitirem; não crie delegações desnecessárias para tarefas simples.
+- O material Antigravity legado em `.agents/agents`, `.agents/rules` e `.agents/workflows`, quando presente localmente, é referência histórica, não protocolo de roteamento do Codex. Não pressuponha que seus comandos `/...` sejam comandos do Codex.
+- O histórico, limites e mapeamento de migração estão em `docs/codex-migration.md`. A configuração não concede permissões adicionais.
