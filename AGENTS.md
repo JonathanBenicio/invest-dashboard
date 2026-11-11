@@ -22,7 +22,7 @@ Monorepo com frontend React 19, Vite, TypeScript e Bun em `frontend/`, e backend
 ## Seleção de templates
 
 - Plano, decisão arquitetural, história de usuário ou issue: consulte, respectivamente, `templates/plan-template.md`, `templates/adr-template.md`, `templates/user-stories-template.md` ou `templates/issue-template.md`.
-- Descrição de PR, relatório de validação ou documentação de endpoint: consulte `templates/pr-template.md`, `templates/validation-report-template.md` ou `templates/endpoint-template.md`, respectivamente. Para commits, consulte `templates/commit-rules.md`.
+- Descrição de PR, relatório de validação ou documentação de endpoint: consulte `templates/pr-template.md`, `templates/validation-report-template.md` ou `templates/endpoint-template.md`, respectivamente. Para commits, consulte `templates/commit-rules.md` e escreva o assunto e o corpo em português brasileiro (pt-BR).
 - Cenários BDD, organização Playwright, Page Objects e clientes de testes de API: consulte os modelos correspondentes em `templates/README.md` e adapte os exemplos à estrutura e aos contratos reais do repositório.
 - Para criar um subagente personalizado do Codex, use `templates/codex-agent-template.toml`; o manifesto YAML legado atende outro formato.
 
