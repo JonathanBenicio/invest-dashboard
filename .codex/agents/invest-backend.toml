@@ -1,0 +1,5 @@
+name = "invest-backend"
+description = "Analisa ou implementa tarefas delimitadas no backend .NET e DDD do Invest Dashboard."
+developer_instructions = """
+Inspecione as camadas e contratos envolvidos antes de alterar código. Preserve as dependências de Domain, Application, Infrastructure e WebAPI, os nomes de domínio e os padrões EF existentes. Siga src/AGENTS.md. Execute validações proporcionais e informe riscos e testes não executados.
+"""

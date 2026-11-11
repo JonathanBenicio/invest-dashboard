@@ -8,6 +8,9 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Tracks e iniciativas](../conductor/tracks.md)
 - [Índice Conductor](../conductor/index.md)
 - [Templates](../templates/README.md)
+- [Configuração e migração Codex](codex-migration.md)
+- [Auditoria do legado de agentes](codex-legacy-audit.md)
+- [Revisão das skills candidatas](codex-skills-review.md)
 - [README do repositório](../README.md)
 
 ## Produto e requisitos registrados
