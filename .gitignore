@@ -66,3 +66,7 @@ frontend/android/
 !.agents/skills/invest-ef-migration/
 !.agents/skills/invest-ui-page/
 !.agents/skills/invest-pr-review/
+!.agents/skills/invest-ef-query-review/
+!.agents/skills/invest-dotnet-tests/
+!.agents/skills/invest-msbuild/
+!.agents/skills/invest-aspnetcore-api/

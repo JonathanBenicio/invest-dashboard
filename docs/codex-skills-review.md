@@ -2,7 +2,7 @@
 
 Revisão em 11/11/2026 das 17 candidatas de [codex-legacy-audit.md](codex-legacy-audit.md), contra o projeto React 19/Vite/Bun e .NET 10 e amostras do [awesome-copilot no commit `eaaffd5`](https://github.com/github/awesome-copilot/tree/eaaffd5d020b756a2777a4b1b161d2bdc126d9a0). A classificação considera instruções, metadados, scripts presentes, proveniência local e sobreposição com capacidades disponíveis nesta sessão. Não é auditoria exaustiva de segurança nem avaliação jurídica de licença.
 
-**Decisão:** não promover cópias literais nesta rodada. As capacidades já cobertas ficam nas skills/agentes do projeto ou em ferramentas disponíveis; para lacunas futuras, criar instruções específicas e validar comportamento, dependências, origem e licença. Os arquivos legados permanecem locais e ignorados pelo Git. Skills e plugins da sessão não são necessariamente instalados em outros ambientes.
+**Decisão inicial:** não promover cópias literais. A rodada de adaptação abaixo criou duas skills originais do projeto com base nas lacunas concretas encontradas. As cópias legadas permanecem locais e ignoradas pelo Git. Skills e plugins da sessão não são necessariamente instalados em outros ambientes.
 
 | Candidata | Avaliação e destino |
 | --- | --- |
@@ -36,10 +36,82 @@ Amostras do [repositório dotnet/skills no commit `96c3d68`](https://github.com/
 
 | Recurso examinado | Aplicabilidade e cuidados |
 | --- | --- |
-| [optimizing-ef-core-queries](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md) | Forte candidata para consultas EF: diferencia inspeção estática de medições e exige preservar contratos. Revisar o pacote completo, suas referências e validar em tarefa real antes de instalar. |
-| [run-tests](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-test/skills/run-tests/SKILL.md) | Distingue plataformas e sintaxes de `dotnet test`, úteis a .NET 10; possui overlay opcional e referências a outras skills. Verificar dependências e sobreposição com `invest-test` antes de instalar. |
-| [dotnet-webapi](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md) | Abrange controllers, mas impõe algumas convenções universais de DTO e serialização. Não instalar literalmente sem resolver conflitos com contratos existentes; SignalR está fora do escopo declarado. |
+| [optimizing-ef-core-queries](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-data/skills/optimizing-ef-core-queries/SKILL.md) | Adaptada em `invest-ef-query-review`: separa inspeção estática de medição e preserva contratos do projeto. O arquivo completo não foi instalado. |
+| [run-tests](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-test/skills/run-tests/SKILL.md) | Adaptada em `invest-dotnet-tests` para .NET 10, xUnit 2, testes InMemory/PostgreSQL e conexão de teste. O arquivo completo, overlays e dependências extras não foram instalados. |
+| [dotnet-webapi](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-aspnetcore/skills/dotnet-webapi/SKILL.md) | Adaptada em `invest-aspnetcore-api`: preserva controllers, rotas versionadas, DTOs existentes, naming JSON português, wrappers e middleware ProblemDetails. Regras universais de Minimal API/DTO não foram importadas. |
 | [csharp-expert](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet/skills/csharp-expert/SKILL.md) | Roteador dependente de especialistas instalados e referência de marketplace; sobrepõe roteamento do projeto e requer adaptação ao host. Não instalar como substituto automático. |
-| [analyzing-dotnet-performance](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-diag/skills/analyzing-dotnet-performance/SKILL.md) | Tem referências adicionais e exige triagem de padrões; avaliar somente para desempenho solicitado, com medições reais, sem tratar heurísticas como prova de gargalo. |
+| [analyzing-dotnet-performance](https://github.com/dotnet/skills/blob/96c3d68dad2855e3ab5178aa1a262789d86a1466/plugins/dotnet-diag/skills/analyzing-dotnet-performance/SKILL.md) | Acionar somente em pedido de desempenho; suas referências e heurísticas ainda não foram validadas no produto. Sempre medir gargalo antes de propor ganhos. |
 
-Essas são recomendações de avaliação, não instalações. Antes de distribuir cópias ou adaptações substanciais, preservar os avisos de licença aplicáveis e revisar todos os recursos exigidos. Não foi testada a execução dessas skills nesta sessão.
+Essas são referências de adaptação, não instalações dos plugins. Os arquivos abaixo foram escritos para este repositório, resumem práticas observadas e não copiam texto ou recursos do upstream. Mantêm links, commit e licença MIT para rastreabilidade.
+
+## Skills adaptadas e validadas no projeto
+
+O diagnóstico da solução encontrou necessidade prática em duas áreas. As novas skills em `.agents/skills/` foram testadas com o Codex em cópias temporárias dos arquivos reais e passaram pelo validador de Agent Skills:
+
+| Skill do projeto | Base considerada | Resultado da validação |
+| --- | --- | --- |
+| [`invest-ef-query-review`](../.agents/skills/invest-ef-query-review/SKILL.md) | `optimizing-ef-core-queries`, adaptada a EF 10/Npgsql, DDD, autorização por grupo/usuário, migrations/configurações e risco de confundir InMemory com PostgreSQL. | Em revisão real do `CarteiraRepository`, encontrou caminhos para investigar e declarou limites por falta de consumidores/SQL. Em controle negativo com catálogo pequeno e ordenação contratual, não inventou problema de tracking. |
+| [`invest-dotnet-tests`](../.agents/skills/invest-dotnet-tests/SKILL.md) | `run-tests`, adaptada a solução `.slnx`, .NET 10, xUnit 2, projetos unit/integration, `RequiresPostgresFact` e conexão de teste. | Em pedidos de comando sem execução, escolheu filtro xUnit pelo namespace real e identificou que testes `[RequiresPostgresFact]` dependem da variável PostgreSQL; não executou comandos quando o prompt proibiu executar. |
+
+Validação do checkout, em container `mcr.microsoft.com/dotnet/sdk:10.0` com PostgreSQL 15 descartável e variável de teste dedicada:
+
+- `dotnet test src/InvestDashboard.slnx --configuration Release`: build concluído; 56 testes unitários passaram, 2 foram ignorados por serem verificações externas, e 75 testes de integração passaram com PostgreSQL habilitado.
+- Um teste PostgreSQL filtrado, `PositionFilteringTests.CombinedFiltersAndPagination_ReturnExpectedPositions_Postgres`, passou isoladamente antes da suite.
+- Não se usou banco de desenvolvimento: a suíte rodou em container temporário separado, que foi removido após validação.
+
+O .NET SDK instalado no Windows também foi identificado, mas a execução de teste nesse host não propagou `INVEST_TEST_POSTGRES_CONNECTION`; o método filtrado foi corretamente marcado como ignorado. Por isso, para comprovar integração, o teste foi repetido em container Linux com a variável presente. O primeiro ensaio no container apontou a porta interna errada (`55432`); corrigido para `5432`, a execução filtrada passou. O conjunto completo seguinte confirmou os resultados acima.
+
+## Workflows e instruções ajustados
+
+`src/AGENTS.md` agora direciona controllers HTTP para `invest-aspnetcore-api`, revisão de consultas para `invest-ef-query-review` e escolha/execução de testes para `invest-dotnet-tests`. Os agentes `invest-api`, `invest-database`, `invest-backend` e `invest-test` foram ligados às especialidades pertinentes. Não foram instalados agentes `.agent.md` do GitHub Copilot porque não são o formato de subagente nativo do Codex; os TOML locais continuam responsáveis pela delegação.
+
+## Agentic workflows do GitHub
+
+Os quatro caminhos em [`agentic-workflows/`](https://github.com/dotnet/skills/tree/96c3d68dad2855e3ab5178aa1a262789d86a1466/agentic-workflows) são pacotes GitHub Agentic Workflows (`gh-aw`) que geram Actions, `.lock.yml`, agentes Copilot, safe outputs e, em alguns casos, jobs que publicam comentários ou PRs. Não são workflows locais que o Codex descubra ou execute diretamente.
+
+| Workflow upstream | Avaliação do estado atual |
+| --- | --- |
+| `build-failure-analysis` | Depende de rollup Azure Pipelines público e binlogs como artefatos. O CI atual usa GitHub Actions nativas; usar `invest-msbuild` para logs de build fornecidos/observáveis, sem baixar logs Azure nem publicar comentário automaticamente. |
+| `msbuild-quality-review` | Revisão read-only de alterações MSBuild em PR com `pull_request_target` e GitHub tools. Para revisão Codex, `invest-pr-review` pode encaminhar arquivos MSBuild a `invest-msbuild`. Não instalar um workflow de publicação externa como configuração local. |
+| `test-failure-analysis` | Requer collector CI próprio, esquema normalizado e artefato. O CI atual não publica esse contrato histórico. `invest-dotnet-tests` analisa a execução atual/saída fornecida; tendências exigem collector e decisão operacional separados. |
+| `unskip-closed-tests` | Workflow mutável: consulta issues/PRs, altera `[Ignore]`, executa testes e abre draft PR. Não automatizar nem portar para acionamento implícito. |
+
+Todos declaram MIT no repositório upstream. A licença não torna os fluxos GitHub Actions compatíveis com Codex nem dispensa a adaptação de execução e dependências.
+
+## Agentes `.agent.md` encontrados dentro dos plugins
+
+Confirmação do inventário do commit upstream: arquivos de agente estão mesmo aninhados em plugins, junto às skills. São agentes no formato de GitHub Copilot, com handoffs, listas de agentes subordinados e campos de ferramentas próprios do host; o README upstream diz que não são instalados pelo plugin como agentes nativos do Codex. A contagem abaixo reflete os plugins do marketplace examinados, não o número de custom-agent TOMLs fornecidos por eles.
+
+| Plugin | Arquivos em `agents/` | Mapeamento para Codex deste projeto |
+| --- | --- | --- |
+| `dotnet-test` | `code-testing-builder`, `code-testing-fixer`, `code-testing-implementer`, `code-testing-linter`, `code-testing-planner`, `code-testing-researcher`, `code-testing-tester`, `test-engineer`, `test-quality-auditor`, `testability-migration` | `test-engineer`/`test-quality-auditor` se sobrepõem a `invest-test`; o pipeline de nove workers depende de agente Copilot estático e não foi copiado. `invest-test` e `invest-dotnet-tests` cobrem escolha e validação do projeto com escala apropriada. Migração de testabilidade só para pedido explícito. |
+| `dotnet-test-migration` | `test-migration` | Migração de framework é tarefa separada; manter sob pedido explícito, sem roteamento automático porque a solução usa xUnit 2. |
+| `dotnet-diag` | `optimizing-dotnet-performance` | Adaptado conceitualmente a `invest-dotnet-performance`, restrito a gargalo observado, baseline e medição. O scan obrigatório de duas passagens e referências ao agente de Copilot não foram transplantados. |
+| `dotnet-msbuild` | `msbuild`, `build-perf`, `msbuild-code-review` | Adaptados a `invest-msbuild` e `$invest-msbuild`; MCP Binlog não está instalado. Binlogs permanecem opt-in e exigem revisão para dados sensíveis. |
+| `dotnet-template-engine` | `template-engine` | Não convertido: especializado em `dotnet new`; os templates existentes do projeto são documentais e não templates .NET. |
+
+Os outros plugins examinados não tinham diretório `agents/` no commit fixado. Foram adicionados dois TOML locais, `invest-msbuild` e `invest-dotnet-performance`; não são cópias dos agentes upstream e usam instruções próprias ao repositório.
+
+## Inventário dos plugins .NET relevantes
+
+O catálogo no commit examinado contém mais recursos do que as cinco skills inicialmente amostradas. A lista abaixo usa os nomes completos obtidos nos manifests e diretórios dos plugins. Nem toda skill foi lida em profundidade; decisões sobre grupos que ainda não precisaram ser promovidos são classificações de escopo, não validação comportamental.
+
+| Plugin e versão no commit | Recursos e decisão para este repositório |
+| --- | --- |
+| `dotnet` 1.0.1 | `csharp-expert`, `csharp-refactoring`, `dotnet-breaking-changes`, `msbuild`, `setup-local-sdk`. O roteador/LSP duplicaria especialização local e declarações de Copilot; adaptar conceitos de C# sob demanda, sem LSP automático. Breaking changes e SDK local são tarefas pontuais. |
+| `dotnet-data` 0.1.x | `create-datadriven-aspnetcore`, `optimizing-ef-core-queries`. A segunda originou a adaptação validada; a primeira é scaffolding que não corresponde a alteração vigente. |
+| `dotnet-aspnetcore` 0.1.x | `dotnet-webapi`, `convert-blazor-server-to-webapp`. A primeira originou `invest-aspnetcore-api`; regras universais de DTO/Minimal API foram omitidas. Blazor é fora de escopo (frontend Vite). |
+| `dotnet-test` 1.0.1 | 24 skills: `assertion-quality`, `code-testing-agent`, `code-testing-extensions`, `code-testing`, `coverage-analysis`, `crap-score`, `detect-static-dependencies`, `filter-syntax`, `find-untested-sources`, `generate-testability-wrappers`, `grade-tests`, `migrate-static-to-wrapper`, `mtp-hot-reload`, `platform-detection`, `run-tests`, `scaffold-dotnet-test-project`, `test-analysis-extensions`, `test-anti-patterns`, `test-gap-analysis`, `test-smell-detection`, `test-tagging`, `test-value-evidence`, `testability-obstacle`, `writing-mstest-tests`. `run-tests` foi adaptada. Análises de assertions e gaps podem ser ativadas quando solicitadas; geração agentic, wrappers e MTP dependem de recursos/escopos não presumidos. MSTest e scaffolding duplicam ou contradizem o estado atual (xUnit 2.9.3; projetos de teste já configurados). Migração xUnit v2→v3 somente em tarefa dedicada. |
+| `dotnet-test-migration` 0.1.x | `migrate-mstest-v1v2-to-v3`, `migrate-mstest-v3-to-v4`, `migrate-nunit-to-mstest`, `migrate-vstest-to-mtp`, `migrate-xunit-to-mstest`, `migrate-xunit-to-xunit-v3`. Usar apenas quando houver pedido específico de migração de runner/framework. |
+| `dotnet-diag` 0.1.x | `analyzing-dotnet-performance`, `dotnet-trace-collect`, `microbenchmarking` podem ajudar em investigação solicitada, com baseline. Android/Apple dumps e CLR activation dump não têm cenário atual comprovado. Não capturar traces automaticamente. |
+| `dotnet-msbuild` 0.1.12 | 21 skills: `binlog-failure-analysis`, `binlog-generation`, `build-parallelism`, `build-perf-baseline`, `build-perf-diagnostics`, `check-bin-obj-clash`, `copy-to-output-directory`, `directory-build-organization`, `eliminate-redundant-restores`, `eval-performance`, `extension-points`, `find-repeated-work-within-one-build`, `including-generated-files`, `incremental-build`, `item-management`, `msbuild-antipatterns`, `msbuild-modernization`, `property-patterns`, `resolve-project-references`, `target-authoring`, `troubleshoot-binlog-mcp`. Especialistas para sintomas concretos de build, não regras sempre ativas. `directory-build-organization` é opção futura: há seis projetos e versões diferentes de pacotes, mas centralizar versões exige decisão da equipe. Binlogs podem capturar propriedades sensíveis; MCP de troubleshooting não está instalado. A modernização para SDK-style não se aplica: os projetos já usam esse formato. |
+| `dotnet-nuget` 0.1.x | `convert-to-cpm`: avaliar se a equipe decidir centralizar versões de pacotes; não converter automaticamente. |
+| `dotnet-upgrade` 0.1.x | `dotnet-aot-compat`, `migrate-dotnet10-to-dotnet11`, `migrate-dotnet8-to-dotnet9`, `migrate-dotnet9-to-dotnet10`, `migrate-nullable-references`, `thread-abort-migration`. O backend já está em .NET 10 com nullable habilitado; upgrades apenas sob pedido específico. |
+| `dotnet-template-engine` 0.1.x | `template-authoring`, `template-comparison`, `template-discovery`, `template-instantiation`, `template-smart-defaults`, `template-validation`. Para tarefas sobre templates `dotnet new`; não substitui os modelos de documentação existentes. |
+| `dotnet-ai`, `dotnet-blazor`, `dotnet-maui`, `dotnet-winforms`, `dotnet11`, `dotnet-experimental` | Plugins do marketplace fora do foco atual: tecnologia ausente do produto ou versão futura/experimental. |
+
+Versões são do `plugin.json`/`version.json` no commit fixado; não significam que cada skill tenha versão independente. O repositório declara MIT. Seu README diz que agentes `.agent.md` e declarações LSP são específicos do Copilot/hosts e não são instalados como agentes nativos Codex. Mantêm-se os TOML próprios do projeto.
+
+## Limites e próximo passo
+
+A suite completa cobre o baseline atual, mas não prova desempenho de consultas nem todos os fluxos possíveis de delegação das skills. Para alegações de ganho EF, ainda é necessário SQL/plano e medição sobre volume representativo. O inventário cobre nomes/versões de todos os plugins relevantes; não foi feita auditoria linha a linha das referências auxiliares das 80 skills catalogadas. As duas skills locais são deliberadamente específicas e remetem às fontes upstream quando necessário.

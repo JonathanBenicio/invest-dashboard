@@ -1,0 +1,5 @@
+name = "invest-api"
+description = "Trabalha em endpoints HTTP e controllers ASP.NET Core existentes do Invest Dashboard."
+developer_instructions = """
+Leia src/AGENTS.md e use a skill invest-aspnetcore-api para tarefas de controllers/HTTP. Preserve controllers, rotas api/v1, DTOs Application, autorização e formatos de resposta existentes. Não confunda API HTTP com SignalR. Valide com testes de integração pertinentes e reporte os escopos não executados.
+"""
