@@ -45,7 +45,7 @@ jobs:
           echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$GITHUB_ENV"
           echo "SUPABASE_URL=https://ci.example.com" >> "$GITHUB_ENV"
           echo "SUPABASE_PUBLISHABLE_KEY=ci-only-publishable-placeholder" >> "$GITHUB_ENV"
-          echo "SUPABASE_SERVICE_ROLE_KEY=ci-only-service-role-placeholder" >> "$GITHUB_ENV"
+          echo "SUPABASE_SECRET_KEY=ci-only-secret-placeholder-not-a-real-key" >> "$GITHUB_ENV"
           echo "SUPABASE_INVITE_REDIRECT_URL=http://localhost:8080/" >> "$GITHUB_ENV"
       - name: Start stack
         run: docker compose up -d --build

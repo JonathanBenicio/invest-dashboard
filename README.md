@@ -31,7 +31,15 @@ A scalable, decoupled backend engine organized around clean architecture and dom
 
 ## 🐳 Running with Docker Compose (Database + API + Frontend)
 
-Copy `.env.example` to `.env`, then configure a PostgreSQL password, a random JWT secret, and your Supabase project URL and anon key. Generate a JWT secret with `openssl rand -hex 32` (or `New-Guid` twice in PowerShell and concatenate the values). Start the stack with:
+Copy `.env.example` to `.env` and replace its placeholders before starting the stack. Compose requires these values:
+
+- `POSTGRES_PASSWORD`: a unique local database password.
+- `JWT_SECRET`: at least 32 random bytes for this API's own JWTs; it is not a Supabase key. Generate one with `openssl rand -hex 32`.
+- `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`: your Supabase project URL and publishable key (`sb_publishable_...`).
+- `SUPABASE_SECRET_KEY`: the server-only Supabase key (`sb_secret_...`) used by the API to send group invitations. Never expose it in frontend code or commit it.
+- `SUPABASE_INVITE_REDIRECT_URL`: the invitation redirect URL, which must be allowed in the project's Supabase Auth redirect URL settings. The example points to `http://localhost:8080/convite/aceitar`.
+
+`POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PORT` default to `postgres`, `postgres`, and `5432`. `BRAPI_API_TOKEN` is optional. Start the stack with:
 
 ```sh
 docker compose up -d --build
@@ -63,7 +71,7 @@ dotnet restore
 dotnet build InvestDashboard.slnx
 dotnet run --project InvestDashboard.WebAPI
 ```
-Configure `ConnectionStrings__DefaultConnection`, `Jwt__Secret` (at least 32 random bytes), `Storage__SupabaseUrl`, and `Storage__SupabaseApiKey` in the process environment before starting the API. These values are intentionally not stored in appsettings files.
+Configure `ConnectionStrings__DefaultConnection`, `Jwt__Secret` (at least 32 random bytes), `Storage__SupabaseUrl`, and `Storage__SupabaseApiKey` in the process environment before starting the API. To send group invitations, also configure `Storage__SupabaseSecretKey` and `Storage__SupabaseInviteRedirectUrl`; keep the secret key on the server. These values are intentionally not stored in appsettings files.
 
 ---
 

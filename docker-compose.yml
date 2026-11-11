@@ -27,7 +27,7 @@ services:
       Jwt__Secret: ${JWT_SECRET:?Configure JWT_SECRET with at least 32 random bytes in .env}
       Storage__SupabaseUrl: ${SUPABASE_URL:?Configure SUPABASE_URL in .env}
       Storage__SupabaseApiKey: ${SUPABASE_PUBLISHABLE_KEY:?Configure SUPABASE_PUBLISHABLE_KEY in .env}
-      Storage__SupabaseServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY:?Configure SUPABASE_SERVICE_ROLE_KEY in .env}
+      Storage__SupabaseSecretKey: ${SUPABASE_SECRET_KEY:?Configure SUPABASE_SECRET_KEY in .env}
       Storage__SupabaseInviteRedirectUrl: ${SUPABASE_INVITE_REDIRECT_URL:?Configure SUPABASE_INVITE_REDIRECT_URL in .env}
       MarketData__BrapiToken: ${BRAPI_API_TOKEN:-}
       Cors__AllowedOrigins__0: http://localhost:8080
