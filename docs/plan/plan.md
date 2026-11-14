@@ -180,7 +180,7 @@ A documentação do [schema oficial Brapi](https://brapi.dev/docs/openapi) defin
 
 **Aceite:** contratos próprios, app e mocks descrevem o mesmo JSON PT-BR em `/api/v1`; nenhuma integração externa ou deploy foi incluído.
 
-- Plano ativo para esta padronização: [api-contracts-ptbr.md](../../api-contracts-ptbr.md).
+- Plano registrado para esta padronização: [api-contracts-ptbr.md](api-contracts-ptbr.md); confirme o estado atual antes de reutilizá-lo.
 
 ### Auditoria funcional pré-terceiros (concluída em 29/09/2026)
 

@@ -12,7 +12,7 @@ Use os projetos reais em `src/InvestDashboard.Infrastructure`, `src/InvestDashbo
 1. Siga a operação desde o serviço/controller até a implementação de repositório, enumeração/materialização e limites da resposta. Inspecione chamadas, expressões e configuração da entidade.
 2. Conte consultas e materializações no caminho real. Verifique se filtros, projeções, ordenação, paginação e agregações são executados pelo provedor ou depois de carregar os dados.
 3. Revise cardinalidade de `Include`, tracking, operações repetidas, consultas dentro de loops, ordem estável da paginação e cancelamento. Distingua comportamento demonstrado no código de custo que depende dos dados, plano PostgreSQL ou produção.
-4. Confira índices na configuração EF e nas migrations/snapshot antes de apontar falta de índice. A ausência de `HasIndex` em um arquivo isolado não prova que o banco não tem o índice nem que uma consulta faz scan.
+4. Confira índices na configuração EF e nas migrations/snapshot antes de apontar falta de índice. A ausência de `HasIndex` em um arquivo isolado não prova que o banco não tem o índice nem que uma consulta faz scan. Ao propor índice, considere filtros por usuário/grupo, ordenação, custo de escrita e evidência do ambiente alvo.
 5. Preserve autorização, isolamento por usuário/grupo, ordenação, transações, concorrência e efeitos do domínio. Não troque entidades rastreadas por projeções ou updates em lote sem provar que o contrato e os efeitos continuam iguais.
 6. Relate achados com caminho da chamada, localização, impacto e evidência. Se faltar SQL, plano, logs ou volume representativo, proponha como coletar; não alegue ganho de performance medido a partir de inspeção estática.
 
@@ -20,7 +20,7 @@ Use os projetos reais em `src/InvestDashboard.Infrastructure`, `src/InvestDashbo
 
 Faça a alteração mínima apoiada por evidência. Para comportamento funcional, prefira teste de integração com PostgreSQL quando a semântica do provedor, migrations, transação ou SQL for relevante; o fixture de integração também substitui EF por InMemory e não comprova equivalência com PostgreSQL. Para comparação de performance, defina a carga e obtenha baseline e resultado com SQL/plano/medições antes de afirmar melhoria.
 
-Use `[invest-dotnet-tests](../invest-dotnet-tests/SKILL.md)` para escolher comandos e classificar dependências. A revisão pode ser somente de leitura; não altere dados, migrations aplicadas ou bancos compartilhados sem solicitação.
+Use [invest-dotnet-tests](../invest-dotnet-tests/SKILL.md) para escolher comandos e classificar dependências. A revisão pode ser somente de leitura; não altere dados, migrations aplicadas ou bancos compartilhados sem solicitação.
 
 ## Referências de inspiração
 

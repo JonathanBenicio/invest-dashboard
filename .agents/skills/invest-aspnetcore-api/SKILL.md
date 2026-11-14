@@ -20,6 +20,8 @@ Use quando a tarefa alterar endpoints HTTP, DTOs da API, validação, OpenAPI ou
 
 Trace route → binding/validação → autorização → serviço Application → persistência/efeitos → resultado HTTP. Reutilize o serviço e as respostas do projeto; mantenha regra de negócio fora do controller. Para endpoints novos, confirme semântica HTTP no contrato existente e consulte `templates/endpoint-template.md` quando documentar o contrato fizer parte do pedido.
 
+Antes de mudar rota, parâmetros, nomes JSON, status ou formato de erro, encontre os consumidores reais no frontend e outros clientes identificáveis; avalie compatibilidade e ajuste-os dentro do escopo da tarefa. Para dados protegidos, verifique acesso permitido e negado e isolamento entre usuários e grupos quando esses cenários forem pertinentes.
+
 Use testes em `src/tests/InvestDashboard.IntegrationTests/Controllers` para validar status, payload, autorização e efeitos observáveis. Escolha InMemory ou PostgreSQL conforme o comportamento exercitado; consulte `$invest-dotnet-tests`. Build/testes só confirmam o escopo realmente executado.
 
 ## Referência de inspiração

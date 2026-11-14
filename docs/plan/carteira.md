@@ -1,5 +1,7 @@
 # Plano de Implementação - Fluxo Completo de Carteiras
 
+> Plano preexistente; parte do fluxo já existe no checkout. A conclusão de cada etapa e suas premissas devem ser confirmadas no código e nas evidências atuais antes de reutilização.
+
 Este documento detalha o plano para implementar o fluxo completo de Gestão de Carteiras,
 integrando Frontend (React) e Backend (.NET), removendo dados mockados e adicionando
 funcionalidades reais de persistência e UX.

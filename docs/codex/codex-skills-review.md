@@ -50,8 +50,8 @@ O diagnóstico da solução encontrou necessidade prática em duas áreas. As no
 
 | Skill do projeto | Base considerada | Resultado da validação |
 | --- | --- | --- |
-| [`invest-ef-query-review`](../.agents/skills/invest-ef-query-review/SKILL.md) | `optimizing-ef-core-queries`, adaptada a EF 10/Npgsql, DDD, autorização por grupo/usuário, migrations/configurações e risco de confundir InMemory com PostgreSQL. | Em revisão real do `CarteiraRepository`, encontrou caminhos para investigar e declarou limites por falta de consumidores/SQL. Em controle negativo com catálogo pequeno e ordenação contratual, não inventou problema de tracking. |
-| [`invest-dotnet-tests`](../.agents/skills/invest-dotnet-tests/SKILL.md) | `run-tests`, adaptada a solução `.slnx`, .NET 10, xUnit 2, projetos unit/integration, `RequiresPostgresFact` e conexão de teste. | Em pedidos de comando sem execução, escolheu filtro xUnit pelo namespace real e identificou que testes `[RequiresPostgresFact]` dependem da variável PostgreSQL; não executou comandos quando o prompt proibiu executar. |
+| [`invest-ef-query-review`](../../.agents/skills/invest-ef-query-review/SKILL.md) | `optimizing-ef-core-queries`, adaptada a EF 10/Npgsql, DDD, autorização por grupo/usuário, migrations/configurações e risco de confundir InMemory com PostgreSQL. | Em revisão real do `CarteiraRepository`, encontrou caminhos para investigar e declarou limites por falta de consumidores/SQL. Em controle negativo com catálogo pequeno e ordenação contratual, não inventou problema de tracking. |
+| [`invest-dotnet-tests`](../../.agents/skills/invest-dotnet-tests/SKILL.md) | `run-tests`, adaptada a solução `.slnx`, .NET 10, xUnit 2, projetos unit/integration, `RequiresPostgresFact` e conexão de teste. | Em pedidos de comando sem execução, escolheu filtro xUnit pelo namespace real e identificou que testes `[RequiresPostgresFact]` dependem da variável PostgreSQL; não executou comandos quando o prompt proibiu executar. |
 
 Validação do checkout, em container `mcr.microsoft.com/dotnet/sdk:10.0` com PostgreSQL 15 descartável e variável de teste dedicada:
 

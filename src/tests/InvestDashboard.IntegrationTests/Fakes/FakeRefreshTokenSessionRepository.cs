@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using InvestDashboard.Application.Interfaces;
 using InvestDashboard.Domain.Aggregates.Authentication;
 
@@ -43,6 +45,28 @@ public sealed class FakeRefreshTokenSessionRepository : IRefreshTokenSessionRepo
         if (!_sessions.TryAdd(session.Id, session))
             throw new InvalidOperationException("Session already exists.");
         return Task.CompletedTask;
+    }
+
+    public string AddExpiredSession()
+    {
+        var now = DateTime.UtcNow;
+        var sessionId = Guid.NewGuid();
+        var tokenSuffix = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+        var refreshToken = $"{sessionId:N}.{tokenSuffix}";
+        var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
+        _sessions[sessionId] = new RefreshTokenSession(
+            sessionId,
+            FakeAuthProvider.TestUserId,
+            FakeAuthProvider.TestEmail,
+            FakeAuthProvider.TestName,
+            "user",
+            tokenHash,
+            now.AddDays(-8),
+            now.AddDays(-1));
+        return refreshToken;
     }
 
     public Task<bool> IsActiveAsync(Guid id, Guid userId, DateTime nowUtc, CancellationToken cancellationToken = default) =>

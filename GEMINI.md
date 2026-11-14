@@ -1,6 +1,6 @@
 # GEMINI.md - Global Orchestrator
 
-Este é o arquivo central de instruções para o agente neste workspace.
+Este é o arquivo central de instruções para o agente Gemini neste workspace. Para o processo documental compartilhado, consulte `conductor/workflow.md`; referências ao material `.agents` podem depender de arquivos locais ignorados pelo Git.
 
 ---
 
@@ -8,20 +8,16 @@ Este é o arquivo central de instruções para o agente neste workspace.
 
 O projeto é um monorepo dividido em Frontend e Backend. As regras específicas de cada domínio estão localizadas em seus respectivos diretórios:
 
-- **Frontend**: `frontend/GEMINI.md`
-- **Backend**: `src/GEMINI.md`
+- As instruções compartilhadas de frontend e backend estão em `frontend/AGENTS.md` e `src/AGENTS.md`. Arquivos `GEMINI.md` por área não estão presentes neste checkout.
 
 ### 🔴 REGRA DE OURO
-**Sempre consulte o `GEMINI.md` do diretório em que você está trabalhando.**
-- Se estiver editando arquivos em `frontend/`, as regras de `frontend/GEMINI.md` têm precedência.
-- Se estiver editando arquivos em `src/`, as regras de `src/GEMINI.md` têm precedência.
+Consulte as instruções aplicáveis à área alterada e respeite as regras e permissões da sessão.
 
 ---
 
 ## 🤖 Sistema de Agentes & Skills
 
-Todas as definições de agentes, skills e workflows estão centralizadas no diretório:
-👉 **`.agents/`**
+Parte do material legado está em `.agents/`, mas nem todos os arquivos locais são rastreados pelo Git. Consulte `docs/codex/codex-migration.md` para limites e localização da configuração compartilhada.
 
 ### Instruções para Uso de Agentes
 1. **Identificação**: Determine se a tarefa é de Frontend, Backend ou Geral.
@@ -37,13 +33,13 @@ Todas as definições de agentes, skills e workflows estão centralizadas no dir
 - **Lint & Types**: Execute os comandos de verificação (ex: lint, type-check, build) antes de considerar uma tarefa concluída. **Zero tolerância para erros.**
 
 ### 📜 Governança de Documentação (Roadmap Q2 2026)
-Toda nova funcionalidade estratégica deve seguir rigorosamente esta ordem:
-1. **GitHub Issue**: Registro da necessidade. **Obrigatório atualizar a descrição da Issue com links para o ADR, Story e Plan assim que criados.**
-2. **ADR (Architectural Decision Record)**: Definição de padrões técnicos em `docs/architecture/adr/`.
+Para trabalho planejado, aplique o fluxo e as condições de dispensa de `conductor/workflow.md`:
+1. **GitHub Issue**: Quando aplicável, registrar a necessidade e os links dos artefatos.
+2. **ADR (Architectural Decision Record)**: Quando aplicável, registrar decisões em `docs/adrs/`.
 3. **User Story**: Detalhamento dos critérios de aceite em `docs/USER-STORIES.md`.
-4. **Implementation Plan**: Roteiro técnico detalhado em `plan/`.
-5. **Rastreabilidade**: Commits vinculados à issue (ex: `feat: ... Closes #ID`).
-6. **Sincronização de Índices**: Atualizar `README.md`, `INDEX.md` e `CONSOLIDATED_DOCS.md`.
+4. **Implementation Plan**: Quando aplicável, roteiro técnico em `docs/plan/`.
+5. **Rastreabilidade**: Use `Refs #ID` para trabalho parcial e `Closes #ID` somente quando os critérios forem atendidos e comprovados.
+6. **Sincronização de índices**: Atualizar `docs/INDEX.md` e demais índices pertinentes conforme `conductor/workflow.md`; `CONSOLIDATED_DOCS.md` não é exigido quando inexistente.
 
 ### Comunicação
 - Responda no idioma do usuário.

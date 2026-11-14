@@ -5,7 +5,7 @@ description: Choose, run, or explain .NET test commands for the Invest Dashboard
 
 # Testes .NET do Invest Dashboard
 
-Confirme os projetos e comandos no checkout. O backend usa `src/InvestDashboard.slnx`, .NET 10, xUnit 2.9.3 e FluentAssertions 8.9.0. Existem projetos separados em `src/tests/InvestDashboard.UnitTests` e `src/tests/InvestDashboard.IntegrationTests`.
+Confirme os projetos, versões e comandos no checkout, especialmente nos `.csproj` dos testes. O backend usa `src/InvestDashboard.slnx` e tem projetos separados em `src/tests/InvestDashboard.UnitTests` e `src/tests/InvestDashboard.IntegrationTests`; não suponha versões de xUnit, FluentAssertions ou do SDK sem consultar os manifests.
 
 ## Escolha de escopo
 
@@ -30,6 +30,8 @@ Inspecione SDK, restore existente e argumentos suportados pela versão atual ant
 ## Relato
 
 Registre o comando exato, SDK/runtime, filtros, resultado e testes ignorados. Separe `passou`, `falhou`, `ignorado` e `não executado`. Não chame teste ignorado por falta de `INVEST_TEST_POSTGRES_CONNECTION` de aprovado; não trate InMemory como evidência de PostgreSQL. Nunca declare cobertura não medida como fato.
+
+Quando for apropriado criar ou alterar testes, priorize comportamentos e contratos afetados, casos negativos e limites relevantes; mantenha preparação, ação e verificações claras. Não use TDD ou uma camada de mocks por obrigação nem trate quantidade de testes como evidência de cobertura.
 
 ## Análise de falha
 

@@ -1,4 +1,6 @@
 # language: pt
+# Requisitos históricos, não testes executados. IsDefault e exclusão de metas não foram
+# identificados na implementação revisada em 13/11/2026; confirmar antes de adotá-los.
 Funcionalidade: Gestão do Ciclo de Vida da Carteira
   Para manter a organização do meu patrimônio
   Como um investidor

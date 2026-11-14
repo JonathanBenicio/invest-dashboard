@@ -1,12 +1,11 @@
 # Invest Dashboard - Monorepo
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Build Status](https://github.com/JonathanBenicio/invest-dashboard/actions/workflows/deploy.yml/badge.svg)](https://github.com/JonathanBenicio/invest-dashboard/actions)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D%2018-brightgreen)]
 [![.NET Version](https://img.shields.io/badge/.NET-10-violet)]
 
 ## 📖 Overview
-A modern, responsive investment platform built as a Monorepo. It features a state-of-the-art **React 19** and **Vite** frontend (with full mobile support via **Capacitor**) and a robust **.NET 10** backend structured around **Domain-Driven Design (DDD)** using **Entity Framework Core**, **Supabase/Postgres**, and **SignalR** for ultra-low latency real-time market data.
+A monorepo for an investment dashboard with a **React 19** and **Vite** frontend, Capacitor integration, and a **.NET 10** backend using **Entity Framework Core**, PostgreSQL, Supabase Auth, and SignalR. See the [documentation index](./docs/INDEX.md) for implementation status and validation limits.
 
 ---
 
@@ -24,8 +23,8 @@ A beautiful, highly-responsive user experience featuring portfolio insights, ass
 A scalable, decoupled backend engine organized around clean architecture and domain-driven design principles.
 - **Path:** `src/`
 - **Core Stack:** ASP.NET Core 10, EF Core 10, PostgreSQL (Supabase Postgres Image), SignalR (Realtime Quotations), Background Services (Market Quotation Synchronizers).
-- **Security:** JWT Signature validation integrated with Supabase Auth.
-- **Storage:** Supabase Storage (Brokerage notes and reports upload with automatic Base64 DB fallback).
+- **Security:** Supabase Auth provides identity; the API issues and validates its own JWTs.
+- **Storage:** Brokerage-note uploads can use Supabase Storage or return a Base64 data URI, depending on configuration.
 
 ---
 
@@ -61,7 +60,7 @@ cd frontend
 bun install
 bun run dev
 ```
-Open `http://localhost:5173` to view the local frontend dev server.
+The Vite configuration requests port `5000`; Vite may choose another port if it is occupied. Check the URL printed at startup. The Compose API also uses port 5000, so running both locally may cause a conflict.
 
 ### 📁 Backend Setup
 ```sh
@@ -78,11 +77,11 @@ Configure `ConnectionStrings__DefaultConnection`, `Jwt__Secret` (at least 32 ran
 ## 📂 Repository Layout
 
 ```plaintext
-├── .agents/                 # AI specializations, rules, and checklist scripts
+├── .agents/                 # Shared project skills; other local legacy material may be ignored
 ├── frontend/                # Frontend Vite + React + Capacitor App
 │   ├── src/                 # React source code
 │   ├── public/              # Static assets
-│   ├── android/             # Android native studio project
+│   ├── android/             # Generated, Git-ignored native project when created
 │   ├── package.json         # Node dependencies
 │   └── vite.config.ts       # Vite bundler configuration
 │
@@ -91,7 +90,7 @@ Configure `ConnectionStrings__DefaultConnection`, `Jwt__Secret` (at least 32 ran
     ├── InvestDashboard.Domain/ # DDD Domain Layer (Entities, Value Objects, Aggregates)
     ├── InvestDashboard.Application/ # Use Cases & DTOs
     ├── InvestDashboard.Infrastructure/ # EF Core, Supabase integrations, SignalR Hubs, Workers
-    ├── InvestDashboard.WebAPI/ # ASP.NET Core Controllers & Minimal APIs
+    ├── InvestDashboard.WebAPI/ # ASP.NET Core controllers
     └── tests/               # Unit and Integration test suites
 ```
 
@@ -117,4 +116,4 @@ Use the Issue → ADR → User Story → Plan → Implementation → Validation 
 ---
 
 ## 📄 License
-This project is licensed under the MIT License – see the [LICENSE](LICENSE) file.
+No license file is present in this checkout. The project license has not been confirmed.

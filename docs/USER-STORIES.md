@@ -2,7 +2,9 @@
 
 ## Escopo desta revisão
 
-Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme decisão do usuário. Estado e evidência pós-implementação estão no [roadmap de gaps funcionais](plan/functional-gaps.md) e no [plano ativo de fechamento](plan/complete-active-plan.md). Fluxo de caixa/proventos estão no [plano futuro de baixa prioridade](plan/future-low-priority.md). Validação atual: 33 testes unitários, 41 integrações PostgreSQL, 8 E2E MSW, build backend/frontend, zero advisories no `npm audit` e smoke Compose 200. Supabase real ainda precisa de conta local de homologação; Ibovespa foi movido para funcionalidade futura por decisão do usuário; importação específica de corretoras aguarda amostras conforme [plano de CSV](plan/broker-csv-import-plan.md).
+> Revisão documental estática em 13/11/2026: as contagens e resultados abaixo são registros de 29/09/2026 ou das datas indicadas nos documentos de origem, não testes repetidos nesta revisão. Consulte [a comparação com o código](validation/comparacao-documentacao-codigo.md) para limites e divergências.
+
+Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme decisão do usuário. Estado e evidência pós-implementação estão no [roadmap de gaps funcionais](plan/functional-gaps.md) e no [plano ativo de fechamento](plan/complete-active-plan.md). Fluxo de caixa/proventos estão no [plano futuro de baixa prioridade](plan/future-low-priority.md). Validação registrada na época: 33 testes unitários, 41 integrações PostgreSQL, 8 E2E MSW, build backend/frontend, zero advisories no `npm audit` e smoke Compose 200. Supabase real ainda precisa de conta local de homologação; Ibovespa foi movido para funcionalidade futura por decisão do usuário; importação específica de corretoras aguarda amostras conforme [plano de CSV](plan/broker-csv-import-plan.md).
 
 | ID estável | História | Estado observado no código | Evidência e gap principal |
 |---|---|---|---|
@@ -22,7 +24,7 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 
 **Como** investidor, **quero** realizar login seguro via e-mail/senha ou SSO, **para** acessar meus dados financeiros com privacidade.
 
-**Gap:** Teste multiusuário confirma isolamento de carteira/posição em InMemory e PostgreSQL. O teste Supabase live opt-in está pronto, mas aguarda conta confirmada. Instruções e campos locais: [homologação Supabase](plan/supabase-auth-homologation.md).
+**Gap:** Testes com identidades fake cobrem autorização e isolamento em InMemory/PostgreSQL; a suíte Supabase live opt-in agora cobre login válido/inválido/não confirmado, sessão e recursos de duas contas. A execução live aguarda contas/IDs locais; Site URL e allowlist ainda precisam de verificação no Dashboard. [Roteiro](plan/supabase-auth-homologation.md) e [relatório da execução atual](validation/autenticacao-real-homologacao.md).
 
 ## US-CONFIG-001 — Indicadores e taxas
 

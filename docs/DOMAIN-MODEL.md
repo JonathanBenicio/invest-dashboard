@@ -1,50 +1,19 @@
-# Modelo de Domínio (DDD) - Invest Dashboard
+# Modelo de domínio — Invest Dashboard
 
-Este documento mapeia as Entidades, Value Objects e Agregados baseados nas regras de negócio de Gestão de Patrimônio (Wealth Management) com foco no mercado brasileiro.
+Revisão estática em 13/11/2026, no checkout `f85ae79` com alterações locais. Este resumo descreve o código encontrado, não comprova execução nem correção de regras fiscais. Os requisitos e planos históricos estão no [índice](INDEX.md).
 
-## 1. Aggregates & Entities
+## Carteiras, posições e operações
 
-### Aggregate: Portfolio (Raiz)
-Representa a carteira consolidada de um investidor.
-- `Id`: Guid
-- `InvestorId`: Guid (Mapeado via Supabase Auth)
-- `TotalBalance`: Money (Value Object)
-- `Positions`: List<AssetPosition>
-- `TaxProfile`: TaxProfile (Entity)
+- [`Carteira`](../src/InvestDashboard.Domain/Aggregates/Portfolio/Carteira.cs) é uma raiz de agregado que mantém usuário, grupo e titular, instituição, visibilidade, saldo, resultados realizados e posições. Os valores são `decimal`; nomes de propriedades do código ainda misturam português e inglês.
+- [`PosicaoInvestimento`](../src/InvestDashboard.Domain/Aggregates/Portfolio/PosicaoInvestimento.cs) associa carteira e ativo e registra ticker, tipo, quantidade, custo médio, custo total, preço e datas. Para renda fixa, a avaliação usa o preço da posição; para outros ativos, usa o preço do ativo quando disponível. [`ValuacaoPosicao`](../src/InvestDashboard.Domain/Aggregates/Portfolio/ValuacaoPosicao.cs) registra preço e quantidade observados por posição.
+- [`Transacao`](../src/InvestDashboard.Domain/Aggregates/Trading/Transacao.cs) registra autor, carteira, ativo, quantidade, preço, taxa e data. O enum [`TipoTransacao`](../src/InvestDashboard.Domain/Aggregates/Trading/TipoTransacao.cs) contém `Buy`, `Sell`, `Deposit` e `Withdrawal`; vencimento é marcado na posição, não é um tipo desse enum. A API de registro valida `Buy` e `Sell` no [DTO](../src/InvestDashboard.Application/DTOs/Trading/RegistrarTransacaoDto.cs).
+- Na compra, o agregado adiciona quantidade e recalcula custo médio com taxas. Na venda, verifica quantidade disponível e registra custo e ganho realizados. Associações e autorização de acesso por grupo são tratadas também na camada de aplicação.
 
-### Entity: AssetPosition
-Representa a posição atual em custódia de um ativo específico.
-- `Ticker`: string (ex: "PETR4")
-- `AssetType`: Enum (Stock, FII, FixedIncome)
-- `Quantity`: decimal
-- `AveragePrice`: Money (Value Object)
-- `CurrentPrice`: Money (Value Object - atualizado via SignalR/Oráculo)
+## Fiscal e simulação
 
-### Entity: Transaction
-Representa o evento de histórico (Compra, Venda, Vencimento).
-- `Type`: Enum (Buy, Sell, Mature)
-- `Date`: DateTime
-- `Quantity`: decimal
-- `UnitPrice`: Money
-- `BrokerageFee`: Money (Taxa de corretagem)
-- `B3Fee`: Money (Emolumentos/B3)
+- [`CalculoImpostoService`](../src/InvestDashboard.Domain/Services/CalculoImpostoService.cs) recebe valores e prejuízos anteriores como parâmetros e calcula resultados para swing trade, FII e day trade. A aplicação expõe uma estimativa mensal de escopo limitado; consulte [US-TAX-002](USER-STORIES.md#us-tax-002--imposto-de-renda) para exclusões e pendências. Não se deve inferir emissão de DARF ou persistência de um `TaxProfile` desse serviço. A regra exige revisão especializada antes de uso fiscal.
+- [`EstrategiaDeterministica`](../src/InvestDashboard.Domain/Services/EstrategiaDeterministica.cs) usa taxa anual e aportes informados para calcular pontos mensais. [`EstrategiaMonteCarlo`](../src/InvestDashboard.Domain/Services/EstrategiaMonteCarlo.cs) usa volatilidade informada ou padrão, número de simulações e semente fixa; a série retornada usa a mediana. O código calcula P5 e P95 localmente, mas não os inclui no resultado. Não foi identificada leitura de volatilidade histórica nessas estratégias.
 
-## 2. Regras Fiscais (Brasil) - Tax Profile e Lógica
-O domínio fiscal é isolado para encapsular as regras da Receita Federal:
-- **Isenção de Ações:** Vendas mensais de ações (Swing Trade) com volume total até R$ 20.000,00 são isentas de IR.
-- **FIIs:** Alíquota fixa de 20% sobre o lucro em qualquer venda, sem isenção mensal.
-- **Day Trade:** Alíquota de 20% (separado de operações normais que têm 15%).
-- **Compensação de Prejuízos:** O sistema armazena prejuízos passados para abater lucros futuros na mesma classe de ativo (Ação com Ação, FII com FII).
+## Dados externos
 
-## 3. Serviços de Domínio (Domain Services)
-
-### `TaxCalculationService`
-Serviço responsável por calcular a apuração mensal. Ele varre as transações de venda do mês e calcula a DARF devida, considerando limites de isenção (20k) e abatendo os prejuízos acumulados registrados no `TaxProfile`.
-
-### `InvestmentSimulatorService`
-Aplica o padrão *Strategy* para permitir múltiplas abordagens de simulação escolhidas pelo usuário:
-1. **DeterministicStrategy (Juros Compostos):** Simulação matemática conservadora (`M = C * (1+i)^t`), onde `i` é a SELIC ou CDI configurado (manualmente ou via importação CSV no futuro).
-2. **MonteCarloStrategy (Estatístico):** Simulação probabilística que roda milhares de cenários futuros baseados na volatilidade histórica (desvio padrão) do ativo. Entrega um intervalo de projeção para o usuário: Cenário Pessimista (P5), Neutro (P50) e Otimista (P95).
-
-## 4. Integrações Futuras (Data Feeds)
-- A arquitetura prevê interfaces (`IMacroEconomicProvider`) para que, no futuro, as taxas SELIC, IPCA e CDI sejam consumidas automaticamente de APIs (como Banco Central) em vez da entrada manual/CSV atual.
+O código inclui provedor de cotações e consulta de CDI; a [análise de posições](../frontend/src/pages/tools/Analysis.tsx) utiliza o benchmark CDI. A simulação recebe sua taxa nos parâmetros, sem ligação automática às taxas persistidas. Disponibilidade e homologação de integrações externas não são demonstradas por esta revisão estática; consulte os [planos e relatórios](INDEX.md).

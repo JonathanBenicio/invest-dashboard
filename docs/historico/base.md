@@ -1,3 +1,5 @@
+> Registro histórico da visão de produto; requisitos e comportamento atual precisam ser confirmados nas fontes vigentes.
+
 ## Plataforma de Gerenciamento de Carteiras de Investimentos
 
 ### Visão Geral

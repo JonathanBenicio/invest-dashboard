@@ -4,9 +4,9 @@ O repositório usa `AGENTS.md` na raiz, `frontend/AGENTS.md` e `src/AGENTS.md` p
 
 ## Arquivos compartilháveis e legado local
 
-Historicamente `.agents/*` era ignorado e seus arquivos não estavam no Git. O `.gitignore` agora libera somente as quatro skills `invest-*` introduzidas nesta migração. As outras skills, agentes, regras, scripts e workflows existentes podem continuar presentes na máquina, mas não fazem parte da configuração compartilhada garantida pelo repositório. Eles foram preservados; não se deve depender deles em um checkout limpo.
+Historicamente `.agents/*` era ignorado e seus arquivos não estavam no Git. O [`.gitignore`](../../.gitignore) libera os diretórios de skills `invest-*` compartilháveis do projeto. Outros arquivos locais de skills, agentes, regras, scripts e workflows podem continuar ignorados; não se deve depender deles em um checkout limpo.
 
-**Atenção:** o Git ignore não desativa skills. Nesta máquina, 12 skills locais com conflitos identificados foram desativadas por caminho absoluto no `config.toml` do Codex usado na sessão; outras skills legadas continuam descobertas e precisam de revisão antes de serem compartilhadas. Essas entradas locais não acompanham o repositório nem afetam skills homônimas em outros caminhos. Em outro checkout ou perfil Codex, repita a verificação antes de aplicar bloqueios equivalentes. O inventário, critérios e riscos dos scripts estão em [auditoria do legado](codex-legacy-audit.md).
+**Atenção:** o Git ignore não desativa skills. Nesta máquina, 13 skills locais com conflitos identificados, incluindo `dotnet-best-practices`, foram desativadas por caminho absoluto no `config.toml` do Codex usado na sessão; outras skills legadas continuam descobertas e precisam de revisão antes de serem compartilhadas. Essas entradas locais não acompanham o repositório nem afetam skills homônimas em outros caminhos. Em outro checkout ou perfil Codex, repita a verificação antes de aplicar bloqueios equivalentes. O inventário, critérios e riscos dos scripts estão em [auditoria do legado](codex-legacy-audit.md).
 
 ## Regras
 
@@ -30,7 +30,7 @@ Os agentes TOML compartilháveis são `invest-backend`, `invest-frontend`, `inve
 | `explorer-agent`, `debugger`, `performance-optimizer` | Delegação delimitada a agente nativo ou a um dos papéis acima quando pertinente; não há conversão literal. |
 | `orchestrator`, `project-planner`, `documentation-writer`, `ide-assistant`, `devops-engineer` | Capacidades do agente principal e instruções específicas da solicitação; não há agente dedicado nesta migração. |
 
-O [template TOML](../templates/codex-agent-template.toml) mostra o formato nativo. O template YAML anterior permanece como artefato separado, sem ser carregado como subagente.
+O [template TOML](../../templates/codex-agent-template.toml) mostra o formato nativo. O template YAML anterior permanece como artefato separado, sem ser carregado como subagente.
 
 ## Workflows
 
@@ -45,13 +45,14 @@ As skills do projeto atuais abrangem API HTTP (`invest-aspnetcore-api`), consult
 | `create-page` | `$invest-ui-page`, adaptado ao TanStack Router. |
 | `pr-review` | `$invest-pr-review`. |
 | `development_standards` | `frontend/AGENTS.md` e `src/AGENTS.md`. |
-| `debug`, `test`, `brainstorm`, `plan`, `enhance`, `create` | Pedidos em linguagem natural e capacidades gerais do Codex; sem comando de barra equivalente criado. |
+| `brainstorm`, `plan`, `enhance`, `create` | `invest-feature-discovery` para concepção e planejamento; `invest-screen-concept` somente quando interface faz parte do escopo. Sem comandos de barra legados. |
+| `debug`, `test` | `invest-debug` para diagnóstico transversal; `invest-dotnet-tests` e ferramentas de frontend para testes pertinentes. Sem comandos de barra legados. |
 | `orchestrate` | Delegação nativa quando solicitada ou autorizada pelas instruções aplicáveis; sem número mínimo artificial de agentes. |
 | `deploy`, `preview`, `status` | Consultar comandos e workflows reais do projeto; execução depende da solicitação e das permissões aplicáveis. |
 | `verify-design`, `ui-ux-pro-max` | Verificação de interface quando pertinente; não depende do catálogo ou de ferramentas não verificadas no legado. |
 | `create-modern-feature` | Específico de Next.js; não transplantado para a aplicação Vite. |
 
-Os templates genéricos em `templates/` continuam no local original. Os templates de scaffolding dentro da skill local `app-builder` permanecem legados e não são dependência das quatro skills compartilháveis.
+Os templates genéricos em `templates/` continuam no local original. Os templates de scaffolding dentro da skill local `app-builder` permanecem legados e não são dependência das skills compartilháveis do projeto.
 
 ## Verificação
 

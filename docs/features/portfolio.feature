@@ -1,3 +1,5 @@
+# Cenários de intenção; entrega instantânea e atualização visual não foram validadas
+# nesta revisão estática. O evento implementado é OnPriceUpdate, por ticker.
 Feature: Gestão de Transações e Portfólio Core
   Como um investidor
   Eu quero gerenciar minhas operações financeiras (compras e vendas)

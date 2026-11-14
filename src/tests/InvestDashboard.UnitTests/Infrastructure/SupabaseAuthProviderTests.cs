@@ -54,6 +54,30 @@ public sealed class SupabaseAuthProviderTests
     }
 
     [Fact]
+    public async Task LoginAsync_MapsUnconfirmedEmailResponseToAuthenticationFailure()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Task.FromResult(JsonResponse(
+            HttpStatusCode.BadRequest,
+            """{"code":"email_not_confirmed"}""")));
+        var provider = CreateProvider(httpClient);
+
+        var action = () => provider.LoginAsync("unconfirmed@example.com", "password123");
+
+        await action.Should().ThrowAsync<AuthenticationException>();
+    }
+
+    [Fact]
+    public async Task LoginAsync_MapsProviderServerFailureToUnavailableException()
+    {
+        using var httpClient = CreateHttpClient((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)));
+        var provider = CreateProvider(httpClient);
+
+        var action = () => provider.LoginAsync("investor@example.com", "password123");
+
+        await action.Should().ThrowAsync<IdentityProviderUnavailableException>();
+    }
+
+    [Fact]
     public async Task RegisterAsync_MapsConfirmationRequiredResponse()
     {
         string? submittedBody = null;

@@ -1,5 +1,7 @@
 # Plano de Padronização de Nomenclatura — Portfolio vs Carteira
 
+> Proposta histórica; não descreve a convenção integral do checkout, que contém tipos como `Carteira` e `PosicaoInvestimento`. Não implica aprovação ou execução do plano.
+
 ## Convenção Definida
 
 | Contexto | Padrão | Exemplos |

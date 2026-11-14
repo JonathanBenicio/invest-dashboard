@@ -1,6 +1,6 @@
 ---
 name: invest-msbuild
-description: Diagnose a .NET restore/build/test failure or a measured slow build in the Invest Dashboard solution.
+description: Review .csproj, .slnx, .props, and .targets files or diagnose .NET restore/build/test failures and measured slow builds in the Invest Dashboard solution.
 ---
 
 # Diagnóstico MSBuild do Invest Dashboard

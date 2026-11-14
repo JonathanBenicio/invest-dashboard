@@ -1,5 +1,7 @@
 # Plano: padronizar contratos e DTOs da API em português
 
+> Registro de planejamento e evidências da época; confirme os contratos e o estado atual no código antes de reutilizar as premissas abaixo.
+
 ## Objetivo
 
 Alinhar os contratos JSON da API própria em português brasileiro entre .NET e TypeScript, sem alterar regras financeiras, banco de dados ou formatos de terceiros. A decisão de compatibilidade foi confirmada pelo usuário: o sistema ainda não tem clientes reais, então a migração será coordenada diretamente em `/api/v1`.
@@ -40,7 +42,7 @@ Inventário fechado: requests inline de investimentos foram extraídos para DTOs
 3. [x] Implementar DTOs de resposta e request em português no backend, extrair requests inline, tipar o resumo de investimentos e aplicar a mesma política JSON a controllers e OpenAPI.
 4. [x] Migrar nomes e propriedades dos DTOs TypeScript, cliente, serviços, hooks, stores e consumidores de tela.
 5. [x] Atualizar telas, MSW opt-in, fixtures, testes e o simulador que já estava aberto para consumir o contrato português.
-6. [x] Publicar a referência do contrato em [`docs/API-CONTRACTS-PT-BR.md`](docs/API-CONTRACTS-PT-BR.md) e verificar os nomes do schema OpenAPI; sem deploy.
+6. [x] Publicar a referência do contrato em [`docs/API-CONTRACTS-PT-BR.md`](../API-CONTRACTS-PT-BR.md) e verificar os nomes do schema OpenAPI; sem deploy.
 7. [x] Verificação final solicitada: `dotnet build InvestDashboard.slnx -c Release --no-restore`, `bunx tsc -p tsconfig.app.json --noEmit` e `bun run build`. Não foi criada uma suíte separada apenas para nomes de contrato. GitHub Actions só serão verificados se houver PR; para commit isolado, validação local basta.
 
 ## Critérios de aceite

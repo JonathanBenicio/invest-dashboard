@@ -9,4 +9,6 @@ Confira páginas relacionadas em `frontend/src/pages`, componentes compartilhado
 
 Reutilize o design system e os estados de carregamento, erro e vazio relevantes. Preserve acessibilidade, responsividade e tema escuro. Execute os checks apropriados e, quando viável e relevante, verifique a rota no navegador; informe se isso não foi possível.
 
+Para uso por toque e Capacitor, mantenha alvos confortáveis, foco visível e alternativas acessíveis para ações que dependam de gestos ou hover; respeite áreas seguras e não pressuponha APIs de React Native. Considere teclado e leitor de tela nas interações afetadas.
+
 Ao criar testes E2E, examine os testes existentes. Se Page Objects ou uma estrutura compartilhada forem úteis, consulte [pom-e2e-template.md](../../../templates/pom-e2e-template.md) ou [playwright-structure-template.md](../../../templates/playwright-structure-template.md) e adapte-os ao projeto, sem exigir novas camadas para testes simples.

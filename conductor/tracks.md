@@ -6,6 +6,8 @@
 
 | Identificador | Iniciativa (conforme arquivo) | Estado conhecido | Plano canônico | Observações |
 |---|---|---|---|---|
+| [#48](https://github.com/JonathanBenicio/invest-dashboard/issues/48) | Homologação de autenticação real | bloqueada | [autenticacao-real-plano.md](../docs/plan/autenticacao-real-plano.md) | Testes determinísticos em InMemory/PostgreSQL passam; live exige contas/recursos locais e sessão autenticada no Dashboard para URL Configuration. |
+| [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53) | Importação de extrato do Tesouro Direto | planejada | [tesouro-direto-extrato-plano.md](../docs/plan/tesouro-direto-extrato-plano.md) | Posições e valores atuais; regras e formato pendentes. |
 | A definir | Gestão de carteira | Documento existente; estado atual pendente de confirmação | [carteira.md](../docs/plan/carteira.md) | Plano preexistente; revisar requisitos e implementação antes de reativar. |
 | A definir | Chat IA | Documento existente; estado atual pendente de confirmação | [chat-ia.md](../docs/plan/chat-ia.md) | Plano preexistente; não inferir adoção ou execução. |
 | A definir | Plano de implementação da plataforma | Documento existente; estado atual pendente de confirmação | [plan.md](../docs/plan/plan.md) | Documento amplo/histórico; verificar premissas contra o código antes de usar. |

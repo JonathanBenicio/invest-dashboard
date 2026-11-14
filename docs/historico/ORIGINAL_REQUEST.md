@@ -1,5 +1,7 @@
 # Original User Request
 
+> Registro histórico do pedido original; não comprova o estado atual da implementação ou da validação.
+
 ## Initial Request — 2026-06-04T00:30:02-03:00
 
 Integrate the .NET 10 backend with the React 19 frontend of the invest-dashboard monorepo, removing all MSW mocks as the default data source and connecting to real backend APIs. This is a production-grade integration — all endpoints must work with real data through a fully functional auth pipeline.

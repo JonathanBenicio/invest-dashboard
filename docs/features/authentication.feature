@@ -1,3 +1,5 @@
+# Cenários históricos, não testes executados. A rota privada atual é /api/v1/portfolios;
+# a aplicação autentica via Supabase e emite seu próprio token para a API.
 Feature: Autenticação de Usuário com Supabase
   Como um usuário do sistema
   Eu quero me autenticar de forma segura

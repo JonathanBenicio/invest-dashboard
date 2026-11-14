@@ -1,5 +1,7 @@
 # Plano de Implementação: Backend Invest-Dashboard (.NET 10 + DDD + Supabase/PostgreSQL)
 
+> Plano preexistente. As premissas, tarefas e caminhos abaixo precisam ser confrontados com o código e o estado atual antes de reutilização.
+
 Este documento descreve o plano estratégico e estruturado para o desenvolvimento do backend de alta performance do **Invest-Dashboard**. O sistema será construído usando as tecnologias mais modernas de 2026, com foco em resiliência, escalabilidade, design limpo e observabilidade.
 
 ---

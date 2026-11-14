@@ -1,102 +1,28 @@
-# Arquitetura do Sistema
+# Arquitetura do sistema
 
-Este documento descreve a topologia em alto nível do sistema usando a abstração do C4 Model.
-
-## C4 Model - Diagrama de Contexto & Containers
+Revisão estática em 13/11/2026, no checkout `f85ae79` com alterações locais. O diagrama representa componentes encontrados no código e na configuração Compose; não comprova conectividade ou operação em produção.
 
 ```mermaid
 graph TD
-    User([Investidor])
-    
-    subgraph Frontend ["Frontend App (React 19 / Vite / Capacitor)"]
-        Web[Dashboard Web]
-        Mobile[Aplicativo Mobile nativo]
-    end
-
-    subgraph Backend ["Backend Environment (.NET 10 / DDD)"]
-        API[ASP.NET Core WebAPI]
-        Domain[Core Domain Model]
-        Worker[Market Data Synchronizer Worker]
-        Hub[SignalR Real-time Hub]
-    end
-
-    subgraph External ["External Managed Services"]
-        Supabase[(Supabase PostgreSQL)]
-        Auth[Supabase Auth Provider]
-        MarketAPI[Market Quotation APIs / Oráculos]
-    end
-
-    User -->|Interage via Navegador| Web
-    User -->|Interage via App| Mobile
-    
-    Web -->|REST API (HTTPS)| API
-    Mobile -->|REST API (HTTPS)| API
-    
-    Web -->|WebSockets| Hub
-    Mobile -->|WebSockets| Hub
-
-    API -->|Validação de JWT| Auth
-    API -->|Entity Framework Core| Supabase
-    
-    Worker -->|Fetch Ticker Prices| MarketAPI
-    Worker -->|Envia Broadcast Update| Hub
-    
-    API -.->|Injeta e executa| Domain
-    Worker -.->|Injeta e atualiza| Domain
+    User[Investidor] --> Web[Frontend React / Vite]
+    Web -->|HTTP /api| API[ASP.NET Core WebAPI]
+    Web -->|SignalR /hubs/market-data| Hub[DadosMercadoHub]
+    API --> App[Serviços de aplicação]
+    App --> Domain[Domínio e regras]
+    App --> Infra[Repositórios e integrações]
+    Infra -->|EF Core| DB[(PostgreSQL configurado)]
+    API --> Auth[Supabase Auth]
+    Worker[Workers hospedados pela API] --> Infra
+    Worker --> Market[Provedor de mercado]
+    Worker --> Hub
 ```
 
-## Sequence Diagram - Fluxo de Compra de Ativos (Backend DDD)
+O [Compose](../../docker-compose.yml) usa um container PostgreSQL local baseado na imagem Supabase; a conexão EF Core vem da configuração e não implica banco Supabase gerenciado. O provedor Supabase autentica a identidade; a aplicação emite e valida seus próprios JWTs. A API registra os workers de mercado e vencimento fora do ambiente `Testing` ([Program.cs](../../src/InvestDashboard.WebAPI/Program.cs)).
 
-Este diagrama ilustra o fluxo de uma requisição de transação financeira, destacando a separação de responsabilidades (WebAPI -> Application -> Domain -> Infrastructure).
+## Registro de operação
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as Investidor
-    participant Web as Frontend (React)
-    participant API as WebAPI (.NET)
-    participant Domain as Core Domain (DDD)
-    participant DB as EF Core / PostgreSQL
-    
-    User->>Web: Preenche formulário (Ex: Compra 100x AAPL34)
-    Web->>API: POST /api/transactions + JWT
-    API->>API: Valida JWT e extrai UserID
-    API->>Domain: Envia comando (CreateTransactionCommand)
-    
-    rect rgb(240, 248, 255)
-        note right of Domain: Regras de Negócio e Cálculos
-        Domain->>DB: Busca Posição Atual (AssetPosition)
-        DB-->>Domain: Retorna Posição (ou cria nova em memória)
-        Domain->>Domain: Aplica Transação (Soma cotas)
-        Domain->>Domain: Recalcula Preço Médio
-    end
-    
-    Domain->>DB: SaveChangesAsync()
-    DB-->>Domain: Confirmação do Banco
-    Domain-->>API: Retorna DTO de Sucesso
-    API-->>Web: HTTP 200 OK
-    Web-->>User: Toast "Transação salva" e atualiza listagem
-```
+`POST /api/v1/transactions` recebe [`RegistrarTransacaoDto`](../../src/InvestDashboard.Application/DTOs/Trading/RegistrarTransacaoDto.cs). O [controller](../../src/InvestDashboard.WebAPI/Controllers/TransacoesController.cs) autorizado chama o serviço de aplicação; o domínio processa a operação e a infraestrutura persiste as alterações. Em sucesso, o controller retorna `201 Created` com envelope e localização da lista de transações da carteira. A autorização e o tratamento de falhas dependem do fluxo concreto de aplicação e middleware.
 
-## Sequence Diagram - Atualizações em Tempo Real (SignalR)
+## Atualização de preços
 
-Este diagrama mostra o ciclo de vida da captura de preços de mercado até a renderização no frontend via WebSockets.
-
-```mermaid
-sequenceDiagram
-    participant Market as Oráculo/API de Mercado
-    participant Worker as Background Service
-    participant Hub as SignalR Hub
-    participant Web as Frontend (React/Zustand)
-    
-    Web->>Hub: Abre conexão WebSocket (Handshake)
-    
-    loop A cada X minutos
-        Worker->>Market: Http Get (Lista de Tickers Ativos)
-        Market-->>Worker: Retorna Cotações Atualizadas
-        Worker->>Hub: Envia evento "ReceiveMarketUpdate"
-        Hub-->>Web: Push Server-Sent Event (WebSocket)
-        Web->>Web: Zustand Store mapeia novos preços
-        Web->>Web: React re-renderiza componentes dependentes
-    end
-```
+O [worker de mercado](../../src/InvestDashboard.Infrastructure/BackgroundWorkers/AtualizadorDadosMercadoWorker.cs) consulta o provedor para ativos que não são de renda fixa, persiste observações válidas e publica `OnPriceUpdate` para grupos por ticker. O [hook do frontend](../../frontend/src/hooks/useSignalR.ts) conecta ao hub quando autenticado, assina tickers e atualiza o store de mercado. O intervalo configurável tem padrão de 60 segundos e limites de 30 a 3600 segundos; falhas de consulta preservam o último preço armazenado. Esses caminhos não demonstram entrega instantânea ou disponibilidade sustentada.

@@ -1,4 +1,6 @@
 # language: pt
+# Cenários de requisito histórico, não evidência de cobrança ou retenção automática.
+# A API expõe estimativa limitada; revisão fiscal e critérios permanecem pendentes.
 Funcionalidade: Apuração e Cálculos Fiscais (Imposto de Renda)
   Para facilitar minha declaração fiscal
   Como um investidor do mercado brasileiro

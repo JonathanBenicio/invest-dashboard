@@ -1,5 +1,7 @@
 # Normalização de Models, DTOs e Entidades — Conceitos PT-BR
 
+> Proposta histórica, com premissas e renomeações sujeitas a revisão; não comprova aprovação nem execução integral.
+
 > **Objetivo:** Padronizar todos os nomes de entidades, DTOs, models e classes do projeto seguindo os **conceitos de domínio em português brasileiro**, alinhados com as rotas do frontend.
 
 > **Motivação:** Existem muitas discrepâncias entre backend e frontend. O frontend usa nomes como `InvestmentDto` enquanto o backend usa `AssetPositionDto`. O frontend tem rotas em PT-BR (`/carteiras`, `/renda-fixa`, `/taxas`) mas o backend usa nomes em inglês. A padronização em PT-BR elimina confusão cognitiva e alinha código com o domínio de negócio brasileiro.

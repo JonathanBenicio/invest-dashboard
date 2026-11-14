@@ -70,3 +70,6 @@ frontend/android/
 !.agents/skills/invest-dotnet-tests/
 !.agents/skills/invest-msbuild/
 !.agents/skills/invest-aspnetcore-api/
+!.agents/skills/invest-feature-discovery/
+!.agents/skills/invest-screen-concept/
+!.agents/skills/invest-debug/

@@ -13,4 +13,6 @@ dotnet ef migrations add NomeDaMigracao --project InvestDashboard.Infrastructure
 
 Revise o código gerado, snapshot, nulabilidade, índices, relacionamentos e risco de perda de dados; considere compatibilidade e rollback. Gere ou aplique a migração apenas quando a solicitação e o ambiente autorizarem. Confirme o banco de destino antes de `dotnet ef database update`; não aplique em banco compartilhado ou produção sem autorização específica. Execute validações pertinentes e relate dependências indisponíveis.
 
+Para dados já existentes, avalie preenchimento de novos campos, valores legados e compatibilidade durante a implantação. Confira escopo de índices e unicidade por usuário ou grupo contra o domínio e as migrations anteriores; não infira o estado de um banco implantado apenas do modelo local. Valide contra PostgreSQL de teste isolado quando a alteração depender do provedor.
+
 Se o trabalho incluir uma decisão arquitetural ou relatório documental de validação, consulte, respectivamente, [adr-template.md](../../../templates/adr-template.md) ou [validation-report-template.md](../../../templates/validation-report-template.md), seguindo os critérios e destinos de `conductor/workflow.md`. Uma migração, por si só, não exige criar esses documentos.

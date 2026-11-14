@@ -11,4 +11,6 @@ Centralize a transformação reutilizada em `frontend/src/lib/<entidade>-mapper.
 
 Adapte os consumidores que efetivamente existem (store, query hook ou outro), sem criar uma store e um hook por obrigação. Teste a transformação quando houver lógica significativa, incluindo valores ausentes e casos de borda pertinentes. Preserve os tipos de domínio e valide o frontend conforme o escopo.
 
+Ao mudar campos, formatos ou semântica do mapeador, confira o contrato de origem e os consumidores existentes, incluindo unidades, datas e status. Preserve compatibilidade no escopo da mudança e represente valores desconhecidos sem convertê-los em resultados financeiros plausíveis.
+
 Se a tarefa incluir documentação de contrato HTTP ou SignalR, consulte [endpoint-template.md](../../../templates/endpoint-template.md) e confirme os campos no código. Para cenários BDD solicitados ou necessários, adapte [bdd-template.feature](../../../templates/bdd-template.feature) ao domínio real; não copie seus exemplos de agentes e MCP.

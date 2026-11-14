@@ -1,8 +1,10 @@
 # Plano de Implementação — Chat IA: Assistente de Investimentos
 
+> Proposta preexistente, não evidência de integração com Agent-System; estado e requisitos precisam ser confirmados antes de execução.
+
 ## Visão Geral
 
-Implementar o módulo **Chat IA — Assistente de Investimentos** (feature #7 do `base.md`), integrando o invest-dashboard ao **Agent-System** (serviço separado de IA) via SignalR para streaming em tempo real.
+Implementar o módulo **Chat IA — Assistente de Investimentos** (feature #7 do histórico [base.md](../historico/base.md)), integrando o invest-dashboard ao **Agent-System** (serviço separado de IA) via SignalR para streaming em tempo real.
 
 ### Stack
 - **Frontend:** React 19 + TypeScript + Zustand + `@microsoft/signalr`

@@ -25,18 +25,21 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbName = $"InvestTestDb_{Guid.NewGuid()}";
     private readonly string? _postgresConnectionString;
+    private readonly Func<IAuthProvider> _authProviderFactory;
 
-    public CustomWebApplicationFactory()
-    {
-    }
+    public CustomWebApplicationFactory() : this(null, () => new FakeAuthProvider()) { }
 
-    private CustomWebApplicationFactory(string postgresConnectionString)
+    private CustomWebApplicationFactory(string? postgresConnectionString, Func<IAuthProvider> authProviderFactory)
     {
         _postgresConnectionString = postgresConnectionString;
+        _authProviderFactory = authProviderFactory;
     }
 
     public static CustomWebApplicationFactory CreatePostgres(string postgresConnectionString) =>
-        new(postgresConnectionString);
+        new(postgresConnectionString, () => new FakeAuthProvider());
+
+    public static CustomWebApplicationFactory CreateWithAuthProvider(Func<IAuthProvider> authProviderFactory) =>
+        new(null, authProviderFactory);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -77,7 +80,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
             // Replace IAuthProvider with FakeAuthProvider
             services.RemoveAll(typeof(IAuthProvider));
-            services.AddScoped<IAuthProvider, FakeAuthProvider>();
+            services.AddScoped(_ => _authProviderFactory());
             services.RemoveAll(typeof(IInvitationEmailSender));
             services.AddScoped<IInvitationEmailSender, FakeInvitationEmailSender>();
 
