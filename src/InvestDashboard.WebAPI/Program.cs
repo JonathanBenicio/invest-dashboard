@@ -52,8 +52,13 @@ builder.Services.AddScoped<TitularesAppService>();
 builder.Services.AddHttpClient<IInvitationEmailSender, SupabaseInvitationEmailSender>(client => client.Timeout = TimeSpan.FromSeconds(15))
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<IEstimativaImpostoAppService, EstimativaImpostoAppService>();
+builder.Services.AddScoped<ILeitorPreviaTesouro, LeitorPreviaTesouro>();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<TesouroTransparenteCkanProvider>();
+builder.Services.AddSingleton<ITesouroTransparenteConsulta, TesouroTransparenteConsulta>();
 builder.Services.AddHttpClient<IBenchmarkCdiProvider, BcbCdiBenchmarkProvider>(client =>
+    client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient<IIndicadoresBcbProvider, BcbIndicadoresProvider>(client =>
     client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<IAuthProvider, SupabaseAuthProvider>();
 builder.Services.AddHttpClient<IMarketDataProvider, BrapiMarketDataClient>(client =>
