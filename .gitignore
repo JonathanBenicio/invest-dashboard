@@ -60,3 +60,16 @@ frontend/android/
 
 # Custom
 .agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/invest-mapped-module/
+!.agents/skills/invest-ef-migration/
+!.agents/skills/invest-ui-page/
+!.agents/skills/invest-pr-review/
+!.agents/skills/invest-ef-query-review/
+!.agents/skills/invest-dotnet-tests/
+!.agents/skills/invest-msbuild/
+!.agents/skills/invest-aspnetcore-api/
+!.agents/skills/invest-feature-discovery/
+!.agents/skills/invest-screen-concept/
+!.agents/skills/invest-debug/
