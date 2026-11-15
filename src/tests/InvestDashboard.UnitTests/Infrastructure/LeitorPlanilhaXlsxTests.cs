@@ -52,6 +52,61 @@ public class LeitorPlanilhaXlsxTests
     }
 
     [Fact]
+    public void Rejeita_celula_em_linha_diferente_da_declarada()
+    {
+        using var arquivo = CriarPlanilha(new Row(new Cell
+        {
+            CellReference = "A2", CellValue = new CellValue("1")
+        }) { RowIndex = 1U, Hidden = true });
+
+        var acao = () => new LeitorPlanilhaXlsx().Ler(arquivo);
+        acao.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
+    public void Rejeita_referencias_de_linhas_diferentes_no_mesmo_elemento_sem_indice()
+    {
+        using var arquivo = CriarPlanilha(new Row(
+            new Cell { CellReference = "A1", CellValue = new CellValue("1") },
+            new Cell { CellReference = "B2", CellValue = new CellValue("2") }));
+
+        var acao = () => new LeitorPlanilhaXlsx().Ler(arquivo);
+        acao.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
+    public void Rejeita_celulas_duplicadas_mesmo_em_elementos_de_linha_distintos()
+    {
+        using var arquivo = CriarPlanilha(
+            new Row(new Cell { CellReference = "A1", CellValue = new CellValue("1") }),
+            new Row(new Cell { CellReference = "A1", CellValue = new CellValue("2") }));
+
+        var acao = () => new LeitorPlanilhaXlsx().Ler(arquivo);
+        acao.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
+    public void Rejeita_linha_dividida_em_elementos_com_ocultacao_diferente()
+    {
+        using var arquivo = CriarPlanilha(
+            new Row(new Cell { CellReference = "A1", CellValue = new CellValue("1") }) { Hidden = true },
+            new Row(new Cell { CellReference = "B1", CellValue = new CellValue("2") }));
+
+        var acao = () => new LeitorPlanilhaXlsx().Ler(arquivo);
+        acao.Should().Throw<InvalidDataException>();
+    }
+
+    [Theory]
+    [InlineData("A1048577")]
+    [InlineData("A999999999999999999999999999")]
+    public void Rejeita_numero_de_linha_fora_do_limite_xlsx(string referencia)
+    {
+        using var arquivo = CriarPlanilha(new Row(new Cell { CellReference = referencia, CellValue = new CellValue("1") }));
+        var acao = () => new LeitorPlanilhaXlsx().Ler(arquivo);
+        acao.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
     public void Sinaliza_celulas_de_intervalo_de_colunas_ocultas()
     {
         using var arquivo = CriarPlanilhaComColunaOculta();

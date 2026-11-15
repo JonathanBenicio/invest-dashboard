@@ -37,7 +37,7 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
       <CardContent className="space-y-4">
         <div className="grid gap-2">
           <label htmlFor="tesouro-carteira" className="text-sm font-medium">Carteira de destino</label>
-          <Select value={carteira} onValueChange={value => { setCarteira(value); setPrevia(null) }} disabled={carregando || processando || carteiras.length === 0}>
+          <Select value={carteira} onValueChange={value => { setCarteira(value); setPrevia(null); setErro('') }} disabled={carregando || processando || carteiras.length === 0}>
             <SelectTrigger id="tesouro-carteira"><SelectValue placeholder={carregando ? 'Carregando carteiras...' : 'Selecione a carteira'} /></SelectTrigger>
             <SelectContent>{carteiras.map(item => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}</SelectContent>
           </Select>
@@ -67,7 +67,10 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
         {previa.vencimentoOriginal && <p className="text-sm">Vencimento informado no arquivo: {previa.vencimentoOriginal}</p>}
         <p role="status" className="text-sm text-amber-700 dark:text-amber-300">O histórico pode estar incompleto. A confirmação e a conciliação ainda não estão disponíveis.</p>
         {previa.avisos.map((aviso, index) => <p key={index} className="text-sm text-muted-foreground">{aviso}</p>)}
-        {previa.linhasNaoInterpretadas.length > 0 && <p className="text-sm text-amber-700 dark:text-amber-300">{previa.linhasNaoInterpretadas.length} linhas não foram interpretadas e precisam de revisão.</p>}
+        {previa.linhasNaoInterpretadas.length > 0 && <div role="status" className="text-sm text-amber-700 dark:text-amber-300">
+          <p>{previa.linhasNaoInterpretadas.length} linhas não foram interpretadas e precisam de revisão no arquivo original.</p>
+          <p>Linhas: {previa.linhasNaoInterpretadas.join(', ')}.</p>
+        </div>}
         <section className="space-y-3"><h3 className="font-semibold">Posições identificadas ({previa.posicoes.length})</h3>
           {previa.posicoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma posição identificada neste arquivo.</p> : previa.posicoes.map((posicao, index) => <div key={posicao.numeroLinha} className="rounded-md border p-3 text-sm">
             <p className="font-medium">Posição {index + 1}</p>

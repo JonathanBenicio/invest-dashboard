@@ -67,8 +67,13 @@ public sealed class LeitorPlanilhaXlsx
                     colunasOcultas.Add((inicio, fim));
             }
             var celulas = new List<CelulaXlsxLida>();
+            var referencias = new HashSet<string>(StringComparer.Ordinal);
+            var linhasLidas = new HashSet<uint>();
             foreach (var linha in parte.Worksheet.Descendants<Row>())
             {
+                uint? numeroLinha = linha.RowIndex?.Value;
+                if (numeroLinha is 0 or > 1_048_576)
+                    throw new InvalidDataException("Número de linha XLSX inválido.");
                 foreach (var celula in linha.Elements<Cell>())
                 {
                     if (++totalCelulas > MaxCelulas || celula.CellFormula is not null)
@@ -76,7 +81,13 @@ public sealed class LeitorPlanilhaXlsx
                     var referencia = celula.CellReference?.Value;
                     if (string.IsNullOrWhiteSpace(referencia))
                         throw new InvalidDataException("Célula XLSX sem referência.");
-                    var indiceColuna = IndiceColuna(referencia);
+                    var (indiceColuna, linhaReferencia) = LerReferencia(referencia);
+                    // Uma célula deve pertencer à linha que a contém. Sem essa
+                    // verificação, atributos como Hidden poderiam ser atribuídos
+                    // a uma linha diferente daquela exibida na prévia.
+                    numeroLinha ??= linhaReferencia;
+                    if (numeroLinha != linhaReferencia || !referencias.Add(referencia))
+                        throw new InvalidDataException("Referência de célula XLSX duplicada ou inconsistente.");
                     var tipo = celula.DataType?.Value;
                     string? valor = celula.CellValue?.InnerText;
                     if (tipo == CellValues.SharedString)
@@ -97,6 +108,8 @@ public sealed class LeitorPlanilhaXlsx
                         tipo?.ToString() ?? "Number", linha.Hidden?.Value == true,
                         colunasOcultas.Any(intervalo => indiceColuna >= intervalo.Inicio && indiceColuna <= intervalo.Fim)));
                 }
+                if (numeroLinha is uint numero && !linhasLidas.Add(numero))
+                    throw new InvalidDataException("Linha XLSX duplicada.");
             }
             resultado.Add(new PlanilhaXlsxLida(LimitarTexto(folha.Name?.Value ?? string.Empty),
                 folha.State?.Value != null && folha.State.Value != SheetStateValues.Visible, celulas));
@@ -107,7 +120,7 @@ public sealed class LeitorPlanilhaXlsx
     private static string LimitarTexto(string texto) => texto.Length <= MaxTexto
         ? texto : throw new InvalidDataException("O conteúdo de uma célula XLSX excede o limite permitido.");
 
-    private static uint IndiceColuna(string referencia)
+    private static (uint Coluna, uint Linha) LerReferencia(string referencia)
     {
         uint indice = 0;
         var i = 0;
@@ -119,9 +132,10 @@ public sealed class LeitorPlanilhaXlsx
             i++;
         }
         if (indice == 0 || i == referencia.Length || referencia[i] is < '1' or > '9' ||
-            referencia[i..].Any(c => c is < '0' or > '9'))
+            referencia[i..].Any(c => c is < '0' or > '9') ||
+            !uint.TryParse(referencia.AsSpan(i), out var linha) || linha > 1_048_576)
             throw new InvalidDataException("Referência de célula XLSX inválida.");
-        return indice;
+        return (indice, linha);
     }
 }
 

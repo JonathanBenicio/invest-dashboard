@@ -134,6 +134,42 @@ public sealed class BcbIndicadoresProviderTests
         await action.Should().ThrowAsync<MarketDataUnavailableException>();
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RespostaAcimaDoLimite_IndisponibilizaAFonteMesmoSemTamanhoInformado(bool informarTamanho)
+    {
+        var bytes = Encoding.UTF8.GetBytes(new string(' ', 1024 * 1024 + 1));
+        using var client = new HttpClient(new CallbackHandler(_ =>
+        {
+            var content = new StreamContent(new FluxoSemBusca(bytes));
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            if (informarTamanho) content.Headers.ContentLength = bytes.Length;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        }));
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var provider = new BcbIndicadoresProvider(client, cache, TimeProvider.System);
+
+        var action = () => provider.GetSelicAsync(new(2025, 1, 1), new(2025, 1, 2));
+
+        await action.Should().ThrowAsync<MarketDataUnavailableException>();
+    }
+
+    [Fact]
+    public async Task CorpoLento_RespeitaPrazoDaConsulta()
+    {
+        using var client = new HttpClient(new CallbackHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ConteudoLento()
+        })) { Timeout = TimeSpan.FromMilliseconds(100) };
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var provider = new BcbIndicadoresProvider(client, cache, TimeProvider.System);
+
+        var action = () => provider.GetSelicAsync(new(2025, 1, 1), new(2025, 1, 2));
+
+        await action.Should().ThrowAsync<MarketDataUnavailableException>();
+    }
+
     [Fact]
     public async Task PeriodoInvalido_NaoChamaBcb()
     {
@@ -180,6 +216,21 @@ public sealed class BcbIndicadoresProviderTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
             Task.FromResult(callback(request));
+    }
+
+    private sealed class FluxoSemBusca(byte[] bytes) : MemoryStream(bytes)
+    {
+        public override bool CanSeek => false;
+    }
+
+    private sealed class ConteudoLento : HttpContent
+    {
+        public ConteudoLento() => Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        protected override bool TryComputeLength(out long length) { length = 0; return false; }
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) =>
+            Task.Delay(Timeout.InfiniteTimeSpan);
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken) =>
+            Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
     }
 
     private sealed class RelogioFixo(DateTimeOffset agora) : TimeProvider

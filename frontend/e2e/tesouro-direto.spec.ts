@@ -19,7 +19,7 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
       return new Response(JSON.stringify({ dados: {
         carteiraId: 'portfolio-1', formato: 'html', layout: 'portal', titulo: 'Título sintético', vencimento: '2035-01-01',
         posicoes: [], movimentacoes: [{ campos: [{ rotulo: 'Tipo:', valor: 'Compra' }] }],
-        linhasNaoInterpretadas: [], avisos: ['Revise os dados.'], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false,
+        linhasNaoInterpretadas: [7, 12], avisos: ['Revise os dados.'], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false,
       } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }
   })
@@ -34,7 +34,10 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
   await expect(page.getByText('Compra', { exact: true })).toBeVisible()
   await expect(page.getByText(/não registra operações nem altera a carteira/)).toBeVisible()
   await expect(page.getByText(/confirmação e a conciliação ainda não estão disponíveis/i)).toBeVisible()
+  await expect(page.getByText('Linhas: 7, 12.')).toBeVisible()
   await expect(page.getByRole('button', { name: /confirmar/i })).toHaveCount(0)
+  await page.getByLabel('Arquivo do extrato').setInputFiles({ name: 'outro-extrato.html', mimeType: 'text/html', buffer: Buffer.from('<html>outro</html>') })
+  await expect(page.getByText('Título sintético')).toHaveCount(0)
 })
 
 test('consulta histórico público com a data e a origem do Tesouro', async ({ page }) => {

@@ -14,6 +14,9 @@ namespace InvestDashboard.Infrastructure.Services;
 public sealed class BcbIndicadoresProvider(HttpClient httpClient, IMemoryCache cache, TimeProvider timeProvider)
     : IIndicadoresBcbProvider
 {
+    // Uma série de até 3650 dias cabe com folga neste limite. Evita carregar
+    // respostas inesperadamente grandes em memória, inclusive sem Content-Length.
+    private const int MaximoResposta = 1024 * 1024;
     private static readonly TimeZoneInfo FusoBrasil = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
     public Task<SerieIndicadorBcbDto> GetSelicAsync(DateOnly dataDe, DateOnly dataAte, CancellationToken cancellationToken = default) =>
         ObterAsync("SELIC", 11, "percentual ao dia", "diária", dataDe, dataAte, cancellationToken);
@@ -42,12 +45,22 @@ public sealed class BcbIndicadoresProvider(HttpClient httpClient, IMemoryCache c
         List<BcbPoint?> rows;
         try
         {
-            using var response = await httpClient.SendAsync(request, cancellationToken);
+            // ResponseHeadersRead permite impor o limite antes de armazenar o corpo.
+            // O timeout do HttpClient normalmente termina nos headers nesse modo;
+            // mantemos um prazo também durante a leitura do corpo.
+            using var prazo = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (httpClient.Timeout != Timeout.InfiniteTimeSpan) prazo.CancelAfter(httpClient.Timeout);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, prazo.Token);
+            if ((!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.NotFound) ||
+                !string.Equals(response.Content.Headers.ContentType?.MediaType, "application/json", StringComparison.OrdinalIgnoreCase) ||
+                response.Content.Headers.ContentLength > MaximoResposta)
+                throw new MarketDataUnavailableException();
+            await response.Content.LoadIntoBufferAsync(MaximoResposta, prazo.Token);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 // O SGS usa 404 para períodos sem observações. Um 404 de outra origem
                 // (por exemplo rota removida) não deve ser confundido com série vazia.
-                var erro = await response.Content.ReadFromJsonAsync<BcbErrorResponse>(cancellationToken);
+                var erro = await response.Content.ReadFromJsonAsync<BcbErrorResponse>(prazo.Token);
                 if (erro?.Erro?.StatusCode != 404 ||
                     erro.Erro.Detail?.EndsWith("Value(s) not found", StringComparison.Ordinal) != true)
                     throw new MarketDataUnavailableException();
@@ -55,8 +68,7 @@ public sealed class BcbIndicadoresProvider(HttpClient httpClient, IMemoryCache c
             }
             else
             {
-                if (!response.IsSuccessStatusCode) throw new MarketDataUnavailableException();
-                rows = await response.Content.ReadFromJsonAsync<List<BcbPoint?>>(cancellationToken)
+                rows = await response.Content.ReadFromJsonAsync<List<BcbPoint?>>(prazo.Token)
                        ?? throw new MarketDataUnavailableException();
             }
         }
@@ -65,6 +77,7 @@ public sealed class BcbIndicadoresProvider(HttpClient httpClient, IMemoryCache c
             throw new MarketDataUnavailableException();
         }
         catch (HttpRequestException) { throw new MarketDataUnavailableException(); }
+        catch (IOException) { throw new MarketDataUnavailableException(); }
         catch (JsonException) { throw new MarketDataUnavailableException(); }
         catch (NotSupportedException) { throw new MarketDataUnavailableException(); }
 
