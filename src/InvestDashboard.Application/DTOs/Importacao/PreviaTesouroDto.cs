@@ -7,7 +7,18 @@ public sealed record CampoPreviaTesouroDto(
     [property: JsonPropertyName("valor")] string Valor);
 
 public sealed record MovimentoPreviaTesouroDto(
-    [property: JsonPropertyName("campos")] IReadOnlyList<CampoPreviaTesouroDto> Campos);
+    [property: JsonPropertyName("campos")] IReadOnlyList<CampoPreviaTesouroDto> Campos,
+    [property: JsonPropertyName("dadosInterpretados")] DadosMovimentoTesouroDto? DadosInterpretados = null);
+
+/// <summary>Interpretação preliminar, sem identidade, conciliação ou confirmação.</summary>
+public sealed record DadosMovimentoTesouroDto(
+    [property: JsonPropertyName("data")] DateOnly? Data,
+    [property: JsonPropertyName("tipo")] string? Tipo,
+    [property: JsonPropertyName("quantidade")] decimal? Quantidade,
+    [property: JsonPropertyName("preco")] decimal? Preco,
+    [property: JsonPropertyName("taxaAnual")] decimal? TaxaAnual,
+    [property: JsonPropertyName("valor")] decimal? Valor,
+    [property: JsonPropertyName("camposNaoInterpretados")] IReadOnlyList<string> CamposNaoInterpretados);
 
 public sealed record PosicaoPreviaTesouroDto(
     [property: JsonPropertyName("numeroLinha")] int NumeroLinha,

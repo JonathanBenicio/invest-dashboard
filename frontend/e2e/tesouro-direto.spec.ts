@@ -18,7 +18,10 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
       if (!(init?.body instanceof FormData) || !(init.body.get('arquivo') instanceof File)) return new Response(null, { status: 400 })
       return new Response(JSON.stringify({ dados: {
         carteiraId: 'portfolio-1', formato: 'html', layout: 'portal', titulo: 'Título sintético', vencimento: '2035-01-01',
-        posicoes: [], movimentacoes: [{ campos: [{ rotulo: 'Tipo:', valor: 'Compra' }] }],
+        posicoes: [], movimentacoes: [{
+          campos: [{ rotulo: 'Tipo:', valor: 'Compra' }, { rotulo: 'Preço:', valor: '1.23' }],
+          dadosInterpretados: { data: null, tipo: 'Compra', quantidade: 1, preco: null, taxaAnual: 10, valor: 1, camposNaoInterpretados: ['data', 'preco'] },
+        }],
         linhasNaoInterpretadas: [7, 12], avisos: ['Revise os dados.'], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false,
       } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }
@@ -32,6 +35,10 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
   await page.getByRole('button', { name: 'Analisar arquivo' }).click()
   await expect(page.getByText('Título sintético')).toBeVisible()
   await expect(page.getByText('Compra', { exact: true })).toBeVisible()
+  await expect(page.getByText('Não foi possível interpretar: data, preço. Confira os valores originais abaixo.')).toBeVisible()
+  await expect(page.getByText('1.23', { exact: true })).toBeVisible()
+  await expect(page.getByText(/valores abaixo vêm do arquivo enviado/i)).toBeVisible()
+  await expect(page.getByText(/leitura pode não identificar todos os dados/i)).toBeVisible()
   await expect(page.getByText(/não registra operações nem altera a carteira/)).toBeVisible()
   await expect(page.getByText(/confirmação e a conciliação ainda não estão disponíveis/i)).toBeVisible()
   await expect(page.getByText('Linhas: 7, 12.')).toBeVisible()
@@ -61,4 +68,6 @@ test('consulta histórico público com a data e a origem do Tesouro', async ({ p
   await expect(page.getByText('R$ 456,78')).toBeVisible()
   await expect(page.getByText(/última data disponível 12\/11\/2026/)).toBeVisible()
   await expect(page.getByText(/não representa sua posição pessoal/)).toBeVisible()
+  await expect(page.getByText(/seleção apenas consulta preços públicos/i)).toBeVisible()
+  await expect(page.getByText(/associação exigirá sua confirmação/i)).toBeVisible()
 })

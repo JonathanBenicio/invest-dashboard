@@ -9,7 +9,18 @@ export interface PreviaTesouro {
   vencimento: string | null
   vencimentoOriginal: string | null
   posicoes: { numeroLinha: number; camposBrutos: Record<string, string> }[]
-  movimentacoes: { campos: { rotulo: string; valor: string }[] }[]
+  movimentacoes: {
+    campos: { rotulo: string; valor: string }[]
+    dadosInterpretados?: {
+      data: string | null
+      tipo: string | null
+      quantidade: number | null
+      preco: number | null
+      taxaAnual: number | null
+      valor: number | null
+      camposNaoInterpretados: string[]
+    } | null
+  }[]
   linhasNaoInterpretadas: number[]
   avisos: string[]
   exigeRevisao: boolean

@@ -43,7 +43,7 @@ export function CotacoesTesouro() {
   }
 
   return <Card>
-    <CardHeader><CardTitle>Cotações públicas do Tesouro Direto</CardTitle><CardDescription>Histórico diário de taxas e preços divulgado pelo Tesouro Transparente; não representa sua posição pessoal.</CardDescription></CardHeader>
+    <CardHeader><CardTitle>Cotações públicas do Tesouro Direto</CardTitle><CardDescription>Histórico diário de taxas e preços divulgado pelo Tesouro Transparente; não representa sua posição pessoal nem substitui os valores do extrato.</CardDescription></CardHeader>
     <CardContent className="space-y-4">
       {!aberto && <Button variant="outline" onClick={() => setAberto(true)}>Consultar cotações do Tesouro</Button>}
       {aberto && <>
@@ -54,6 +54,7 @@ export function CotacoesTesouro() {
           {titulos.data.dados.titulos.length === 0 ? <p role="status">Nenhum título disponível.</p> : <div className="grid gap-2">
             <label htmlFor="tesouro-publico-titulo" className="text-sm font-medium">Título e vencimento</label>
             <Select value={selecionado} onValueChange={selecionar}><SelectTrigger id="tesouro-publico-titulo"><SelectValue placeholder="Selecione um título" /></SelectTrigger><SelectContent>{titulos.data.dados.titulos.map(item => <SelectItem key={chave(item)} value={chave(item)}>{item.tipoTitulo} · {dataBr(item.dataVencimento)}</SelectItem>)}</SelectContent></Select>
+            <p className="text-xs text-muted-foreground">A seleção apenas consulta preços públicos; ela não associa o título a uma posição da carteira. A associação exigirá sua confirmação e ainda não está disponível.</p>
           </div>}
           {titulo && <form className="flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); if (!inicio || !fim || inicio > fim) { setErro('Informe um período válido.'); return } setErro(''); setPeriodo({ inicio, fim }) }}>
             <div className="grid gap-2"><label htmlFor="tesouro-publico-inicio" className="text-sm font-medium">Data inicial</label><Input id="tesouro-publico-inicio" type="date" value={inicio} onChange={event => setInicio(event.target.value)} required /></div>

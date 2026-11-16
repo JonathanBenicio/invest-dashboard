@@ -1,4 +1,6 @@
 using System.Text;
+using System.Globalization;
+using System.Text.RegularExpressions;
 using InvestDashboard.Application.DTOs.Importacao;
 using InvestDashboard.Application.Interfaces;
 
@@ -15,8 +17,8 @@ public sealed class LeitorPreviaTesouro : ILeitorPreviaTesouro
             return new PreviaTesouroDto(carteiraId, formato, "portal_tesouro_html", extrato.Titulo,
                 extrato.Vencimento.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), null,
                 extrato.Posicoes.Select(p => new PosicaoPreviaTesouroDto(p.NumeroLinha, p.CamposBrutos)).ToArray(), extrato.Movimentacoes.Select(m => new MovimentoPreviaTesouroDto(
-                    m.Campos.Select(c => new CampoPreviaTesouroDto(c.Rotulo, c.Valor)).ToArray())).ToArray(), [],
-                ["O histórico pode estar incompleto; revise todos os dados antes de usá-los.",
+                    m.Campos.Select(c => new CampoPreviaTesouroDto(c.Rotulo, c.Valor)).ToArray(), InterpretarMovimento(m))).ToArray(), [],
+                ["A leitura pode não identificar todo o histórico do arquivo; revise os dados antes de usá-los.",
                  "A visibilidade dos elementos por CSS não foi verificada.",
                  "Esta leitura não registra nem concilia movimentações."], true, false, false);
         }
@@ -33,5 +35,43 @@ public sealed class LeitorPreviaTesouro : ILeitorPreviaTesouro
         }
 
         throw new InvalidDataException("Formato de arquivo não suportado.");
+    }
+
+    // O leitor já verificou a ordem e os rótulos dos sete campos. A interpretação
+    // é auxiliar: não atribui identidade ao evento nem determina a sua inclusão.
+    private static DadosMovimentoTesouroDto InterpretarMovimento(TesouroDiretoHtmlMovimentacao movimento)
+    {
+        var campos = movimento.Campos;
+        var falhas = new List<string>();
+        DateOnly? data = DateOnly.TryParseExact(campos[0].Valor, "dd/MM/yyyy", CultureInfo.InvariantCulture,
+            DateTimeStyles.None, out var dataLida) ? dataLida : null;
+        if (data is null) falhas.Add("data");
+        string? tipo = campos[2].Valor.Trim();
+        tipo = tipo.Equals("Compra", StringComparison.OrdinalIgnoreCase) ? "Compra" :
+            tipo.Equals("Venda", StringComparison.OrdinalIgnoreCase) ? "Venda" : null;
+        if (tipo is null) falhas.Add("tipo");
+        var quantidade = Numero(campos[3].Valor, "quantidade", falhas, positivo: true);
+        var preco = Numero(campos[4].Valor, "preco", falhas, moeda: true, positivo: true);
+        var taxa = Numero(campos[5].Valor, "taxaAnual", falhas, percentual: true);
+        var valor = Numero(campos[6].Valor, "valor", falhas, moeda: true);
+        return new DadosMovimentoTesouroDto(data, tipo, quantidade, preco, taxa, valor, falhas);
+    }
+
+    private static decimal? Numero(string bruto, string campo, List<string> falhas,
+        bool moeda = false, bool percentual = false, bool positivo = false)
+    {
+        var texto = bruto.Trim();
+        if (moeda && texto.StartsWith("R$", StringComparison.Ordinal)) texto = texto[2..].Trim();
+        if (percentual && texto.EndsWith('%')) texto = texto[..^1].Trim();
+        // Agrupamento brasileiro explícito; não aceitar "1.23" como 123.
+        if (!Regex.IsMatch(texto, @"^-?(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,\d+)?$", RegexOptions.CultureInvariant) ||
+            !decimal.TryParse(texto, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint | NumberStyles.AllowThousands,
+                CultureInfo.GetCultureInfo("pt-BR"), out var numero) ||
+            (positivo ? numero <= 0 : !percentual && numero < 0))
+        {
+            falhas.Add(campo);
+            return null;
+        }
+        return numero;
     }
 }

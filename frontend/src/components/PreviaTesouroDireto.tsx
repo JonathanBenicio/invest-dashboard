@@ -3,8 +3,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { tesouroDiretoService, type PreviaTesouro } from '@/api/services/tesouro-direto.service'
+import { ReferenciaPublicaTesouro } from './ReferenciaPublicaTesouro'
 
 type Carteira = { id: string; nome: string }
+
+const nomesCampos: Record<string, string> = {
+  data: 'data', tipo: 'tipo', quantidade: 'quantidade', preco: 'preço', taxaAnual: 'taxa anual', valor: 'valor',
+}
 
 export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tentarNovamente }: { carteiras: Carteira[]; carregando: boolean; erroCarteiras: boolean; tentarNovamente: () => void }) {
   const [carteira, setCarteira] = useState('')
@@ -60,12 +65,13 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
     {previa && <Card>
       <CardHeader>
         <CardTitle>Prévia do extrato</CardTitle>
-        <CardDescription>Revise os dados reconhecidos. Esta etapa não registra operações nem altera a carteira.</CardDescription>
+        <CardDescription>Os valores abaixo vêm do arquivo enviado. Esta etapa não registra operações nem altera a carteira.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         {previa.titulo && <p className="font-medium">{previa.titulo}{previa.vencimento ? ` · vencimento ${previa.vencimento.split('-').reverse().join('/')}` : ''}</p>}
         {previa.vencimentoOriginal && <p className="text-sm">Vencimento informado no arquivo: {previa.vencimentoOriginal}</p>}
-        <p role="status" className="text-sm text-amber-700 dark:text-amber-300">O histórico pode estar incompleto. A confirmação e a conciliação ainda não estão disponíveis.</p>
+        {previa.titulo && previa.vencimento && <ReferenciaPublicaTesouro key={`${previa.titulo}|${previa.vencimento}`} titulo={previa.titulo} vencimento={previa.vencimento} />}
+        <p role="status" className="text-sm text-amber-700 dark:text-amber-300">A leitura pode não identificar todos os dados do extrato. A confirmação e a conciliação ainda não estão disponíveis.</p>
         {previa.avisos.map((aviso, index) => <p key={index} className="text-sm text-muted-foreground">{aviso}</p>)}
         {previa.linhasNaoInterpretadas.length > 0 && <div role="status" className="text-sm text-amber-700 dark:text-amber-300">
           <p>{previa.linhasNaoInterpretadas.length} linhas não foram interpretadas e precisam de revisão no arquivo original.</p>
@@ -79,6 +85,10 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
         </section>
         <section className="space-y-3"><h3 className="font-semibold">Movimentações identificadas ({previa.movimentacoes.length})</h3>
           {previa.movimentacoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma movimentação identificada neste arquivo.</p> : previa.movimentacoes.map((movimentacao, index) => <div key={index} className="rounded-md border p-3 text-sm">
+            <p className="mb-2 font-medium">Movimentação {index + 1}</p>
+            {!!movimentacao.dadosInterpretados?.camposNaoInterpretados.length && <p role="status" className="mb-2 text-amber-700 dark:text-amber-300">
+              Não foi possível interpretar: {movimentacao.dadosInterpretados.camposNaoInterpretados.map(campo => nomesCampos[campo] ?? campo).join(', ')}. Confira os valores originais abaixo.
+            </p>}
             <dl className="grid gap-2 sm:grid-cols-2">{movimentacao.campos.map((campo, campoIndex) => <div key={campoIndex}><dt className="text-muted-foreground">{campo.rotulo}</dt><dd className="break-words">{campo.valor}</dd></div>)}</dl>
           </div>)}
         </section>

@@ -75,6 +75,20 @@ public class LeitorPosicoesTesouroXlsxTests
     }
 
     [Fact]
+    public void Coluna_adicional_preenchida_nao_e_descartada_silenciosamente()
+    {
+        var linhas = CabecalhoPortal();
+        linhas.Add(Linha(8, ["01/02/2020", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "campo desconhecido"]));
+        linhas.Add(Linha(9, ["01/02/2020", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", ""]));
+        using var arquivo = Criar(linhas);
+
+        var resultado = new LeitorPosicoesTesouroXlsx().Ler(arquivo);
+
+        resultado.Linhas.Should().ContainSingle().Which.NumeroLinha.Should().Be(9);
+        resultado.LinhasNaoInterpretadas.Should().Equal(8);
+    }
+
+    [Fact]
     public void Coluna_oculta_de_cabecalho_ou_posicao_nao_e_utilizada()
     {
         var linhas = CabecalhoPortal();

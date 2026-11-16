@@ -78,11 +78,13 @@ public sealed class LeitorPosicoesTesouroXlsx
     {
         var linhas = new List<LinhaPosicaoTesouroXlsx>();
         var ignoradas = new List<int>();
+        var colunasConhecidas = campos.Select(c => c.Coluna).ToHashSet(StringComparer.Ordinal);
         foreach (var (numero, celulas) in grade.OrderBy(item => item.Key).Where(item => item.Key > ultimaLinhaCabecalho))
         {
             if (!celulas.TryGetValue(colunaData, out var data) || data.LinhaOculta || data.ColunaOculta ||
                 !DateOnly.TryParseExact(data.ValorBruto.Trim(), "dd/MM/yyyy", CultureInfo.InvariantCulture,
-                    DateTimeStyles.None, out _) || campos.Any(c => !celulas.ContainsKey(c.Coluna) || celulas[c.Coluna].LinhaOculta || celulas[c.Coluna].ColunaOculta))
+                    DateTimeStyles.None, out _) || campos.Any(c => !celulas.ContainsKey(c.Coluna) || celulas[c.Coluna].LinhaOculta || celulas[c.Coluna].ColunaOculta) ||
+                celulas.Any(c => !colunasConhecidas.Contains(c.Key) && !string.IsNullOrWhiteSpace(c.Value.ValorBruto)))
             {
                 ignoradas.Add(numero);
                 continue;
