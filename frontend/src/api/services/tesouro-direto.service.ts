@@ -8,7 +8,11 @@ export interface PreviaTesouro {
   titulo: string | null
   vencimento: string | null
   vencimentoOriginal: string | null
-  posicoes: { numeroLinha: number; camposBrutos: Record<string, string> }[]
+  posicoes: {
+    numeroLinha: number
+    camposBrutos: Record<string, string>
+    dadosInterpretados?: { camposNaoInterpretados: string[] } | null
+  }[]
   movimentacoes: {
     campos: { rotulo: string; valor: string }[]
     dadosInterpretados?: {
@@ -35,6 +39,49 @@ export interface TituloTesouroPublico {
   ultimaDataDisponivel: string
 }
 
+export interface ResumoLoteTesouro {
+  id: string
+  carteiraId: string
+  dataReferencia: string
+  formato: string
+  estado: string
+  criadoEmUtc: string
+  confirmadoEmUtc: string | null
+}
+
+export interface LoteTesouro extends ResumoLoteTesouro { previa: PreviaTesouro }
+
+export interface ConciliacaoTesouro {
+  carteiraVersao: number
+  dataReferencia: string
+  ativoId: string | null
+  ativos: { ativoId: string; ticker: string }[]
+  eventos: { indice: number; dadosInterpretados: PreviaTesouro['movimentacoes'][number]['dadosInterpretados']; candidatos: string[] }[]
+  transacoes: { id: string; tipo: string; data: string; quantidade: number; preco: number; posteriorBase: boolean }[]
+  podeConfirmar: boolean
+}
+
+export interface RevisaoTesouro {
+  id: string
+  indiceEvento: number
+  revisao: number
+  decisao: 'vincular' | 'sem_vinculo'
+  ativoId: string | null
+  transacaoId: string | null
+  carteiraVersao: number
+  criadoEmUtc: string
+  divergencias?: string[]
+}
+
+export interface RegistrarRevisaoTesouro {
+  indiceEvento: number
+  decisao: RevisaoTesouro['decisao']
+  ativoId: string | null
+  transacaoId: string | null
+  carteiraVersao: number
+  revisaoAnterior: number
+}
+
 interface MetadadosTesouro {
   origem: string
   urlFonte: string
@@ -57,6 +104,28 @@ export const tesouroDiretoService = {
     dados.append('arquivo', arquivo)
     return api.post<RespostaApi<PreviaTesouro>>(`/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/previa`, dados, { timeoutMs: 60_000 })
   },
+  criarLote: (carteiraId: string, dataReferencia: string, arquivo: File) => {
+    const dados = new FormData()
+    dados.append('arquivo', arquivo)
+    return api.post<RespostaApi<LoteTesouro>>(`/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes`, dados, {
+      params: { dataReferencia }, timeoutMs: 60_000,
+    })
+  },
+  lote: (carteiraId: string, loteId: string) => api.get<RespostaApi<LoteTesouro>>(
+    `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}`,
+  ),
+  lotes: (carteiraId: string, pagina = 1) => api.get<RespostaApi<ResumoLoteTesouro[]>>(
+    `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes`, { params: { pagina } },
+  ),
+  conciliacao: (carteiraId: string, loteId: string, ativoId: string | null) => api.post<RespostaApi<ConciliacaoTesouro>>(
+    `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/conciliacao`, { ativoId },
+  ),
+  revisoes: (carteiraId: string, loteId: string, indiceEvento: number) => api.get<RespostaApi<RevisaoTesouro[]>>(
+    `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/revisoes/${indiceEvento}`,
+  ),
+  registrarRevisao: (carteiraId: string, loteId: string, pedido: RegistrarRevisaoTesouro) => api.post<RespostaApi<RevisaoTesouro>>(
+    `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/revisoes`, pedido,
+  ),
   titulos: () => api.get<RespostaApi<MetadadosTesouro & { titulos: TituloTesouroPublico[] }>>('/tesouro-direto/titulos', { timeoutMs: 130_000 }),
   cotacoes: (titulo: TituloTesouroPublico, dataDe: string, dataAte: string) =>
     api.get<RespostaApi<MetadadosTesouro & { cotacoes: CotacaoTesouroPublico[] }>>('/tesouro-direto/cotacoes', {

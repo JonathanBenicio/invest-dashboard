@@ -5,10 +5,15 @@ test('sugere nome e vencimento correspondentes e consulta preço sob demanda', a
     const original = window.fetch.bind(window)
     window.fetch = async (input, init) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.origin)
-      if (url.pathname.endsWith('/tesouro-direto/previa')) return new Response(JSON.stringify({ dados: {
-        carteiraId: 'portfolio-1', formato: 'html', layout: 'portal', titulo: 'Tesouro Prefixado 2035', vencimento: '2035-01-01',
-        posicoes: [], movimentacoes: [], linhasNaoInterpretadas: [], avisos: [], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false,
-      } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      if (url.pathname.endsWith('/tesouro-direto/lotes')) {
+        if (init?.method === 'GET') return new Response(JSON.stringify({ dados: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        if (!(init?.body instanceof FormData) || !(init.body.get('arquivo') instanceof File) || url.searchParams.get('dataReferencia') !== '2026-11-14') return new Response(null, { status: 400 })
+        const previa = {
+          carteiraId: 'portfolio-1', formato: 'html', layout: 'portal', titulo: 'Tesouro Prefixado 2035', vencimento: '2035-01-01',
+          posicoes: [], movimentacoes: [], linhasNaoInterpretadas: [], avisos: [], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false,
+        }
+        return new Response(JSON.stringify({ dados: { id: 'lote-1', carteiraId: 'portfolio-1', dataReferencia: '2026-11-14', formato: 'html', estado: 'Previa', criadoEmUtc: '2026-11-14T12:00:00Z', confirmadoEmUtc: null, previa } }), { status: 201, headers: { 'Content-Type': 'application/json' } })
+      }
       if (url.pathname === '/api/v1/tesouro-direto/titulos') return new Response(JSON.stringify({ dados: {
         origem: 'Tesouro Transparente', urlFonte: 'https://www.tesourotransparente.gov.br/', coletadoEmUtc: '2026-11-14T12:00:00Z', ultimaDataDisponivel: '2026-11-12',
         titulos: [
@@ -32,7 +37,8 @@ test('sugere nome e vencimento correspondentes e consulta preço sob demanda', a
   await page.getByLabel('Carteira de destino').click()
   await page.getByRole('option', { name: 'Carteira Principal' }).click()
   await page.getByLabel('Arquivo do extrato').setInputFiles({ name: 'sintetico.html', mimeType: 'text/html', buffer: Buffer.from('<html></html>') })
-  await page.getByRole('button', { name: 'Analisar arquivo' }).click()
+  await page.getByLabel('Data de referência do extrato').fill('2026-11-14')
+  await page.getByRole('button', { name: 'Analisar e salvar prévia' }).click()
   await page.getByRole('button', { name: 'Buscar títulos públicos correspondentes' }).click()
   await expect(page.getByRole('button', { name: 'Ver cotação deste título' })).toHaveCount(1)
   await page.getByRole('button', { name: 'Ver cotação deste título' }).click()

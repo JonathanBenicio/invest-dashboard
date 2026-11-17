@@ -263,6 +263,27 @@ public class Carteira : AggregateRoot<Guid>
         return true;
     }
 
+    public void AplicarBaseTesouro(BasePosicaoTesouro saldo, Ativo ativo, IReadOnlyDictionary<Guid, Guid>? stablePositionIds = null, decimal? precoObservacaoPosterior = null)
+    {
+        if (saldo.CarteiraId != Id || saldo.AtivoId != ativo.Id || ativo.TipoAtivo != TipoAtivo.RendaFixa)
+            throw new InvalidOperationException("A base não corresponde à carteira ou ao ativo.");
+        var position = _positions.FirstOrDefault(p => p.AtivoId == ativo.Id);
+        if (position is null)
+        {
+            var positionId = stablePositionIds is not null && stablePositionIds.TryGetValue(ativo.Id, out var id) ? id : Guid.NewGuid();
+            position = new PosicaoInvestimento(positionId, Id, ativo.Id, ativo.Ticker, ativo.TipoAtivo, saldo.PrecoUnitario);
+            _positions.Add(position);
+        }
+        position.AplicarBaseTesouro(saldo.Quantidade, saldo.CustoTotal, precoObservacaoPosterior ?? saldo.PrecoUnitario);
+        Version++;
+    }
+
+    public void AcrescentarResultadoHistorico(decimal ganho, decimal custo)
+    {
+        RealizedGain += ganho;
+        RealizedCostBasis += custo;
+    }
+
     public void RemovePositionAndRevertTransactions(Guid assetId, IEnumerable<Transacao> transactions)
     {
         _ = transactions;
