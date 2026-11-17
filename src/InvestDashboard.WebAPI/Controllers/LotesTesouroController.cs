@@ -1,3 +1,4 @@
+using System.Data;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -6,6 +7,11 @@ using InvestDashboard.Application.DTOs.Common;
 using InvestDashboard.Application.DTOs.Importacao;
 using InvestDashboard.Application.Interfaces;
 using InvestDashboard.Domain.Aggregates.Portfolio;
+using InvestDashboard.Domain.Aggregates.MarketData;
+using InvestDashboard.Domain.Aggregates.Trading;
+using InvestDashboard.Application.Exceptions;
+using InvestDashboard.Application.Services;
+using InvestDashboard.Infrastructure.Persistence.EFCore;
 using InvestDashboard.Domain.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +34,8 @@ public sealed class LotesTesouroController(
     IUsuarioAtualService usuario,
     ILeitorPreviaTesouro leitor,
     IRepositorioLoteImportacaoTesouro lotes,
-    IEventoOficialTesouroRepository eventos) : ControllerBase
+    IEventoOficialTesouroRepository eventos,
+    InvestDbContext db, ITransacaoRepository transacoes, ITransacaoAppService transacaoApp) : ControllerBase
 {
     [HttpGet("{loteId:guid}/eventos")]
     public async Task<IActionResult> ListarEventos(Guid carteiraId, Guid loteId, CancellationToken cancellationToken,
@@ -50,6 +57,128 @@ public sealed class LotesTesouroController(
             Dados = JsonSerializer.Deserialize<MovimentoPreviaTesouroDto>(evento.EventoJson)
         }).ToArray()));
     }
+
+    private static readonly TimeZoneInfo FusoBrasil = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
+
+    [HttpPost("{loteId:guid}/confirmacao")]
+    public async Task<ActionResult<RespostaApi<LoteTesouroResposta>>> Confirmar(Guid carteiraId, Guid loteId,
+        [FromBody] ConfirmarLoteTesouroDto pedido, CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "no-store";
+        if (usuario.UserId is not Guid autor) return NotFound();
+        if (pedido.AtivoId == Guid.Empty || pedido.CarteiraVersao < 0 || pedido.Revisoes is null ||
+            pedido.Revisoes.Count > 10_000 || pedido.Revisoes.Any(r => r is null || r.IndiceEvento < 0 || r.Revisao < 1) ||
+            pedido.Revisoes.Select(r => r.IndiceEvento).Distinct().Count() != pedido.Revisoes.Count)
+            return BadRequest();
+        if (!db.Database.IsNpgsql()) return StatusCode(503);
+
+        try
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            var carteira = await carteiras.GetByIdForUserAsync(carteiraId, autor.ToString(), ct);
+            if (carteira is null || !await carteiras.CanManageAsync(carteiraId, autor.ToString(), ct)) return NotFound();
+            var lote = await lotes.BuscarPorIdAsync(carteiraId, autor, loteId, ct);
+            if (lote is null) return NotFound();
+
+            var bases = db.Set<BasePosicaoTesouro>();
+            var vigentes = await db.Set<DecisaoConciliacaoTesouro>().Where(x => x.LoteId == loteId && x.CarteiraId == carteiraId)
+                .GroupBy(x => x.IndiceEvento).Select(g => g.OrderByDescending(x => x.Revisao).First()).ToListAsync(ct);
+            var esperadas = pedido.Revisoes.ToDictionary(x => x.IndiceEvento, x => x.Revisao);
+            if (vigentes.Count != esperadas.Count || vigentes.Any(x => x.CarteiraVersao != pedido.CarteiraVersao ||
+                    x.AtivoId != pedido.AtivoId || !esperadas.TryGetValue(x.IndiceEvento, out var revisao) || revisao != x.Revisao))
+                return Conflito("Revise novamente as movimentações e a versão da carteira.");
+            if (lote.Estado == "Confirmado")
+                return await bases.AnyAsync(x => x.LoteId == loteId && x.AtivoId == pedido.AtivoId, ct)
+                    ? Ok(new RespostaApi<LoteTesouroResposta>(Mapear(lote))) : Conflito("O lote já foi confirmado para outro ativo.");
+            if (lote.Estado != "Pendente" || carteira.Version != pedido.CarteiraVersao)
+                return Conflito("A carteira ou o lote mudou após a revisão.");
+
+            var previa = Mapear(lote).Previa;
+            var ativo = carteira.Positions.SingleOrDefault(x => x.AtivoId == pedido.AtivoId)?.Ativo as RendaFixa;
+            if (!ConfirmacaoTesouro.TituloCompativel(previa, ativo) || lote.DataReferencia > DataCivil(DateTime.UtcNow))
+                return Conflito("O título, o vencimento e a data de referência precisam corresponder à posição do Tesouro.");
+            if (previa.Movimentacoes.Count != vigentes.Count ||
+                !ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out var saldoCalculado))
+                return Conflito("O extrato contém lacunas, posições inválidas ou movimentações sem revisão.");
+
+            var anterior = await bases.SingleOrDefaultAsync(x => x.CarteiraId == carteiraId && x.AtivoId == pedido.AtivoId && x.Ativa, ct);
+            if (anterior is not null && anterior.DataReferencia >= lote.DataReferencia)
+                return Conflito("A data do extrato precisa ser posterior à da base ativa.");
+
+            var manuais = (await transacoes.GetByPortfolioIdAsync(carteiraId, ct))
+                .Where(x => x.AtivoId == pedido.AtivoId && x.Type is TipoTransacao.Buy or TipoTransacao.Sell)
+                .ToDictionary(x => x.Id);
+            var vinculadas = new HashSet<Guid>();
+            var oficiais = new List<EventoOficialTesouro>();
+            var agora = DateTime.UtcNow;
+            foreach (var decisao in vigentes)
+            {
+                if (decisao.IndiceEvento < 0 || decisao.IndiceEvento >= previa.Movimentacoes.Count)
+                    return Conflito("Uma revisão não corresponde a uma movimentação do extrato.");
+                var evento = previa.Movimentacoes[decisao.IndiceEvento];
+                var m = evento.DadosInterpretados;
+                var tipo = ConfirmacaoTesouro.TipoNegociacao(m);
+                if (m?.Data is not DateOnly data || !ConfirmacaoTesouro.EventoCompleto(m, lote.DataReferencia))
+                    return Conflito("Uma movimentação contém dados incompletos ou uma natureza não reconhecida.");
+                if (decisao.Decisao == "vincular")
+                {
+                    if (decisao.TransacaoId is not Guid manualId || !vinculadas.Add(manualId) ||
+                        !manuais.TryGetValue(manualId, out var manual) || manual.Type != tipo ||
+                        manual.TransactionDate.Kind != DateTimeKind.Utc || DataCivil(manual.TransactionDate) != data || manual.Quantity != m.Quantidade || manual.UnitPrice != m.Preco)
+                        return Conflito("Uma movimentação vinculada diverge do lançamento manual atual.");
+                }
+                else if (decisao.Decisao != "sem_vinculo" || decisao.TransacaoId.HasValue)
+                    return Conflito("Uma revisão contém uma decisão inválida.");
+                oficiais.Add(new EventoOficialTesouro(Guid.NewGuid(), loteId, carteiraId, pedido.AtivoId,
+                    decisao.IndiceEvento, JsonSerializer.Serialize(evento), decisao.TransacaoId, agora));
+            }
+
+            if (manuais.Values.Any(x => DataCivil(x.TransactionDate) <= lote.DataReferencia &&
+                (anterior is null || DataCivil(x.TransactionDate) > anterior.DataReferencia) && !vinculadas.Contains(x.Id)))
+                return Conflito("Há operações manuais anteriores à data-base sem correspondência no extrato.");
+
+            // A restrição de base ativa é verificada pelo PostgreSQL a cada instrução.
+            // Desative antes de inserir a nova base, mantendo as duas etapas na mesma transação.
+            if (anterior is not null)
+            {
+                anterior.Desativar();
+                await db.SaveChangesAsync(ct);
+            }
+            var saldo = new BasePosicaoTesouro(Guid.NewGuid(), loteId, carteiraId, pedido.AtivoId,
+                lote.DataReferencia, saldoCalculado.Quantidade, saldoCalculado.CustoTotal, saldoCalculado.PrecoUnitario);
+            saldo.Ativar();
+            db.Add(saldo);
+            db.AddRange(oficiais);
+            lote.MarcarConfirmado(agora);
+            await db.SaveChangesAsync(ct);
+            await transacaoApp.RebuildPortfolioAsync(carteiraId);
+            await tx.CommitAsync(ct);
+            return Ok(new RespostaApi<LoteTesouroResposta>(Mapear(lote)));
+        }
+        catch (TransactionLedgerConflictException)
+        {
+            return Conflito("As operações posteriores não são compatíveis com o saldo-base do extrato.");
+        }
+        catch (Exception erro) when (ConflitoConcorrencia(erro))
+        {
+            return Conflito("A carteira foi modificada durante a confirmação. Atualize a revisão.");
+        }
+    }
+
+    private static bool ConflitoConcorrencia(Exception erro)
+    {
+        for (Exception? causa = erro; causa is not null; causa = causa.InnerException)
+            if (causa is DbUpdateConcurrencyException ||
+                causa is PostgresException { SqlState: PostgresErrorCodes.SerializationFailure or
+                    PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.DeadlockDetected }) return true;
+        return false;
+    }
+
+    private ConflictObjectResult Conflito(string mensagem) =>
+        Conflict(new RespostaApi<LoteTesouroResposta>(null!, false, mensagem));
+
+    private static DateOnly DataCivil(DateTime data) =>
+        DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(data, FusoBrasil));
 
     private const int MaximoArquivo = 10 * 1024 * 1024;
     private const int MaximoRequisicao = MaximoArquivo + 64 * 1024;

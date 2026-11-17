@@ -47,7 +47,6 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
   await expect(page.getByText(/valores abaixo vêm do arquivo enviado/i)).toBeVisible()
   await expect(page.getByText(/leitura pode não identificar todos os dados/i)).toBeVisible()
   await expect(page.getByText(/não registra operações nem altera a carteira/)).toBeVisible()
-  await expect(page.getByText(/confirmação e a conciliação ainda não estão disponíveis/i)).toBeVisible()
   await expect(page.getByText('Linhas: 7, 12.')).toBeVisible()
   await expect(page.getByRole('button', { name: /confirmar/i })).toHaveCount(0)
   await page.getByLabel('Arquivo do extrato').setInputFiles({ name: 'outro-extrato.html', mimeType: 'text/html', buffer: Buffer.from('<html>outro</html>') })

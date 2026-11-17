@@ -54,6 +54,7 @@ export interface LoteTesouro extends ResumoLoteTesouro { previa: PreviaTesouro }
 export interface ConciliacaoTesouro {
   carteiraVersao: number
   dataReferencia: string
+  dataBaseAtiva?: string | null
   ativoId: string | null
   ativos: { ativoId: string; ticker: string }[]
   eventos: { indice: number; dadosInterpretados: PreviaTesouro['movimentacoes'][number]['dadosInterpretados']; candidatos: string[] }[]
@@ -119,6 +120,11 @@ export const tesouroDiretoService = {
   ),
   conciliacao: (carteiraId: string, loteId: string, ativoId: string | null) => api.post<RespostaApi<ConciliacaoTesouro>>(
     `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/conciliacao`, { ativoId },
+  ),
+  confirmar: (carteiraId: string, loteId: string, pedido: {
+    ativoId: string; carteiraVersao: number; revisoes: { indiceEvento: number; revisao: number }[]
+  }) => api.post<RespostaApi<LoteTesouro>>(
+    `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/confirmacao`, pedido,
   ),
   revisoes: (carteiraId: string, loteId: string, indiceEvento: number) => api.get<RespostaApi<RevisaoTesouro[]>>(
     `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/revisoes/${indiceEvento}`,

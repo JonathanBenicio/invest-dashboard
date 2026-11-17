@@ -14,9 +14,10 @@ const descrever = (item: Transacao) => {
   return `${tipo} · ${data} · quantidade ${item.quantidade.toLocaleString('pt-BR')} · preço ${item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
 }
 
-export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVersao, indiceEvento, tipoEvento, motivosSemVinculo, candidatos, transacoes }: {
+export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVersao, indiceEvento, tipoEvento, motivosSemVinculo, candidatos, transacoes, onRevisao, bloqueado }: {
   carteiraId: string; loteId: string; ativoId: string; carteiraVersao: number; indiceEvento: number
   tipoEvento: 'Buy' | 'Sell' | null; motivosSemVinculo: string[]; candidatos: string[]; transacoes: Transacao[]
+  onRevisao: (revisao: RevisaoTesouro | null) => void; bloqueado: boolean
 }) {
   const [historico, setHistorico] = useState<RevisaoTesouro[] | null>(null)
   const [opcao, setOpcao] = useState('')
@@ -31,6 +32,7 @@ export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVers
     try {
       const resposta = await tesouroDiretoService.revisoes(carteiraId, loteId, indiceEvento)
       setHistorico(resposta.dados)
+      onRevisao(resposta.dados.at(-1) ?? null)
     } catch {
       setErro('Não foi possível carregar as revisões. Tente novamente.')
     } finally { setOcupado(false) }
@@ -39,15 +41,18 @@ export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVers
   async function salvar() {
     if (!historico || !opcao || conflito) return
     const revisaoAnterior = historico.at(-1)?.revisao ?? 0
+    onRevisao(null)
     setOcupado(true); setErro(''); setSalvo(false)
     try {
       const resposta = await tesouroDiretoService.registrarRevisao(carteiraId, loteId, {
         indiceEvento, decisao: opcao === 'sem_vinculo' ? 'sem_vinculo' : 'vincular', ativoId,
         transacaoId: opcao === 'sem_vinculo' ? null : opcao, carteiraVersao, revisaoAnterior,
       })
+      onRevisao(resposta.dados)
       setHistorico([...historico, resposta.dados]); setOpcao(''); setSalvo(true)
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
+        onRevisao(null)
         setConflito(true)
         setErro('A carteira ou uma revisão mudou. Compare novamente as movimentações antes de registrar sua decisão.')
       } else {
@@ -57,7 +62,7 @@ export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVers
   }
 
   return <div className="mt-2 space-y-2">
-    {!historico && <Button type="button" variant="outline" size="sm" disabled={ocupado} onClick={() => void carregar()}>Revisar esta movimentação</Button>}
+    {!historico && <Button type="button" variant="outline" size="sm" disabled={ocupado || bloqueado} onClick={() => void carregar()}>Revisar esta movimentação</Button>}
     {ocupado && <p role="status">Aguarde...</p>}
     {erro && <p role="alert" className="text-destructive">{erro}</p>}
     {salvo && <p role="status">Revisão salva. A importação ainda não foi confirmada.</p>}
@@ -72,14 +77,14 @@ export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVers
       </ol>}
       {historico.length >= 100 ? <p>Limite de revisões atingido para esta movimentação.</p> : <>
         <label htmlFor={`tesouro-revisao-${indiceEvento}`} className="block font-medium">Decisão para movimentação {indiceEvento + 1}</label>
-        <Select value={opcao} onValueChange={setOpcao} disabled={ocupado || conflito}>
+        <Select value={opcao} onValueChange={setOpcao} disabled={ocupado || conflito || bloqueado}>
           <SelectTrigger id={`tesouro-revisao-${indiceEvento}`}><SelectValue placeholder="Selecione uma decisão" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="sem_vinculo">Sem vínculo com lançamento manual</SelectItem>
             {candidatosDisponiveis.map(item => <SelectItem key={item.id} value={item.id}>{descrever(item)} · {candidatos.includes(item.id) ? 'sugestão' : 'outro lançamento'}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button type="button" variant="outline" size="sm" disabled={!opcao || ocupado || conflito} onClick={() => void salvar()}>Salvar revisão</Button>
+        <Button type="button" variant="outline" size="sm" disabled={!opcao || ocupado || conflito || bloqueado} onClick={() => void salvar()}>Salvar revisão</Button>
       </>}
     </>}
   </div>

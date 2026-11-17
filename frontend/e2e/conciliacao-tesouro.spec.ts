@@ -66,5 +66,57 @@ test('revisa candidatos da carteira sem confirmar ou gravar associação', async
   await page.getByRole('button', { name: 'Revisar esta movimentação' }).last().click()
   await expect(page.getByText(/Não é possível propor vínculo: data não interpretada/)).toBeVisible()
   await expect(page.getByText(/Divergências: carteira alterada desde a revisão/)).toBeVisible()
-  await expect(page.getByRole('button', { name: /confirmar/i })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Confirmar importação' })).toBeDisabled()
+})
+
+test('confirma um lote apto com a versão e as revisões exibidas', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = window.fetch.bind(window)
+    const movimento = { natureza: 'Compra', tipo: 'Crédito', data: '2026-10-01', quantidade: 2, preco: 100, camposNaoInterpretados: [] }
+    const resumo = { id: 'lote-1', carteiraId: 'portfolio-1', dataReferencia: '2026-11-14', formato: 'html', estado: 'Pendente', criadoEmUtc: '2026-11-14T12:00:00Z', confirmadoEmUtc: null }
+    const previa = { carteiraId: 'portfolio-1', formato: 'html', titulo: 'Título sintético', vencimento: '2035-01-01', posicoes: [{ numeroLinha: 1, camposBrutos: {} }], movimentacoes: [{ campos: [], dadosInterpretados: movimento }], linhasNaoInterpretadas: [], avisos: [], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false }
+    window.fetch = async (input, init) => {
+      const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.origin)
+      const json = (dados: unknown) => new Response(JSON.stringify({ dados }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      if (url.pathname.endsWith('/tesouro-direto/lotes')) return json([resumo])
+      if (url.pathname.endsWith('/lotes/lote-1')) return json({ ...resumo, previa })
+      if (url.pathname.endsWith('/lotes/lote-1/conciliacao')) {
+        const { ativoId } = JSON.parse(String(init?.body))
+        return json({ carteiraVersao: 4, dataReferencia: resumo.dataReferencia, ativoId, ativos: [{ ativoId: 'ativo-1', ticker: 'TESOURO35' }],
+          eventos: [{ indice: 0, dadosInterpretados: movimento, candidatos: [] }], transacoes: [], podeConfirmar: !!ativoId })
+      }
+      if (url.pathname.endsWith('/lotes/lote-1/revisoes/0'))
+        return json([{ id: 'revisao-2', indiceEvento: 0, revisao: 2, decisao: 'sem_vinculo', ativoId: 'ativo-1', transacaoId: null, carteiraVersao: 4 }])
+      if (url.pathname.endsWith('/lotes/lote-1/confirmacao')) {
+        const pedido = JSON.parse(String(init?.body))
+        if (init?.method !== 'POST' || pedido.ativoId !== 'ativo-1' || pedido.carteiraVersao !== 4 ||
+          pedido.revisoes?.length !== 1 || pedido.revisoes[0].indiceEvento !== 0 || pedido.revisoes[0].revisao !== 2)
+          return new Response(null, { status: 400 })
+        return json({ ...resumo, previa, estado: 'Confirmado', confirmadoEmUtc: '2026-11-14T12:20:00Z' })
+      }
+      return original(input, init)
+    }
+  })
+
+  await page.goto('/login')
+  await page.getByLabel('E-mail').fill('admin@investpro.com')
+  await page.getByLabel('Senha').fill('password')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await page.getByRole('link', { name: /Importar opera/ }).click()
+  await page.getByRole('tab', { name: 'Tesouro Direto' }).click()
+  await page.getByLabel('Carteira de destino').click()
+  await page.getByRole('option', { name: 'Carteira Principal' }).click()
+  await page.getByRole('button', { name: 'Revisar prévia' }).click()
+  await page.getByRole('button', { name: 'Revisar conciliação' }).click()
+  await page.getByLabel('Posição da carteira para comparar').click()
+  await page.getByRole('option', { name: 'TESOURO35' }).click()
+  await page.getByRole('button', { name: 'Comparar movimentações' }).click()
+  const confirmar = page.getByRole('button', { name: 'Confirmar importação' })
+  await expect(confirmar).toBeDisabled()
+  await page.getByRole('button', { name: 'Revisar esta movimentação' }).click()
+  await expect(confirmar).toBeEnabled()
+  await confirmar.click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmar lote' }).click()
+  await expect(page.getByText(/Importação confirmada em/)).toBeVisible()
+  await expect(confirmar).toHaveCount(0)
 })

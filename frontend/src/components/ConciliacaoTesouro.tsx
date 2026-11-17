@@ -1,23 +1,66 @@
 import { useState } from 'react'
+import { ApiError } from '@/api/errors/api-error'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { tesouroDiretoService, type ConciliacaoTesouro as Resultado } from '@/api/services/tesouro-direto.service'
+import { tesouroDiretoService, type ConciliacaoTesouro as Resultado, type LoteTesouro, type RevisaoTesouro } from '@/api/services/tesouro-direto.service'
 import { RevisaoEventoTesouro } from './RevisaoEventoTesouro'
 
 const data = (valor: string) => new Date(valor).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
 
-export function ConciliacaoTesouro({ carteiraId, loteId }: { carteiraId: string; loteId: string }) {
+export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; onConfirmado: (lote: LoteTesouro) => void }) {
+  const { carteiraId, id: loteId } = lote
   const [resultado, setResultado] = useState<Resultado | null>(null)
   const [consulta, setConsulta] = useState(0)
   const [selecionado, setSelecionado] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [erro, setErro] = useState('')
+  const [revisoes, setRevisoes] = useState<Record<number, RevisaoTesouro | null>>({})
+  const [confirmando, setConfirmando] = useState(false)
+  const uniaoRevisoes = resultado?.eventos.map(evento => revisoes[evento.indice]) ?? []
+  const revisoesValidas = uniaoRevisoes.every((revisao, indice) => revisao != null &&
+    revisao.ativoId === resultado?.ativoId && revisao.carteiraVersao === resultado?.carteiraVersao &&
+    (revisao.decisao === 'sem_vinculo' ||
+      (revisao.transacaoId != null && resultado?.eventos[indice].candidatos.includes(revisao.transacaoId))))
+  const vinculos = uniaoRevisoes.flatMap(revisao => revisao?.transacaoId ? [revisao.transacaoId] : [])
+  const vinculosUnicos = new Set(vinculos).size === vinculos.length
+  const todosLancamentosVinculados = resultado?.transacoes.every(transacao =>
+    transacao.posteriorBase || vinculos.includes(transacao.id) ||
+    (!!resultado.dataBaseAtiva && data(transacao.data).split('/').reverse().join('-') <= resultado.dataBaseAtiva)) ?? false
+  const apto = resultado?.podeConfirmar === true
+  const podeConfirmar = apto && !!resultado?.ativoId && resultado.ativoId === selecionado &&
+    uniaoRevisoes.length > 0 && revisoesValidas && vinculosUnicos && todosLancamentosVinculados && !ocupado && !confirmando
+
+  async function confirmar() {
+    if (!podeConfirmar || !resultado?.ativoId) return
+    setConfirmando(true)
+    setErro('')
+    try {
+      const resposta = await tesouroDiretoService.confirmar(carteiraId, loteId, {
+        ativoId: resultado.ativoId,
+        carteiraVersao: resultado.carteiraVersao,
+        revisoes: uniaoRevisoes.flatMap(revisao => revisao ? [{ indiceEvento: revisao.indiceEvento, revisao: revisao.revisao }] : []),
+      })
+      onConfirmado(resposta.dados)
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        setRevisoes({})
+        setConsulta(atual => atual + 1)
+        setErro('O lote, a carteira ou uma revisão mudou. Reabra o lote e compare novamente antes de confirmar.')
+      } else {
+        setErro('Não foi possível confirmar a importação. Confira os dados revisados e tente novamente.')
+      }
+    } finally {
+      setConfirmando(false)
+    }
+  }
 
   async function analisar(ativoId: string | null) {
     setOcupado(true)
     setErro('')
     try {
       const resposta = await tesouroDiretoService.conciliacao(carteiraId, loteId, ativoId)
+      setRevisoes({})
       setResultado(resposta.dados)
       setConsulta(atual => atual + 1)
     } catch {
@@ -37,11 +80,11 @@ export function ConciliacaoTesouro({ carteiraId, loteId }: { carteiraId: string;
     {resultado && <>
       {resultado.ativos.length === 0 ? <p>Não há posições de renda fixa nesta carteira para comparar.</p> : <div className="grid gap-2">
         <label htmlFor="tesouro-conciliacao-ativo" className="font-medium">Posição da carteira para comparar</label>
-        <Select value={selecionado} onValueChange={setSelecionado} disabled={ocupado}>
+        <Select value={selecionado} onValueChange={setSelecionado} disabled={ocupado || confirmando}>
           <SelectTrigger id="tesouro-conciliacao-ativo"><SelectValue placeholder="Selecione uma posição" /></SelectTrigger>
           <SelectContent>{resultado.ativos.map(ativo => <SelectItem key={ativo.ativoId} value={ativo.ativoId}>{ativo.ticker}</SelectItem>)}</SelectContent>
         </Select>
-        <Button type="button" variant="outline" disabled={!selecionado || ocupado} onClick={() => void analisar(selecionado)}>Comparar movimentações</Button>
+        <Button type="button" variant="outline" disabled={!selecionado || ocupado || confirmando} onClick={() => void analisar(selecionado)}>Comparar movimentações</Button>
       </div>}
       {resultado.ativoId && resultado.ativoId !== selecionado && <p>Selecione “Comparar movimentações” para consultar a posição escolhida.</p>}
       {resultado.ativoId && resultado.ativoId === selecionado && <>
@@ -63,14 +106,32 @@ export function ConciliacaoTesouro({ carteiraId, loteId }: { carteiraId: string;
             </li>)}</ul>}
             <RevisaoEventoTesouro key={`${consulta}-${evento.indice}`} carteiraId={carteiraId} loteId={loteId} ativoId={resultado.ativoId!} carteiraVersao={resultado.carteiraVersao}
               indiceEvento={evento.indice} tipoEvento={motivosSemVinculo.length === 0 ? tipoEvento : null} motivosSemVinculo={motivosSemVinculo}
-              candidatos={evento.candidatos} transacoes={resultado.transacoes} />
+              candidatos={evento.candidatos} transacoes={resultado.transacoes} bloqueado={ocupado || confirmando}
+              onRevisao={revisao => setRevisoes(atuais => ({ ...atuais, [evento.indice]: revisao }))} />
           </li>
         })}</ul>
         <h4 className="font-medium">Movimentações existentes na carteira</h4>
         {resultado.transacoes.length === 0 ? <p>Nenhuma movimentação encontrada para esta posição.</p> : <ul className="space-y-1">{resultado.transacoes.map(item => <li key={item.id}>
           {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : resultado.eventos.some(evento => evento.candidatos.includes(item.id)) ? ' · sugerida para comparação' : ' · sem correspondência sugerida'}
         </li>)}</ul>}
-        <p>A confirmação da importação ainda não está disponível.</p>
+        {!apto && <p>O extrato ou a posição escolhida não atende aos critérios para confirmar. Confira o título, o vencimento, a data de referência e os campos não interpretados.</p>}
+        {apto && !revisoesValidas && <p>Carregue ou salve uma revisão vigente para cada movimentação. Os vínculos precisam corresponder à data, ao tipo, à quantidade e ao preço.</p>}
+        {apto && revisoesValidas && !todosLancamentosVinculados && <p>Vincule os lançamentos manuais que o saldo do extrato vai substituir.</p>}
+        {!vinculosUnicos && <p role="alert">O mesmo lançamento manual aparece em mais de uma revisão. Corrija os vínculos antes de confirmar.</p>}
+        <AlertDialog>
+          <AlertDialogTrigger asChild><Button type="button" disabled={!podeConfirmar}>Confirmar importação</Button></AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar importação do Tesouro?</AlertDialogTitle>
+              <AlertDialogDescription>Os eventos oficiais serão registrados e a posição selecionada será atualizada com o saldo do extrato na data de referência.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Voltar à revisão</AlertDialogCancel>
+              <AlertDialogAction disabled={!podeConfirmar} onClick={() => void confirmar()}>Confirmar lote</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        {confirmando && <p role="status">Confirmando importação...</p>}
       </>}
     </>}
   </section>

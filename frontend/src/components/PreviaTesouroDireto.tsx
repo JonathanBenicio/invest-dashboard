@@ -1,3 +1,4 @@
+import { queryKeys } from '@/api/query-keys'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
@@ -49,6 +50,7 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
 
   async function abrirLote(id: string) {
     setProcessando(true)
+    setLote(null)
     setErro('')
     try {
       const resposta = await tesouroDiretoService.lote(carteira, id)
@@ -101,8 +103,8 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
         {historico.isError && <p role="alert">Não foi possível carregar as prévias. <Button type="button" variant="link" onClick={() => void historico.refetch()}>Tentar novamente</Button></p>}
         {historico.data && historico.data.dados.length === 0 && <p>{pagina === 1 ? 'Nenhuma prévia salva para esta carteira.' : 'Nenhuma prévia nesta página.'}</p>}
         {historico.data && historico.data.dados.length > 0 && <ul className="space-y-2">{historico.data.dados.map(item => <li key={item.id} className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm">
-          <span>Referência {item.dataReferencia.split('-').reverse().join('/')} · {item.formato.toUpperCase()} · {new Date(item.criadoEmUtc).toLocaleString('pt-BR')}</span>
-          <Button type="button" variant="outline" disabled={processando} onClick={() => void abrirLote(item.id)}>Revisar prévia</Button>
+          <span>Referência {item.dataReferencia.split('-').reverse().join('/')} · {item.formato.toUpperCase()} · {new Date(item.criadoEmUtc).toLocaleString('pt-BR')}{item.estado === 'Confirmado' ? ' · Confirmado' : ''}</span>
+          <Button type="button" variant="outline" disabled={processando} onClick={() => void abrirLote(item.id)}>{item.estado === 'Confirmado' ? 'Ver extrato confirmado' : 'Revisar prévia'}</Button>
         </li>)}</ul>}
         {historico.data && <div className="flex flex-wrap items-center gap-2" aria-label="Páginas das prévias">
           <Button type="button" variant="outline" disabled={pagina === 1 || historico.isFetching} onClick={() => setPagina(atual => atual - 1)}>Página anterior</Button>
@@ -113,16 +115,23 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
     </Card>}
     {previa && <Card>
       <CardHeader>
-        <CardTitle>Prévia do extrato</CardTitle>
-        <CardDescription>Os valores abaixo vêm do arquivo enviado. Esta etapa não registra operações nem altera a carteira.</CardDescription>
+        <CardTitle>{lote.estado === 'Confirmado' ? 'Extrato confirmado' : 'Prévia do extrato'}</CardTitle>
+        <CardDescription>Os valores abaixo vêm do arquivo enviado.{lote.estado !== 'Confirmado' && ' Esta etapa não registra operações nem altera a carteira.'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
         <p className="text-sm">Data de referência informada: {lote.dataReferencia.split('-').reverse().join('/')}</p>
         {previa.titulo && <p className="font-medium">{previa.titulo}{previa.vencimento ? ` · vencimento ${previa.vencimento.split('-').reverse().join('/')}` : ''}</p>}
         {previa.vencimentoOriginal && <p className="text-sm">Vencimento informado no arquivo: {previa.vencimentoOriginal}</p>}
         {previa.titulo && previa.vencimento && <ReferenciaPublicaTesouro key={`${previa.titulo}|${previa.vencimento}`} titulo={previa.titulo} vencimento={previa.vencimento} />}
-        <ConciliacaoTesouro key={lote.id} carteiraId={carteira} loteId={lote.id} />
-        <p role="status" className="text-sm text-amber-700 dark:text-amber-300">A leitura pode não identificar todos os dados do extrato. A confirmação e a conciliação ainda não estão disponíveis.</p>
+        {lote.estado === 'Confirmado'
+          ? <p role="status" className="font-medium">Importação confirmada{lote.confirmadoEmUtc ? ` em ${new Date(lote.confirmadoEmUtc).toLocaleString('pt-BR')}` : ''}.</p>
+          : <ConciliacaoTesouro key={lote.id} lote={lote} onConfirmado={confirmado => {
+            setLote(atual => atual?.id === confirmado.id ? confirmado : atual)
+            void queryClient.invalidateQueries({ queryKey: ['tesouro-lotes', confirmado.carteiraId] })
+            void queryClient.invalidateQueries({ queryKey: queryKeys.portfolios.all })
+            void queryClient.invalidateQueries({ queryKey: queryKeys.investments.all })
+          }} />}
+        <p role="status" className="text-sm text-amber-700 dark:text-amber-300">A leitura pode não identificar todos os dados do extrato.</p>
         {previa.avisos.map((aviso, index) => <p key={index} className="text-sm text-muted-foreground">{aviso}</p>)}
         {previa.linhasNaoInterpretadas.length > 0 && <div role="status" className="text-sm text-amber-700 dark:text-amber-300">
           <p>{previa.linhasNaoInterpretadas.length} linhas não foram interpretadas e precisam de revisão no arquivo original.</p>

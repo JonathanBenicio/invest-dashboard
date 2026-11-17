@@ -19,4 +19,5 @@ public sealed record ConciliacaoTesouroDto(
     [property: JsonPropertyName("ativos")] IReadOnlyList<AtivoConciliacaoTesouroDto> Ativos,
     [property: JsonPropertyName("eventos")] IReadOnlyList<EventoConciliacaoTesouroDto> Eventos,
     [property: JsonPropertyName("transacoes")] IReadOnlyList<TransacaoConciliacaoTesouroDto> Transacoes,
-    [property: JsonPropertyName("podeConfirmar")] bool PodeConfirmar);
+    [property: JsonPropertyName("podeConfirmar")] bool PodeConfirmar,
+    [property: JsonPropertyName("dataBaseAtiva")] DateOnly? DataBaseAtiva = null);

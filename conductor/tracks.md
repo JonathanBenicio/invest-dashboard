@@ -3,6 +3,8 @@
 Índice de iniciativas acompanhadas. O conteúdo do plano permanece em `docs/plan/`; esta lista registra somente identificação, estado documental conhecido e rastreabilidade. Estado de implementação/validação só deve avançar com evidência atual. O inventário inicial abaixo contém planos históricos existentes e não afirma que estejam ativos ou aprovados.
 
 ## Iniciativas
+| [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53) | Importação e conciliação do Tesouro Direto | em andamento | [tesouro-direto-importacao-e-dados-mercado-refinamento.md](../docs/plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md) | Confirmação transacional disponível para HTML de posição existente. XLSX inicial e avaliação pública pendentes. PR #62. |
+
 
 | Identificador | Iniciativa (conforme arquivo) | Estado conhecido | Plano canônico | Observações |
 |---|---|---|---|---|

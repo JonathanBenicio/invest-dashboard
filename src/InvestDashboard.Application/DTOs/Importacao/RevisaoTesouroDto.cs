@@ -20,3 +20,12 @@ public sealed record RevisaoTesouroDto(
     [property: JsonPropertyName("carteiraVersao")] int CarteiraVersao,
     [property: JsonPropertyName("criadoEmUtc")] DateTime CriadoEmUtc,
     [property: JsonPropertyName("divergencias")] IReadOnlyList<string> Divergencias);
+
+public sealed record RevisaoParaConfirmacaoTesouroDto(
+    [property: JsonPropertyName("indiceEvento")] int IndiceEvento,
+    [property: JsonPropertyName("revisao")] int Revisao);
+
+public sealed record ConfirmarLoteTesouroDto(
+    [property: JsonPropertyName("ativoId")] Guid AtivoId,
+    [property: JsonPropertyName("carteiraVersao")] int CarteiraVersao,
+    [property: JsonPropertyName("revisoes")] IReadOnlyList<RevisaoParaConfirmacaoTesouroDto> Revisoes);
