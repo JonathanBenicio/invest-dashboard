@@ -13,6 +13,7 @@ public sealed record MovimentoPreviaTesouroDto(
 /// <summary>Interpretação preliminar, sem identidade, conciliação ou confirmação.</summary>
 public sealed record DadosMovimentoTesouroDto(
     [property: JsonPropertyName("data")] DateOnly? Data,
+    [property: JsonPropertyName("natureza")] string? Natureza,
     [property: JsonPropertyName("tipo")] string? Tipo,
     [property: JsonPropertyName("quantidade")] decimal? Quantidade,
     [property: JsonPropertyName("preco")] decimal? Preco,

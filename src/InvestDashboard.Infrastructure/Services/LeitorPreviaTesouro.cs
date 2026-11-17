@@ -46,16 +46,20 @@ public sealed class LeitorPreviaTesouro : ILeitorPreviaTesouro
         DateOnly? data = DateOnly.TryParseExact(campos[0].Valor, "dd/MM/yyyy", CultureInfo.InvariantCulture,
             DateTimeStyles.None, out var dataLida) ? dataLida : null;
         if (data is null) falhas.Add("data");
-        string? tipo = campos[2].Valor.Trim();
-        tipo = tipo.Equals("Compra", StringComparison.OrdinalIgnoreCase) ? "Compra" :
-            tipo.Equals("Venda", StringComparison.OrdinalIgnoreCase) ? "Venda" : null;
+        string? natureza = campos[1].Rotulo.Trim().TrimEnd(':').Trim().Equals("Natureza", StringComparison.OrdinalIgnoreCase)
+            ? Reconhecer(campos[1].Valor, "Compra", "Venda", "Taxas") : null;
+        if (natureza is null) falhas.Add("natureza");
+        var tipo = Reconhecer(campos[2].Valor, "Crédito", "Débito");
         if (tipo is null) falhas.Add("tipo");
         var quantidade = Numero(campos[3].Valor, "quantidade", falhas, positivo: true);
         var preco = Numero(campos[4].Valor, "preco", falhas, moeda: true, positivo: true);
         var taxa = Numero(campos[5].Valor, "taxaAnual", falhas, percentual: true);
         var valor = Numero(campos[6].Valor, "valor", falhas, moeda: true);
-        return new DadosMovimentoTesouroDto(data, tipo, quantidade, preco, taxa, valor, falhas);
+        return new DadosMovimentoTesouroDto(data, natureza, tipo, quantidade, preco, taxa, valor, falhas);
     }
+
+    private static string? Reconhecer(string valor, params string[] opcoes) =>
+        opcoes.FirstOrDefault(opcao => opcao.Equals(valor.Trim(), StringComparison.OrdinalIgnoreCase));
 
     private static decimal? Numero(string bruto, string campo, List<string> falhas,
         bool moeda = false, bool percentual = false, bool positivo = false)

@@ -20,7 +20,7 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
         carteiraId: 'portfolio-1', formato: 'html', layout: 'portal', titulo: 'Título sintético', vencimento: '2035-01-01',
         posicoes: [], movimentacoes: [{
           campos: [{ rotulo: 'Tipo:', valor: 'Compra' }, { rotulo: 'Preço:', valor: '1.23' }],
-          dadosInterpretados: { data: null, tipo: 'Compra', quantidade: 1, preco: null, taxaAnual: 10, valor: 1, camposNaoInterpretados: ['data', 'preco'] },
+          dadosInterpretados: { data: null, natureza: 'Compra', tipo: 'Crédito', quantidade: 1, preco: null, taxaAnual: 10, valor: 1, camposNaoInterpretados: ['data', 'preco'] },
         }],
         linhasNaoInterpretadas: [7, 12], avisos: ['Revise os dados.'], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false,
       } }), { status: 200, headers: { 'Content-Type': 'application/json' } })

@@ -8,7 +8,7 @@ import { ReferenciaPublicaTesouro } from './ReferenciaPublicaTesouro'
 type Carteira = { id: string; nome: string }
 
 const nomesCampos: Record<string, string> = {
-  data: 'data', tipo: 'tipo', quantidade: 'quantidade', preco: 'preço', taxaAnual: 'taxa anual', valor: 'valor',
+  data: 'data', natureza: 'natureza', tipo: 'tipo', quantidade: 'quantidade', preco: 'preço', taxaAnual: 'taxa anual', valor: 'valor',
 }
 
 export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tentarNovamente }: { carteiras: Carteira[]; carregando: boolean; erroCarteiras: boolean; tentarNovamente: () => void }) {

@@ -13,6 +13,7 @@ export interface PreviaTesouro {
     campos: { rotulo: string; valor: string }[]
     dadosInterpretados?: {
       data: string | null
+      natureza: string | null
       tipo: string | null
       quantidade: number | null
       preco: number | null

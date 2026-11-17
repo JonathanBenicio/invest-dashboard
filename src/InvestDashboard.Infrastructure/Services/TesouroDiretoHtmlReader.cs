@@ -67,8 +67,8 @@ public sealed class TesouroDiretoHtmlReader
                 .Select(LerCampo)
                 .ToArray();
 
-            // As amostras possuem um campo adicional entre data e tipo, cujo
-            // significado ainda não foi estabelecido. Preservá-lo sem inferência.
+            // O segundo campo é preservado mesmo se seu rótulo for desconhecido;
+            // a prévia só o interpreta quando identificar explicitamente Natureza.
             if (campos.Length != 7 ||
                 !RotuloIgual(campos[0].Rotulo, RotulosConhecidos[0]) ||
                 !RotuloIgual(campos[2].Rotulo, RotulosConhecidos[1]) ||
