@@ -7,6 +7,7 @@ import { tesouroDiretoService, type ConciliacaoTesouro as Resultado, type LoteTe
 import { RevisaoEventoTesouro } from './RevisaoEventoTesouro'
 
 const data = (valor: string) => new Date(valor).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+const NOVA_POSICAO = '__nova_posicao_html__'
 
 export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; onConfirmado: (lote: LoteTesouro) => void }) {
   const { carteiraId, id: loteId } = lote
@@ -28,16 +29,19 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
     transacao.posteriorBase || vinculos.includes(transacao.id) ||
     (!!resultado.dataBaseAtiva && data(transacao.data).split('/').reverse().join('-') <= resultado.dataBaseAtiva)) ?? false
   const apto = resultado?.podeConfirmar === true
-  const podeConfirmar = apto && !!resultado?.ativoId && resultado.ativoId === selecionado &&
+  const criarPosicao = selecionado === NOVA_POSICAO && resultado?.criarPosicao === true && resultado.ativoId === null
+  const ativoSelecionado = criarPosicao ? resultado?.podeCriarPosicao === true : !!resultado?.ativoId && resultado.ativoId === selecionado
+  const podeConfirmar = apto && ativoSelecionado &&
     uniaoRevisoes.length > 0 && revisoesValidas && vinculosUnicos && todosLancamentosVinculados && !ocupado && !confirmando
 
   async function confirmar() {
-    if (!podeConfirmar || !resultado?.ativoId) return
+    if (!podeConfirmar || !resultado) return
     setConfirmando(true)
     setErro('')
     try {
       const resposta = await tesouroDiretoService.confirmar(carteiraId, loteId, {
-        ativoId: resultado.ativoId,
+        ativoId: criarPosicao ? null : resultado.ativoId,
+        criarPosicao,
         carteiraVersao: resultado.carteiraVersao,
         revisoes: uniaoRevisoes.flatMap(revisao => revisao ? [{ indiceEvento: revisao.indiceEvento, revisao: revisao.revisao }] : []),
       })
@@ -73,21 +77,20 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
 
   return <section className="space-y-3 rounded-md border p-3 text-sm">
     <h3 className="font-semibold">Revisão da conciliação</h3>
-    <p>Consulte possíveis correspondências com lançamentos existentes. Nenhuma associação será aplicada nesta etapa.</p>
+    <p>Compare os eventos do HTML com lançamentos existentes ou prepare uma nova posição.</p>
     {!resultado && <Button type="button" variant="outline" disabled={ocupado} onClick={() => void analisar(null)}>Revisar conciliação</Button>}
     {ocupado && <p role="status">Consultando movimentações...</p>}
     {erro && <p role="alert" className="text-destructive">{erro}</p>}
     {resultado && <>
-      {resultado.ativos.length === 0 ? <p>Não há posições de renda fixa nesta carteira para comparar.</p> : <div className="grid gap-2">
+      {resultado.ativos.length === 0 && !resultado.podeCriarPosicao ? <p>Não há posição correspondente e o HTML não contém dados suficientes para criar uma nova posição.</p> : <div className="grid gap-2">
         <label htmlFor="tesouro-conciliacao-ativo" className="font-medium">Posição da carteira para comparar</label>
         <Select value={selecionado} onValueChange={setSelecionado} disabled={ocupado || confirmando}>
           <SelectTrigger id="tesouro-conciliacao-ativo"><SelectValue placeholder="Selecione uma posição" /></SelectTrigger>
-          <SelectContent>{resultado.ativos.map(ativo => <SelectItem key={ativo.ativoId} value={ativo.ativoId}>{ativo.ticker}</SelectItem>)}</SelectContent>
+          <SelectContent>{resultado.ativos.map(ativo => <SelectItem key={ativo.ativoId} value={ativo.ativoId}>{ativo.ticker}</SelectItem>)}{resultado.podeCriarPosicao && <SelectItem value={NOVA_POSICAO}>Criar posição a partir do HTML</SelectItem>}</SelectContent>
         </Select>
-        <Button type="button" variant="outline" disabled={!selecionado || ocupado || confirmando} onClick={() => void analisar(selecionado)}>Comparar movimentações</Button>
+        <Button type="button" variant="outline" disabled={!selecionado || ocupado || confirmando} onClick={() => void analisar(selecionado === NOVA_POSICAO ? null : selecionado)}>Comparar movimentações</Button>
       </div>}
-      {resultado.ativoId && resultado.ativoId !== selecionado && <p>Selecione “Comparar movimentações” para consultar a posição escolhida.</p>}
-      {resultado.ativoId && resultado.ativoId === selecionado && <>
+      {selecionado && (resultado.ativoId === selecionado || criarPosicao) && <>
         <p>Compare os dados antes de decidir. As sugestões não confirmam que os registros sejam a mesma operação.</p>
         <ul className="space-y-3">{resultado.eventos.map(evento => {
           const movimento = evento.dadosInterpretados
@@ -104,7 +107,7 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
             {candidatos.length === 0 ? <p>Nenhuma correspondência sugerida.</p> : <ul className="mt-1 space-y-1">{candidatos.map(item => <li key={item.id}>
               {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : ''}
             </li>)}</ul>}
-            <RevisaoEventoTesouro key={`${consulta}-${evento.indice}`} carteiraId={carteiraId} loteId={loteId} ativoId={resultado.ativoId!} carteiraVersao={resultado.carteiraVersao}
+            <RevisaoEventoTesouro key={`${consulta}-${evento.indice}`} carteiraId={carteiraId} loteId={loteId} ativoId={criarPosicao ? null : resultado.ativoId} carteiraVersao={resultado.carteiraVersao}
               indiceEvento={evento.indice} tipoEvento={motivosSemVinculo.length === 0 ? tipoEvento : null} motivosSemVinculo={motivosSemVinculo}
               candidatos={evento.candidatos} transacoes={resultado.transacoes} bloqueado={ocupado || confirmando}
               onRevisao={revisao => setRevisoes(atuais => ({ ...atuais, [evento.indice]: revisao }))} />
@@ -118,12 +121,13 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
         {apto && !revisoesValidas && <p>Carregue ou salve uma revisão vigente para cada movimentação. Os vínculos precisam corresponder à data, ao tipo, à quantidade e ao preço.</p>}
         {apto && revisoesValidas && !todosLancamentosVinculados && <p>Vincule os lançamentos manuais que o saldo do extrato vai substituir.</p>}
         {!vinculosUnicos && <p role="alert">O mesmo lançamento manual aparece em mais de uma revisão. Corrija os vínculos antes de confirmar.</p>}
+        {criarPosicao && <p role="status">A posição será criada com o título, vencimento, indexador e taxa reconhecidos no HTML, além do saldo na data do extrato.</p>}
         <AlertDialog>
           <AlertDialogTrigger asChild><Button type="button" disabled={!podeConfirmar}>Confirmar importação</Button></AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar importação do Tesouro?</AlertDialogTitle>
-              <AlertDialogDescription>Os eventos oficiais serão registrados e a posição selecionada será atualizada com o saldo do extrato na data de referência.</AlertDialogDescription>
+              <AlertDialogDescription>{criarPosicao ? 'Os eventos oficiais serão registrados e uma posição será criada com o saldo do extrato na data de referência.' : 'Os eventos oficiais serão registrados e a posição selecionada será atualizada com o saldo do extrato na data de referência.'}</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Voltar à revisão</AlertDialogCancel>

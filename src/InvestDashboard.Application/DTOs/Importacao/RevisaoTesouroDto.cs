@@ -26,6 +26,7 @@ public sealed record RevisaoParaConfirmacaoTesouroDto(
     [property: JsonPropertyName("revisao")] int Revisao);
 
 public sealed record ConfirmarLoteTesouroDto(
-    [property: JsonPropertyName("ativoId")] Guid AtivoId,
+    [property: JsonPropertyName("ativoId")] Guid? AtivoId,
+    [property: JsonPropertyName("criarPosicao")] bool CriarPosicao,
     [property: JsonPropertyName("carteiraVersao")] int CarteiraVersao,
     [property: JsonPropertyName("revisoes")] IReadOnlyList<RevisaoParaConfirmacaoTesouroDto> Revisoes);

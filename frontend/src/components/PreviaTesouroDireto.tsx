@@ -66,7 +66,7 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
     <Card>
       <CardHeader>
         <CardTitle>Extrato do Tesouro Direto</CardTitle>
-        <CardDescription>Selecione uma carteira e um arquivo HTML salvo ou XLSX de posições para examinar os dados disponíveis.</CardDescription>
+        <CardDescription>Selecione uma carteira e um arquivo HTML salvo do portal Tesouro Direto para revisar posições e movimentações.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-2">
@@ -80,7 +80,7 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
         {!carregando && !erroCarteiras && carteiras.length === 0 && <p role="status" className="text-sm">Crie uma carteira antes de analisar o extrato.</p>}
         <div className="grid gap-2">
           <label htmlFor="tesouro-arquivo" className="text-sm font-medium">Arquivo do extrato</label>
-          <input id="tesouro-arquivo" type="file" accept=".html,.htm,.xlsx" disabled={processando} className="max-w-full text-sm"
+          <input id="tesouro-arquivo" type="file" accept=".html,.htm" disabled={processando} className="max-w-full text-sm"
             onChange={event => { setArquivo(event.target.files?.[0] ?? null); setLote(null); setErro('') }} />
         </div>
         <div className="grid gap-2">

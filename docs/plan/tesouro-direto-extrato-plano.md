@@ -1,6 +1,6 @@
 # Plano — importação e conciliação do Tesouro Direto
 
-- Estado: em andamento, com confirmação transacional disponível para HTML conciliado com posição existente.
+- Estado: em andamento, com prévia e confirmação transacional HTML permitem criar posição inicial quando os campos necessários são reconhecidos. XLSX foi adiado pelo usuário.
 - Iniciativa: [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53). Etapas: [#54](https://github.com/JonathanBenicio/invest-dashboard/issues/54), [#55](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#56](https://github.com/JonathanBenicio/invest-dashboard/issues/56), [#57](https://github.com/JonathanBenicio/invest-dashboard/issues/57) e [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58).
 - PR: [#62](https://github.com/JonathanBenicio/invest-dashboard/pull/62), em revisão.
 - ADR: pendente para criação de posições, identidade de eventos, reimportação de snapshots e avaliação pública.
@@ -18,7 +18,8 @@ Permitir que o usuário crie ou atualize uma carteira com seu extrato do Tesouro
 | Prévia e histórico de lotes | Implementados com carteira, autor, data de referência e retomada da prévia. O arquivo original não é persistido. |
 | Conciliação | Implementada para HTML, título e vencimento correspondentes a uma posição existente. Sugestões não são aceitas automaticamente. |
 | Confirmação | Transacional e idempotente para o mesmo lote. Registra eventos oficiais, associações revisadas e uma base temporal, e reconstrói a posição com operações posteriores. |
-| Criação inicial a partir de XLSX | Pendente. O XLSX oferece prévia e continua sem criar posição ao confirmar. |
+| Criação inicial a partir de HTML | Pendente de implementação para ativos ainda não cadastrados na carteira. |
+| XLSX | Adiado pelo usuário, fora do escopo atual. |
 | Novos títulos sem posição cadastrada | Pendente de fluxo explícito de criação e identidade. |
 | Avaliação pela cotação pública | Consulta histórica do Tesouro está disponível, mas associação e atualização das posições não são automáticas. |
 | Comparação de desempenho e estimativas | Pendente de metodologia para aportes, retiradas, impostos e períodos incompletos. |
@@ -34,6 +35,6 @@ Permitir que o usuário crie ou atualize uma carteira com seu extrato do Tesouro
 
 ## Pendências e validação
 
-Concluir o fluxo XLSX de criação inicial, revisar reimportações de snapshots posteriores, definir reconciliação de taxas e eventos ausentes e decidir associação de cotações para avaliação da carteira. Atualizar a ADR e os critérios das issues quando essas partes forem completadas.
+Validar criação inicial e reimportações de snapshots HTML posteriores, manter XLSX adiado, revisar reimportações de snapshots posteriores, definir reconciliação de taxas e eventos ausentes e decidir associação de cotações para avaliação da carteira. Atualizar a ADR e os critérios das issues quando essas partes forem completadas.
 
 A branch `codex/tesouro-previa-e-cotacoes` foi validada pela CI do PR #62. A confirmação local acrescentou testes com PostgreSQL de concorrência e repetição. A validação mais recente passou com 154 testes unitários e 101 de integração, além de duas verificações externas ignoradas. Os seis testes Playwright direcionados, TypeScript e ESLint direcionado passaram com respostas sintéticas.

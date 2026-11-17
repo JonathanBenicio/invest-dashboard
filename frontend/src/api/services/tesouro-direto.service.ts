@@ -60,6 +60,8 @@ export interface ConciliacaoTesouro {
   eventos: { indice: number; dadosInterpretados: PreviaTesouro['movimentacoes'][number]['dadosInterpretados']; candidatos: string[] }[]
   transacoes: { id: string; tipo: string; data: string; quantidade: number; preco: number; posteriorBase: boolean }[]
   podeConfirmar: boolean
+  podeCriarPosicao: boolean
+  criarPosicao: boolean
 }
 
 export interface RevisaoTesouro {
@@ -122,7 +124,7 @@ export const tesouroDiretoService = {
     `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/conciliacao`, { ativoId },
   ),
   confirmar: (carteiraId: string, loteId: string, pedido: {
-    ativoId: string; carteiraVersao: number; revisoes: { indiceEvento: number; revisao: number }[]
+    ativoId: string | null; criarPosicao: boolean; carteiraVersao: number; revisoes: { indiceEvento: number; revisao: number }[]
   }) => api.post<RespostaApi<LoteTesouro>>(
     `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/confirmacao`, pedido,
   ),

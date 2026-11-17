@@ -1,6 +1,6 @@
 # Plano — refinamento da importação e dos dados de mercado do Tesouro Direto
 
-- Estado: em andamento; a confirmação transacional de extratos HTML conciliados foi implementada. Criação inicial por XLSX, ativos sem posição e atualização por cotação pública permanecem pendentes.
+- Estado: em andamento; confirmação transacional HTML está sendo ampliada para criação inicial de posição. Avaliação por cotação pública permanece pendente. XLSX foi adiado pelo usuário.
 - Iniciativa relacionada: [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53), etapas [#54](https://github.com/JonathanBenicio/invest-dashboard/issues/54) a [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58); todas estavam abertas na consulta de 14/11/2026, com descrições ainda baseadas no escopo anterior.
 - ADR: pendente para identidade, base temporal, reconciliação e avaliações. Story: pendente.
 - Baseline observado: branch `codex/homologacao-autenticacao-real`, `f85ae79`, em 13/11/2026; havia alterações prévias indexadas e não indexadas, inclusive no plano existente.
@@ -61,7 +61,7 @@ Critérios futuros: reimportar sem duplicar; preservar histórico e operações 
 
 A confirmação aplica a revisão vigente a uma posição existente do Tesouro com título e vencimento compatíveis. O fluxo usa uma transação serializável para registrar os eventos oficiais, trocar a base ativa e reconstruir a posição a partir dos lançamentos manuais posteriores. Repetições do mesmo lote reaproveitam o resultado confirmado. Operações originais e eventos oficiais ficam disponíveis para auditoria. O endpoint de eventos é por lote, sem somar observações de extratos sobrepostos.
 
-A confirmação aceita HTML com posição e movimentos reconhecidos, desde que título e vencimento correspondam a uma posição Tesouro já cadastrada. O XLSX permanece somente na prévia, e ativos ainda não cadastrados não podem ser criados por confirmação. A API recusa campos essenciais ausentes, divergências de versão e operações manuais sem correspondência no intervalo da nova base. O histórico anterior à base é sinalizado como incompleto quando os dados não permitem reconstruí-lo. A avaliação por cotação pública permanece separada.
+A confirmação aceita HTML com posição e movimentos reconhecidos, desde que título e vencimento correspondam a uma posição Tesouro já cadastrada. A confirmação ainda exige posição existente. O próximo passo é permitir criação inicial a partir dos dados completos do HTML. O usuário adiou XLSX para etapa futura. A API recusa campos essenciais ausentes, divergências de versão e operações manuais sem correspondência no intervalo da nova base. O histórico anterior à base é sinalizado como incompleto quando os dados não permitem reconstruí-lo. A avaliação por cotação pública permanece separada.
 
 A solução .NET passou com 154 testes unitários e 101 de integração em PostgreSQL 15 isolado, incluindo confirmação concorrente e repetição do lote. Duas verificações externas foram ignoradas. Seis testes Playwright direcionados passaram com respostas sintéticas, além de TypeScript e ESLint direcionado. A CI do PR #62 passou antes desta confirmação e precisa ser reexecutada após publicar a continuação.
 

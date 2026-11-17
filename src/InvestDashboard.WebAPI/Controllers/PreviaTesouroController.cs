@@ -57,7 +57,7 @@ public sealed class PreviaTesouroController(ICarteiraAppService carteiras, ILeit
 
             var nome = HeaderUtilities.RemoveQuotes(disposition.FileNameStar.HasValue ? disposition.FileNameStar : disposition.FileName).Value;
             var extensao = Path.GetExtension(nome ?? string.Empty).ToLowerInvariant();
-            if (extensao is not (".html" or ".htm" or ".xlsx")) return ArquivoInvalido();
+            if (extensao is not (".html" or ".htm")) return ArquivoInvalido();
 
             await using var arquivo = new MemoryStream();
             var buffer = new byte[81920];

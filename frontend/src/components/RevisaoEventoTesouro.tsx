@@ -15,7 +15,7 @@ const descrever = (item: Transacao) => {
 }
 
 export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVersao, indiceEvento, tipoEvento, motivosSemVinculo, candidatos, transacoes, onRevisao, bloqueado }: {
-  carteiraId: string; loteId: string; ativoId: string; carteiraVersao: number; indiceEvento: number
+  carteiraId: string; loteId: string; ativoId: string | null; carteiraVersao: number; indiceEvento: number
   tipoEvento: 'Buy' | 'Sell' | null; motivosSemVinculo: string[]; candidatos: string[]; transacoes: Transacao[]
   onRevisao: (revisao: RevisaoTesouro | null) => void; bloqueado: boolean
 }) {

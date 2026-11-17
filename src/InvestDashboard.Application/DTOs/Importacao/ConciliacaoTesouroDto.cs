@@ -20,4 +20,6 @@ public sealed record ConciliacaoTesouroDto(
     [property: JsonPropertyName("eventos")] IReadOnlyList<EventoConciliacaoTesouroDto> Eventos,
     [property: JsonPropertyName("transacoes")] IReadOnlyList<TransacaoConciliacaoTesouroDto> Transacoes,
     [property: JsonPropertyName("podeConfirmar")] bool PodeConfirmar,
-    [property: JsonPropertyName("dataBaseAtiva")] DateOnly? DataBaseAtiva = null);
+    [property: JsonPropertyName("dataBaseAtiva")] DateOnly? DataBaseAtiva = null,
+    [property: JsonPropertyName("podeCriarPosicao")] bool PodeCriarPosicao = false,
+    [property: JsonPropertyName("criarPosicao")] bool CriarPosicao = false);

@@ -35,7 +35,8 @@ public sealed class LotesTesouroController(
     ILeitorPreviaTesouro leitor,
     IRepositorioLoteImportacaoTesouro lotes,
     IEventoOficialTesouroRepository eventos,
-    InvestDbContext db, ITransacaoRepository transacoes, ITransacaoAppService transacaoApp) : ControllerBase
+    InvestDbContext db, ITransacaoRepository transacoes, ITransacaoAppService transacaoApp,
+    IAtivoRepository ativos) : ControllerBase
 {
     [HttpGet("{loteId:guid}/eventos")]
     public async Task<IActionResult> ListarEventos(Guid carteiraId, Guid loteId, CancellationToken cancellationToken,
@@ -66,7 +67,8 @@ public sealed class LotesTesouroController(
     {
         Response.Headers.CacheControl = "no-store";
         if (usuario.UserId is not Guid autor) return NotFound();
-        if (pedido.AtivoId == Guid.Empty || pedido.CarteiraVersao < 0 || pedido.Revisoes is null ||
+        if ((pedido.AtivoId == Guid.Empty) || (pedido.CriarPosicao == pedido.AtivoId.HasValue) ||
+            pedido.CarteiraVersao < 0 || pedido.Revisoes is null ||
             pedido.Revisoes.Count > 10_000 || pedido.Revisoes.Any(r => r is null || r.IndiceEvento < 0 || r.Revisao < 1) ||
             pedido.Revisoes.Select(r => r.IndiceEvento).Distinct().Count() != pedido.Revisoes.Count)
             return BadRequest();
@@ -88,25 +90,47 @@ public sealed class LotesTesouroController(
                     x.AtivoId != pedido.AtivoId || !esperadas.TryGetValue(x.IndiceEvento, out var revisao) || revisao != x.Revisao))
                 return Conflito("Revise novamente as movimentações e a versão da carteira.");
             if (lote.Estado == "Confirmado")
-                return await bases.AnyAsync(x => x.LoteId == loteId && x.AtivoId == pedido.AtivoId, ct)
+                return await bases.AnyAsync(x => x.LoteId == loteId && (!pedido.AtivoId.HasValue || x.AtivoId == pedido.AtivoId), ct)
                     ? Ok(new RespostaApi<LoteTesouroResposta>(Mapear(lote))) : Conflito("O lote já foi confirmado para outro ativo.");
             if (lote.Estado != "Pendente" || carteira.Version != pedido.CarteiraVersao)
                 return Conflito("A carteira ou o lote mudou após a revisão.");
 
             var previa = Mapear(lote).Previa;
-            var ativo = carteira.Positions.SingleOrDefault(x => x.AtivoId == pedido.AtivoId)?.Ativo as RendaFixa;
-            if (!ConfirmacaoTesouro.TituloCompativel(previa, ativo) || lote.DataReferencia > DataCivil(DateTime.UtcNow))
-                return Conflito("O título, o vencimento e a data de referência precisam corresponder à posição do Tesouro.");
-            if (previa.Movimentacoes.Count != vigentes.Count ||
+            if (lote.DataReferencia > DataCivil(DateTime.UtcNow) ||
+                previa.Movimentacoes.Count != vigentes.Count ||
                 !ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out var saldoCalculado))
-                return Conflito("O extrato contém lacunas, posições inválidas ou movimentações sem revisão.");
+                return Conflito("O extrato contém lacunas, posições inválidas, movimentações sem revisão ou data futura.");
 
-            var anterior = await bases.SingleOrDefaultAsync(x => x.CarteiraId == carteiraId && x.AtivoId == pedido.AtivoId && x.Ativa, ct);
+            var ativoId = pedido.AtivoId;
+            if (pedido.CriarPosicao)
+            {
+                var candidato = ConfirmacaoTesouro.CriarAtivoInicial(previa, saldoCalculado.PrecoUnitario);
+                if (candidato is null || carteira.Positions.Any(p =>
+                        string.Equals(p.Ticker, candidato.Ticker, StringComparison.OrdinalIgnoreCase)))
+                    return Conflito("Os dados do HTML não permitem criar uma posição nova ou o título já está na carteira.");
+                var existente = await ativos.GetByTickerAsync(candidato.Ticker, ct);
+                var ativoExistente = existente as RendaFixa;
+                if (existente is not null && !ConfirmacaoTesouro.TituloCompativel(previa, ativoExistente))
+                    return Conflito("O identificador do título já está associado a outro ativo.");
+                var ativoNovo = ativoExistente ?? candidato;
+                if (ativoExistente is null) await ativos.AddAsync(ativoNovo, ct);
+                ativoId = ativoNovo.Id;
+                // Persistir o ativo dentro da mesma transação para que a reconstrução do ledger o encontre.
+                if (ativoExistente is null) await db.SaveChangesAsync(ct);
+            }
+            else
+            {
+                var ativo = carteira.Positions.SingleOrDefault(x => x.AtivoId == ativoId)?.Ativo as RendaFixa;
+                if (!ConfirmacaoTesouro.TituloCompativel(previa, ativo))
+                    return Conflito("O título e o vencimento do extrato precisam corresponder à posição do Tesouro.");
+            }
+
+            var anterior = await bases.SingleOrDefaultAsync(x => x.CarteiraId == carteiraId && x.AtivoId == ativoId && x.Ativa, ct);
             if (anterior is not null && anterior.DataReferencia >= lote.DataReferencia)
                 return Conflito("A data do extrato precisa ser posterior à da base ativa.");
 
             var manuais = (await transacoes.GetByPortfolioIdAsync(carteiraId, ct))
-                .Where(x => x.AtivoId == pedido.AtivoId && x.Type is TipoTransacao.Buy or TipoTransacao.Sell)
+                .Where(x => x.AtivoId == ativoId && x.Type is TipoTransacao.Buy or TipoTransacao.Sell)
                 .ToDictionary(x => x.Id);
             var vinculadas = new HashSet<Guid>();
             var oficiais = new List<EventoOficialTesouro>();
@@ -129,7 +153,7 @@ public sealed class LotesTesouroController(
                 }
                 else if (decisao.Decisao != "sem_vinculo" || decisao.TransacaoId.HasValue)
                     return Conflito("Uma revisão contém uma decisão inválida.");
-                oficiais.Add(new EventoOficialTesouro(Guid.NewGuid(), loteId, carteiraId, pedido.AtivoId,
+                oficiais.Add(new EventoOficialTesouro(Guid.NewGuid(), loteId, carteiraId, ativoId!.Value,
                     decisao.IndiceEvento, JsonSerializer.Serialize(evento), decisao.TransacaoId, agora));
             }
 
@@ -144,7 +168,7 @@ public sealed class LotesTesouroController(
                 anterior.Desativar();
                 await db.SaveChangesAsync(ct);
             }
-            var saldo = new BasePosicaoTesouro(Guid.NewGuid(), loteId, carteiraId, pedido.AtivoId,
+            var saldo = new BasePosicaoTesouro(Guid.NewGuid(), loteId, carteiraId, ativoId!.Value,
                 lote.DataReferencia, saldoCalculado.Quantidade, saldoCalculado.CustoTotal, saldoCalculado.PrecoUnitario);
             saldo.Ativar();
             db.Add(saldo);
@@ -212,7 +236,7 @@ public sealed class LotesTesouroController(
                 HeaderUtilities.RemoveQuotes(disposition.Name).Value != "arquivo") return ArquivoInvalido();
             var nome = HeaderUtilities.RemoveQuotes(disposition.FileNameStar.HasValue ? disposition.FileNameStar : disposition.FileName).Value;
             var extensao = Path.GetExtension(nome ?? string.Empty).ToLowerInvariant();
-            if (extensao is not (".html" or ".htm" or ".xlsx")) return ArquivoInvalido();
+            if (extensao is not (".html" or ".htm")) return ArquivoInvalido();
             await using var arquivo = new MemoryStream();
             var buffer = new byte[81920];
             int lidos;

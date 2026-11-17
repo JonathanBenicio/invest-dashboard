@@ -32,7 +32,21 @@ public sealed class ConciliacaoTesouroController(ICarteiraRepository carteiras, 
         var previa = JsonSerializer.Deserialize<PreviaTesouroDto>(lote.PreviaJson) ?? throw new InvalidOperationException("Prévia indisponível.");
         var historico = solicitacao.AtivoId.HasValue ? await transacoes.GetByPortfolioIdAsync(carteiraId, cancellationToken) : [];
         var resultado = ConciliaTesouro.Preparar(carteira, lote.DataReferencia, previa, solicitacao.AtivoId, historico);
-        if (solicitacao.AtivoId is not Guid ativoId) return Ok(new RespostaApi<ConciliacaoTesouroDto>(resultado));
+        if (solicitacao.AtivoId is not Guid ativoId)
+        {
+            var inicial = ConfirmacaoTesouro.CriarAtivoInicial(previa, 1m);
+            var jaExiste = inicial is not null && carteira.Positions.Any(p =>
+                string.Equals(p.Ticker, inicial.Ticker, StringComparison.OrdinalIgnoreCase));
+            var podeCriar = lote.Estado == "Pendente" && inicial is not null && !jaExiste &&
+                ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out _) &&
+                previa.Movimentacoes.All(m => ConfirmacaoTesouro.EventoCompleto(m.DadosInterpretados, lote.DataReferencia));
+            return Ok(new RespostaApi<ConciliacaoTesouroDto>(resultado with
+            {
+                PodeConfirmar = podeCriar,
+                PodeCriarPosicao = podeCriar,
+                CriarPosicao = true
+            }));
+        }
         var ativo = carteira.Positions.SingleOrDefault(p => p.AtivoId == ativoId)?.Ativo as RendaFixa;
         var ativa = (await bases.GetAtivasAsync(carteiraId, cancellationToken)).SingleOrDefault(b => b.AtivoId == ativoId);
         var podeConfirmar = lote.Estado == "Pendente" && ConfirmacaoTesouro.TituloCompativel(previa, ativo) &&

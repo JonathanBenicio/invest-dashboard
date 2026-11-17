@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using InvestDashboard.Application.DTOs.Importacao;
 using InvestDashboard.Domain.Aggregates.MarketData;
 using InvestDashboard.Domain.Aggregates.Trading;
@@ -8,6 +11,45 @@ namespace InvestDashboard.Application.Services;
 public static class ConfirmacaoTesouro
 {
     private const decimal LimiteBase = 9_999_999_999.99999999m;
+
+    public static RendaFixa? CriarAtivoInicial(PreviaTesouroDto previa, decimal precoUnitario)
+    {
+        if (previa.Formato != "html" || string.IsNullOrWhiteSpace(previa.Titulo) ||
+            !DateOnly.TryParseExact(previa.Vencimento, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var vencimento) ||
+            previa.Posicoes.Count == 0)
+            return null;
+
+        var titulo = previa.Titulo.Trim();
+        var normalizado = titulo.Normalize(NormalizationForm.FormD);
+        var indexador = normalizado.Contains("SELIC", StringComparison.OrdinalIgnoreCase) ? "SELIC"
+            : normalizado.Contains("IPCA", StringComparison.OrdinalIgnoreCase) ||
+              normalizado.Contains("RENDA+", StringComparison.OrdinalIgnoreCase) ||
+              normalizado.Contains("EDUCA+", StringComparison.OrdinalIgnoreCase) ? "IPCA"
+            : normalizado.Contains("IGPM", StringComparison.OrdinalIgnoreCase) ||
+              normalizado.Contains("IGP-M", StringComparison.OrdinalIgnoreCase) ? "IGPM"
+            : normalizado.Contains("PREFIXADO", StringComparison.OrdinalIgnoreCase) ? "PREFIXADO"
+            : null;
+        var contratos = previa.Posicoes.Select(p => p.DadosInterpretados?.RentabilidadeContratada.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (indexador is null || contratos.Length != 1 || string.IsNullOrWhiteSpace(contratos[0])) return null;
+        var contrato = contratos[0]!;
+        var taxas = Regex.Matches(contrato, @"([0-9]+(?:[.,][0-9]+)?)\s*%", RegexOptions.CultureInvariant);
+        if (taxas.Count == 0 || !decimal.TryParse(taxas[^1].Groups[1].Value.Replace(',', '.'),
+                NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var taxa))
+            return null;
+
+        var referencia = Encoding.UTF8.GetBytes($"{titulo}|{vencimento:yyyy-MM-dd}".ToUpperInvariant());
+        var ticker = "TD" + Convert.ToHexString(SHA256.HashData(referencia))[..12];
+        return new RendaFixa(Guid.NewGuid(), ticker, titulo, precoUnitario, DateTime.UtcNow,
+            indexador, taxa, vencimento.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), "Tesouro Nacional", "TESOURO_DIRETO");
+    }
+
+    public static bool TentarDerivarAtivoInicial(PreviaTesouroDto previa, decimal precoUnitario,
+        out RendaFixa? ativo)
+    {
+        ativo = CriarAtivoInicial(previa, precoUnitario);
+        return ativo is not null;
+    }
 
     public static bool TituloCompativel(PreviaTesouroDto previa, RendaFixa? ativo) =>
         ativo is not null && ativo.Subtype == "TESOURO_DIRETO" && previa.Formato == "html" &&
