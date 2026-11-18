@@ -37,6 +37,7 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Importação de extrato do Tesouro Direto](plan/tesouro-direto-extrato-plano.md) — iniciativa #53, em refinamento.
 - [Refinamento da importação e dos dados de mercado do Tesouro Direto](plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md) — implementação parcial e pendências.
 - [Avaliação atual de posições do Tesouro Direto](plan/avaliacao-liquida-tesouro-direto.md) — Issue #64, branch separada do PR #62; metodologia líquida ainda pendente.
+- [Comparação histórica de posições com CDI e outros ativos](plan/comparacao-historica-tesouro-cdi.md) — Issue #65, metodologia planejada fora do PR #62; XLSX excluído conforme decisão do usuário.
 - [Gestão de carteira](plan/carteira.md)
 - [Fechamento dos gaps das telas que usavam mocks](plan/mock-era-parity.md)
 - [Correções da revisão do PR #44](plan/pr-44-review-fixes.md) — planejado; isolamento de extratos, avaliação cronológica e indicadores com cotação atual.

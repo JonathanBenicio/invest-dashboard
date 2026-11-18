@@ -6,6 +6,7 @@
 - ADR: pendente para criação de posições, identidade de eventos, reimportação de snapshots e avaliação pública.
 - Plano detalhado: [refinamento da importação e dados de mercado](tesouro-direto-importacao-e-dados-mercado-refinamento.md).
 - Avaliação com cotação e líquido: [plano da Issue #64](avaliacao-liquida-tesouro-direto.md), em branch separada e fora do escopo do PR #62.
+- Comparação histórica com CDI/outros ativos: [plano da Issue #65](comparacao-historica-tesouro-cdi.md), separado do PR #62; XLSX segue adiado.
 
 ## Objetivo
 

@@ -17,6 +17,7 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 | US-PORT-003 | Avaliação atual de posições do Tesouro Direto | Proposta; rascunho parcial em branch separada | [Issue #64](https://github.com/JonathanBenicio/invest-dashboard/issues/64), [plano](plan/avaliacao-liquida-tesouro-direto.md) e [ADR-0003 proposta](adrs/0003-tesouro-market-valuation.md). PU base × quantidade mostra valor bruto de referência; tributos/taxas do extrato permanecem datados. Líquido não validado. |
 | US-SIM-001 | Simulação de investimentos | API/UI integradas; taxa informada manualmente | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs) recebe contrato PT-BR (`valorInicial`, `aporteMensal`, `taxaJurosAnual`) para estratégias determinística e Monte Carlo; frontend carrega estratégias da API (`nome/descricao`), exibe resultado e estado de erro. Seleção automática de taxa configurada ainda não integrada. |
 | US-COMP-001 | Análise de posições | Carteira/posições e CDI conectados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) lê carteira, posições, histórico e CDI diário do BCB SGS 12; normaliza ambas as séries em datas completas comuns e mostra origem/atualização. Ibovespa B3 foi movido a funcionalidade futura por decisão do usuário. |
+| US-COMP-002 | Comparação histórica da posição com CDI e outros ativos | Proposta; metodologia não aprovada | [Issue #65](https://github.com/JonathanBenicio/invest-dashboard/issues/65) e [plano](plan/comparacao-historica-tesouro-cdi.md). Método depende de definir fluxos, cupons, custos, período comum e lacunas. |
 | US-IMPORT-001 | Importação CSV de operações | Importador genérico implementado; layouts reais aguardam amostras | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê e valida CSV, envia operações com idempotência e atualiza consultas. [E2E](../frontend/e2e-real-api/csv-import.spec.ts) percorre a UI sem MSW e confirma transações/posições no PostgreSQL. [Plano de análise de CSVs de corretoras](plan/broker-csv-import-plan.md) define o procedimento por layout; faltam amostras reais anonimizadas. |
 
 ## US-AUTH-001 — Autenticação segura
@@ -110,6 +111,34 @@ O usuário aceitou o PU base público × quantidade como referência de valor br
 **Como** investidor, **quero** analisar valor, resultado, distribuição e histórico da carteira, **para** acompanhar minhas posições com dados atuais.
 
 **Estado:** CDI diário oficial do BCB é apresentado em comparação normalizada com a carteira usando dias completos comuns. Ibovespa B3 é uma funcionalidade futura; dias sem dados não são interpolados.
+
+## US-COMP-002 — Comparação histórica da posição com CDI e outros ativos
+
+- Estado: proposta; nenhuma metodologia ou implementação aprovada.
+- Issue: [#65](https://github.com/JonathanBenicio/invest-dashboard/issues/65); iniciativa relacionada: [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53).
+- ADR: pendente até escolher o método de retorno e o tratamento dos fluxos.
+- Plano: [comparação histórica de posições com CDI e outros ativos](plan/comparacao-historica-tesouro-cdi.md).
+
+**Como** investidor, **quero** comparar a evolução histórica de uma posição com CDI e outros ativos, **para** analisar sua performance usando critérios comparáveis.
+
+### Contexto e limites
+
+A análise atual normaliza valores e alinha observações comuns, mas isso não demonstra retorno ajustado por aportes, retiradas, vendas ou cupons. O método entre retorno ponderado pelo tempo e retorno ponderado por fluxo de caixa está pendente. Não apresentar série pessoal completa quando posição/ledger não cobrir o período. XLSX foi adiado e permanece excluído.
+
+### Critérios de aceite verificáveis
+
+- [ ] Dadas séries de posição e CDI, quando exibidas juntas, então período, base, fonte, frequência e método de retorno são informados. Evidência: contrato e revisão da interface.
+- [ ] Dados aportes, retiradas, vendas parciais e cupons, quando incluídos, então o método escolhido ajusta esses fluxos ou declara explicitamente sua exclusão. Evidência: casos sintéticos.
+- [ ] Dado período sem cotação/indicador, quando a série for exibida, então o intervalo permanece ausente e é identificado; nenhum ponto é interpolado sem regra aprovada. Evidência: teste de série incompleta.
+- [ ] Dada comparação bruta ou líquida, quando resultados forem mostrados, então custos/impostos são tratados de forma coerente e ficam explícitos. Evidência: exemplo reproduzível.
+- [ ] XLSX não é importado nem exigido por esta história. Evidência: escopo e plano.
+
+### Contratos, evidências e gaps
+
+- Ator: usuário autenticado com acesso à carteira.
+- Fontes candidatas: CDI SGS 12 e histórico CSV do Tesouro Transparente; demais ativos dependem de cobertura e ajustes adequados.
+- Persistência e contratos: pendentes da decisão metodológica; nenhuma série histórica pessoal nova será presumida.
+- Validação: não executada; apenas a comparação atual normalizada com CDI está implementada, sem comprovação de ajuste a fluxos.
 
 ## US-IMPORT-001 — Importação CSV de operações
 

@@ -5,6 +5,7 @@
 ## Iniciativas
 | [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53) | Importação e conciliação do Tesouro Direto | em andamento | [tesouro-direto-importacao-e-dados-mercado-refinamento.md](../docs/plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md) | PR #62 cobre confirmação HTML e criação inicial; reimportação posterior continua pendente. XLSX adiado. Avaliação por cotação segue na Issue #64. |
 | [#64](https://github.com/JonathanBenicio/invest-dashboard/issues/64) | Avaliação atual de posições do Tesouro Direto | em andamento | [avaliacao-liquida-tesouro-direto.md](../docs/plan/avaliacao-liquida-tesouro-direto.md) | Branch separada do PR #62. Cotação bruta e snapshot do extrato estão em rascunho; cálculo líquido depende de custos atuais e eventos reconciliados. |
+| [#65](https://github.com/JonathanBenicio/invest-dashboard/issues/65) | Comparação histórica com CDI e outros ativos | planejada | [comparacao-historica-tesouro-cdi.md](../docs/plan/comparacao-historica-tesouro-cdi.md) | Metodologia para fluxos, custos, calendário e lacunas pendente. XLSX fora do escopo por decisão do usuário. |
 
 
 | Identificador | Iniciativa (conforme arquivo) | Estado conhecido | Plano canônico | Observações |

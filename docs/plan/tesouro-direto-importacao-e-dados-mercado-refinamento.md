@@ -57,7 +57,7 @@ O serviço de transações reconstrói todas as posições da carteira a partir 
 
 Critérios futuros: reimportar sem duplicar; preservar histórico e operações após a data-base; sinalizar ausências sem remoção automática; confirmar associações e conflitos; impedir perda por reconstrução; isolar carteiras e grupos; informar origem e defasagem; manter histórico sem preenchimento fictício; preservar fluxo CSV existente. Validar com fixtures sintéticas, testes unitários, testes PostgreSQL de concorrência/rollback/autorização, integração com fontes simuladas e E2E para retomada, confirmação e erros. Comparações locais com amostras reais não devem publicar dados privados.
 
-O cálculo/avaliação com cotação pública está em branch e plano separados na [Issue #64](avaliacao-liquida-tesouro-direto.md), fora do PR #62. PU base × quantidade representa valor bruto de referência; tributos e taxas vindos do extrato mantêm a data do arquivo até que possam ser recalculados com dados atuais.
+O cálculo/avaliação com cotação pública está em branch e plano separados na [Issue #64](avaliacao-liquida-tesouro-direto.md), fora do PR #62. PU base × quantidade representa valor bruto de referência; tributos e taxas vindos do extrato mantêm a data do arquivo até que possam ser recalculados com dados atuais. Comparação histórica com CDI/outros ativos tem o [plano separado da Issue #65](comparacao-historica-tesouro-cdi.md); XLSX permanece adiado.
 
 ## Validação e pendências
 
