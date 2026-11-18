@@ -3,7 +3,7 @@
 Índice de iniciativas acompanhadas. O conteúdo do plano permanece em `docs/plan/`; esta lista registra somente identificação, estado documental conhecido e rastreabilidade. Estado de implementação/validação só deve avançar com evidência atual. O inventário inicial abaixo contém planos históricos existentes e não afirma que estejam ativos ou aprovados.
 
 ## Iniciativas
-| [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53) | Importação e conciliação do Tesouro Direto | em andamento | [tesouro-direto-importacao-e-dados-mercado-refinamento.md](../docs/plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md); [reimportação auditável](../docs/plan/tesouro-reimportacao-snapshots.md) | PR #62 cobre confirmação HTML e criação inicial; divergências entre snapshots e revisão de ausências seguem pendentes. XLSX adiado; avaliação pública tratada na Issue #64. |
+| [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53) | Importação e conciliação do Tesouro Direto | em andamento | [tesouro-direto-importacao-e-dados-mercado-refinamento.md](../docs/plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md); [reimportação auditável](../docs/plan/tesouro-reimportacao-snapshots.md) | PR #62 cobre criação e comparação HTML com revisão auditável; aceite de manual sem vínculo e E2E passaram localmente. Validação manual, rollback e ausência integral seguem pendentes. XLSX adiado; avaliação pública tratada na Issue #64. |
 
 
 | Identificador | Iniciativa (conforme arquivo) | Estado conhecido | Plano canônico | Observações |

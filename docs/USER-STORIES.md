@@ -91,7 +91,7 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 
 ## US-IMPORT-002 — Reimportação auditável de snapshots HTML
 
-- Estado: implementação parcial no PR #62; divergências e aceite de snapshot estão implementados, mas alguns conflitos e validação da interface permanecem pendentes.
+- Estado: implementação parcial no PR #62; comparação, revisão persistida, aceite de manual sem vínculo e validação E2E direcionada passaram localmente no commit `26aa337`. Validação manual e alguns casos de ausência/rollback permanecem pendentes.
 - Issues: [#55](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57](https://github.com/JonathanBenicio/invest-dashboard/issues/57) e [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58); iniciativa: [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53).
 - ADR: [0004 — revisão auditável de divergências entre snapshots](adrs/0004-tesouro-reimportacao-snapshots.md), proposta.
 - Plano: [reimportação auditável de snapshots do Tesouro Direto](plan/tesouro-reimportacao-snapshots.md).
@@ -100,13 +100,13 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 
 ### Contexto e limites
 
-O sistema já associa eventos HTML a movimentos manuais mediante revisão, mantém eventos por lote e ativa nova base em transação serializável. Um manual sem par bloqueia hoje toda a confirmação; o sistema não compara eventos/lotes com o lote anterior. O HTML não fornece identificador estável e um upload representa um título, portanto ausências são “não observadas neste snapshot”, não prova de exclusão.
+O sistema associa eventos HTML a movimentos manuais mediante revisão, compara lotes/eventos com o snapshot anterior e registra o aceite da nova base. Um manual sem par bloqueia até o usuário aceitar explicitamente a divergência; a transação fica preservada e não é reaplicada ao saldo novo. O HTML não fornece identificador estável e um upload representa um título, portanto ausências são “não observadas neste snapshot”, não prova de exclusão.
 
 ### Critérios de aceite verificáveis
 
-- [ ] Dado uma base e um lote anterior do mesmo título, quando um snapshot posterior for preparado, então quantidade/saldo anterior e proposto e registros potencialmente ausentes são exibidos para revisão. Evidência: testes com dois HTML sintéticos.
+- [x] Dado uma base e um lote anterior do mesmo título, quando um snapshot posterior for preparado, então quantidade/saldo anterior e proposto e registros potencialmente ausentes são exibidos para revisão. Evidência: testes direcionados de serviço/API com snapshots sintéticos no commit `3adef8c`.
 - [ ] Dado evento ambíguo ou duplicado, quando revisar a conciliação, então o sistema não escolhe nem deduplica automaticamente e preserva as alternativas. Evidência: teste multiconjunto.
-- [ ] Dado movimento manual sem evento correspondente, quando revisar o snapshot, então a confirmação fica bloqueada e a transação original permanece preservada. A resolução auditável desse conflito permanece pendente. Evidência: integração PostgreSQL.
+- [x] Dado movimento manual sem evento correspondente, quando revisar o snapshot, então a confirmação fica bloqueada até o usuário aceitar explicitamente a nova base; a transação original e o aceite permanecem auditáveis. Evidência: teste PostgreSQL e E2E direcionada passaram em 18/11/2026.
 - [ ] Dada divergência de snapshot, quando o usuário revisa, então o registro inclui autor, lote, versão da carteira, hash comparado e decisão; alteração posterior invalida a revisão. Evidência: teste de obsolescência/concorrência.
 - [ ] Dado upload de um título que não contém outro título da carteira, quando o snapshot for comparado, então nenhuma posição externa ao escopo do arquivo é removida nem classificada como encerrada. Evidência: teste multiativo.
 - [x] Dado posições válidas sem movimentos, quando o snapshot for confirmado, então a base pode ser atualizada sem criar movimento fictício. Evidência: teste de integração PostgreSQL em contêiner, 18/11/2026.
@@ -115,9 +115,9 @@ O sistema já associa eventos HTML a movimentos manuais mediante revisão, mant�
 ### Contratos, evidências e gaps
 
 - Autorização: usuário autenticado com permissão de gerenciar a carteira; revisar/reconfirmar a mesma versão.
-- Contrato: endpoints de prévia/conciliacão/revisão/confirmação existentes; contrato do diff de snapshot ainda pendente.
-- Persistência: revisão de movimento atual é append-only; a revisão de divergências precisa de persistência própria conforme ADR-0004.
-- Evidências: testes direcionados de criação inicial, snapshot sem movimentações e reimportação com divergência passaram em PostgreSQL em 18/11/2026. Movimento manual sem par continua bloqueando; E2E da tela, concorrência/rollback adicionais e ausência integral de posição permanecem pendentes. XLSX está adiado.
+- Contrato: endpoints de prévia, conciliação, revisão, consulta de auditoria e confirmação expõem comparação/hash de snapshot; aceite manual validado por integração PostgreSQL.
+- Persistência: revisão de movimentos e revisão de divergências são append-only; esta última é criada com o hash, autor, decisão, versão da carteira e data.
+- Evidências: criação inicial e snapshot sem movimentações passaram em PostgreSQL em 18/11/2026. A reimportação com bloqueio sem aceite, aceite explícito, preservação do manual e auditoria passou em PostgreSQL; os dois cenários E2E de conciliação também passaram. Validação manual, rollback e ausência integral permanecem pendentes. XLSX está adiado.
 - XLSX: adiado pelo usuário e fora desta história.
 
 ## Manutenção do catálogo
