@@ -36,7 +36,8 @@ public sealed class ConciliacaoTesouroController(ICarteiraRepository carteiras, 
         {
             var inicial = ConfirmacaoTesouro.CriarAtivoInicial(previa, 1m);
             var jaExiste = inicial is not null && carteira.Positions.Any(p =>
-                string.Equals(p.Ticker, inicial.Ticker, StringComparison.OrdinalIgnoreCase));
+                string.Equals(p.Ticker, inicial.Ticker, StringComparison.OrdinalIgnoreCase) ||
+                ConfirmacaoTesouro.TituloCompativel(previa, p.Ativo as RendaFixa));
             var podeCriar = lote.Estado == "Pendente" && inicial is not null && !jaExiste &&
                 ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out _) &&
                 previa.Movimentacoes.All(m => ConfirmacaoTesouro.EventoCompleto(m.DadosInterpretados, lote.DataReferencia));

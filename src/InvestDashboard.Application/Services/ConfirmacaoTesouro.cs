@@ -29,12 +29,12 @@ public static class ConfirmacaoTesouro
               normalizado.Contains("IGP-M", StringComparison.OrdinalIgnoreCase) ? "IGPM"
             : normalizado.Contains("PREFIXADO", StringComparison.OrdinalIgnoreCase) ? "PREFIXADO"
             : null;
-        var contratos = previa.Posicoes.Select(p => p.DadosInterpretados?.RentabilidadeContratada.Trim())
+        var contratos = previa.Posicoes.Select(p => p.DadosInterpretados?.RentabilidadeContratada?.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         if (indexador is null || contratos.Length != 1 || string.IsNullOrWhiteSpace(contratos[0])) return null;
         var contrato = contratos[0]!;
         var taxas = Regex.Matches(contrato, @"([0-9]+(?:[.,][0-9]+)?)\s*%", RegexOptions.CultureInvariant);
-        if (taxas.Count == 0 || !decimal.TryParse(taxas[^1].Groups[1].Value.Replace(',', '.'),
+        if (taxas.Count != 1 || !decimal.TryParse(taxas[0].Groups[1].Value.Replace(',', '.'),
                 NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var taxa))
             return null;
 
@@ -42,13 +42,6 @@ public static class ConfirmacaoTesouro
         var ticker = "TD" + Convert.ToHexString(SHA256.HashData(referencia))[..12];
         return new RendaFixa(Guid.NewGuid(), ticker, titulo, precoUnitario, DateTime.UtcNow,
             indexador, taxa, vencimento.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), "Tesouro Nacional", "TESOURO_DIRETO");
-    }
-
-    public static bool TentarDerivarAtivoInicial(PreviaTesouroDto previa, decimal precoUnitario,
-        out RendaFixa? ativo)
-    {
-        ativo = CriarAtivoInicial(previa, precoUnitario);
-        return ativo is not null;
     }
 
     public static bool TituloCompativel(PreviaTesouroDto previa, RendaFixa? ativo) =>

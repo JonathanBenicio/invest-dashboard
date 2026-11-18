@@ -83,19 +83,13 @@ public sealed class PreviaTesouroControllerTests
     }
 
     [Fact]
-    public async Task Xlsx_ExibeCamposDePosicaoSemGravar()
+    public async Task Xlsx_RetornaErroEnquantoFormatoEstiverAdiado()
     {
         using var factory = new CustomWebApplicationFactory();
         using var client = Autenticado(factory);
         var carteira = await CriarCarteira(client);
         using var resposta = await Postar(client, carteira, CriarPlanilha(), "extrato.xlsx");
-        resposta.StatusCode.Should().Be(HttpStatusCode.OK, await resposta.Content.ReadAsStringAsync());
-        using var json = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
-        var dados = json.RootElement.GetProperty("dados");
-        dados.GetProperty("formato").GetString().Should().Be("xlsx");
-        dados.GetProperty("posicoes")[0].GetProperty("camposBrutos").GetProperty("quantidade").GetString().Should().Be("1,2");
-        dados.GetProperty("movimentacoes").GetArrayLength().Should().Be(0);
-        dados.GetProperty("podeConfirmar").GetBoolean().Should().BeFalse();
+        resposta.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]

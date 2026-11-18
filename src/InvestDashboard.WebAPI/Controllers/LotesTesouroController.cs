@@ -106,7 +106,8 @@ public sealed class LotesTesouroController(
             {
                 var candidato = ConfirmacaoTesouro.CriarAtivoInicial(previa, saldoCalculado.PrecoUnitario);
                 if (candidato is null || carteira.Positions.Any(p =>
-                        string.Equals(p.Ticker, candidato.Ticker, StringComparison.OrdinalIgnoreCase)))
+                        string.Equals(p.Ticker, candidato.Ticker, StringComparison.OrdinalIgnoreCase) ||
+                        ConfirmacaoTesouro.TituloCompativel(previa, p.Ativo as RendaFixa)))
                     return Conflito("Os dados do HTML não permitem criar uma posição nova ou o título já está na carteira.");
                 var existente = await ativos.GetByTickerAsync(candidato.Ticker, ct);
                 var ativoExistente = existente as RendaFixa;
