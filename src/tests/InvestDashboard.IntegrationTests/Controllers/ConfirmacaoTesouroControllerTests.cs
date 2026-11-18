@@ -53,6 +53,7 @@ public sealed class ConfirmacaoTesouroControllerTests
                 <tr class="saldo-table-data-names"><td colspan="2">RENTABILIDADE CONTRATADA</td><td>VALOR BRUTO</td><td>TEMPO DA APLICAÇÃO</td><td>ALÍQUOTA</td><td colspan="2">IMPOSTO PREVISTO</td><td colspan="2">TAXA DEVIDA</td><td>VALOR LÍQUIDO</td></tr>
                 <tr class="saldo-table-data-names"><td>ANUALIZADA</td><td>ACUMULADA</td><td>I.R.</td><td>IOF</td><td>B3</td><td>INSTITUIÇÃO FINANCEIRA</td></tr>
                 <tr class="saldo-table-data-values"><td></td><td><span>02/03/2024</span></td><td><span>1,00</span></td><td><span>20,00</span></td><td><span>20,00</span></td><td><span>10,50%</span></td><td><span>10,50%</span></td><td><span>10,50%</span></td><td><span>22,00</span></td><td><span>1</span></td><td><span>22,50%</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>22,00</span></td></tr>
+                <tr class="saldo-table-data-values"><td></td><td><span>01/03/2024</span></td><td><span>1,00</span></td><td><span>20,00</span></td><td><span>20,00</span></td><td><span>12,00%</span></td><td><span>12,00%</span></td><td><span>12,00%</span></td><td><span>22,00</span></td><td><span>2</span></td><td><span>22,50%</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>22,00</span></td></tr>
               </tbody></table>
             </div>
             """;
@@ -102,14 +103,17 @@ public sealed class ConfirmacaoTesouroControllerTests
         var ativoCriado = await persistido.Assets.OfType<RendaFixa>().SingleAsync(a => a.Subtype == "TESOURO_DIRETO");
         ativoCriado.Name.Should().Be("Tesouro Prefixado 2035");
         ativoCriado.Indexer.Should().Be("PREFIXADO");
-        ativoCriado.InterestRate.Should().Be(10.50m);
+        ativoCriado.InterestRate.Should().BeNull();
         var baseCriada = await persistido.Set<BasePosicaoTesouro>().SingleAsync(b => b.LoteId == loteId);
         baseCriada.Ativa.Should().BeTrue();
-        baseCriada.Quantidade.Should().Be(1m);
-        baseCriada.CustoTotal.Should().Be(20m);
+        baseCriada.Quantidade.Should().Be(2m);
+        baseCriada.CustoTotal.Should().Be(40m);
         baseCriada.PrecoUnitario.Should().Be(22m);
         var carteira = await persistido.Portfolios.Include(x => x.Positions).SingleAsync(x => x.Id == carteiraId);
-        carteira.Positions.Should().ContainSingle().Which.CurrentValue.Should().Be(22m);
+        carteira.Positions.Should().ContainSingle().Which.CurrentValue.Should().Be(44m);
+        var lotePersistido = await persistido.Set<LoteImportacaoTesouro>().SingleAsync(x => x.Id == loteId);
+        var previaPersistida = JsonSerializer.Deserialize<PreviaTesouroDto>(lotePersistido.PreviaJson)!;
+        previaPersistida.Posicoes.Select(x => x.DadosInterpretados!.RentabilidadeContratada).Should().Equal("10,50%", "12,00%");
         var eventos = await persistido.Set<EventoOficialTesouro>().Where(e => e.LoteId == loteId).ToListAsync();
         eventos.Should().ContainSingle().Which.AtivoId.Should().Be(ativoCriado.Id);
     }

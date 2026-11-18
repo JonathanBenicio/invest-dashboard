@@ -1336,7 +1336,7 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("indexer");
 
-                    b.Property<decimal>("InterestRate")
+                    b.Property<decimal?>("InterestRate")
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("interest_rate");
 

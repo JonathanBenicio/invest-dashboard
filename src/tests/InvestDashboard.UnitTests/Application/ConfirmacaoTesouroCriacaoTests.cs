@@ -13,8 +13,22 @@ public sealed class ConfirmacaoTesouroCriacaoTests
 
         ativo.Should().NotBeNull();
         ativo!.Indexer.Should().Be("PREFIXADO");
-        ativo.InterestRate.Should().Be(10.50m);
+        ativo.InterestRate.Should().BeNull();
         ativo.MaturityDate.Should().Be(new DateTime(2035, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void CriaAtivoComTaxasDistintasSemDefinirTaxaCompartilhada()
+    {
+        var primeira = Previa("Tesouro Prefixado 2035", "10,50%");
+        var segunda = Previa("Tesouro Prefixado 2035", "12,00%");
+        var previa = primeira with { Posicoes = [primeira.Posicoes[0], segunda.Posicoes[0]] };
+
+        var ativo = ConfirmacaoTesouro.CriarAtivoInicial(previa, 22m);
+
+        ativo.Should().NotBeNull();
+        ativo!.InterestRate.Should().BeNull();
+        previa.Posicoes.Select(p => p.DadosInterpretados!.RentabilidadeContratada).Should().Equal("10,50%", "12,00%");
     }
 
     [Fact]

@@ -29,19 +29,20 @@ public static class ConfirmacaoTesouro
               normalizado.Contains("IGP-M", StringComparison.OrdinalIgnoreCase) ? "IGPM"
             : normalizado.Contains("PREFIXADO", StringComparison.OrdinalIgnoreCase) ? "PREFIXADO"
             : null;
-        var contratos = previa.Posicoes.Select(p => p.DadosInterpretados?.RentabilidadeContratada?.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        if (indexador is null || contratos.Length != 1 || string.IsNullOrWhiteSpace(contratos[0])) return null;
-        var contrato = contratos[0]!;
-        var taxas = Regex.Matches(contrato, @"([0-9]+(?:[.,][0-9]+)?)\s*%", RegexOptions.CultureInvariant);
-        if (taxas.Count != 1 || !decimal.TryParse(taxas[0].Groups[1].Value.Replace(',', '.'),
-                NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var taxa))
-            return null;
+        if (indexador is null) return null;
+        foreach (var linha in previa.Posicoes)
+        {
+            var contrato = linha.DadosInterpretados?.RentabilidadeContratada?.Trim();
+            if (string.IsNullOrWhiteSpace(contrato)) return null;
+            var taxas = Regex.Matches(contrato, @"([0-9]+(?:[.,][0-9]+)?)\s*%", RegexOptions.CultureInvariant);
+            if (taxas.Count != 1 || !decimal.TryParse(taxas[0].Groups[1].Value.Replace(',', '.'),
+                    NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out _)) return null;
+        }
 
         var referencia = Encoding.UTF8.GetBytes($"{titulo}|{vencimento:yyyy-MM-dd}".ToUpperInvariant());
         var ticker = "TD" + Convert.ToHexString(SHA256.HashData(referencia))[..12];
         return new RendaFixa(Guid.NewGuid(), ticker, titulo, precoUnitario, DateTime.UtcNow,
-            indexador, taxa, vencimento.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), "Tesouro Nacional", "TESOURO_DIRETO");
+            indexador, null, vencimento.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), "Tesouro Nacional", "TESOURO_DIRETO");
     }
 
     public static bool TituloCompativel(PreviaTesouroDto previa, RendaFixa? ativo) =>

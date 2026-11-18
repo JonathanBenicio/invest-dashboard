@@ -15,13 +15,13 @@ Permitir que o usuário crie ou atualize uma carteira com seu extrato do Tesouro
 
 | Área | Estado |
 |---|---|
-| Leitura de HTML e XLSX | Implementada para os layouts reconhecidos. Linhas não reconhecidas são mostradas para revisão. A cobertura total do arquivo não é presumida. |
+| Leitura de HTML | Implementada para o layout reconhecido. A cobertura total do arquivo não é presumida. XLSX não está habilitado para importação. |
 | Prévia e histórico de lotes | Implementados com carteira, autor, data de referência e retomada da prévia. O arquivo original não é persistido. |
 | Conciliação | Implementada para HTML, título e vencimento correspondentes a uma posição existente. Sugestões não são aceitas automaticamente. |
 | Confirmação | Transacional e idempotente para o mesmo lote. Registra eventos oficiais, associações revisadas e uma base temporal, e reconstrói a posição com operações posteriores. |
-| Criação inicial a partir de HTML | Pendente de implementação para ativos ainda não cadastrados na carteira. |
+| Criação inicial a partir de HTML | Implementada para dados essenciais reconhecidos. Testes sintéticos incluem duas aplicações com taxas diferentes; validação com arquivos reais permanece pendente. |
 | XLSX | Adiado pelo usuário, fora do escopo atual. |
-| Novos títulos sem posição cadastrada | Pendente de fluxo explícito de criação e identidade. |
+| Novos títulos sem posição cadastrada | O HTML pode criar uma posição para o título e vencimento identificados; taxas são preservadas nas linhas do extrato e não atribuídas como taxa única do título. |
 | Avaliação pela cotação pública | Consulta histórica do Tesouro está disponível, mas associação e atualização das posições não são automáticas. |
 | Comparação de desempenho e estimativas | Pendente de metodologia para aportes, retiradas, impostos e períodos incompletos. |
 
@@ -36,6 +36,8 @@ Permitir que o usuário crie ou atualize uma carteira com seu extrato do Tesouro
 
 ## Pendências e validação
 
-Adicionar testes específicos para a criação inicial HTML, validar reimportações de snapshots posteriores, manter XLSX adiado, definir reconciliação de taxas e eventos ausentes e decidir associação de cotações para avaliação da carteira. Atualizar a ADR e os critérios das issues quando essas partes forem completadas.
+Validar reimportações em cenários adicionais e na interface, tratar operações manuais sem correspondência e revisão de ausência integral da posição, manter XLSX adiado e implementar avaliação por cotação em etapa posterior ao PR #62. A projeção para Tesouro fica indisponível até haver cálculo por aplicação com dados conciliados.
 
 A branch `codex/tesouro-previa-e-cotacoes` foi validada pela CI do PR #62. A confirmação local acrescentou testes com PostgreSQL de concorrência e repetição. A validação mais recente passou com 154 testes unitários e 101 de integração, além de duas verificações externas ignoradas. Os seis testes Playwright direcionados, TypeScript e ESLint direcionado passaram com respostas sintéticas.
+
+Em 18/11/2026, testes direcionados no SDK .NET 10.0.401 e PostgreSQL 15 isolado passaram: seis testes unitários de criação e quatro integrações de confirmação/isolamento. O teste HTML cria uma posição com duas taxas de aplicação, mantendo os valores no lote; dois usuários com o mesmo ativo não recebem taxa legada compartilhada nem projeção baseada nela. A validação real e de interface continua pendente.

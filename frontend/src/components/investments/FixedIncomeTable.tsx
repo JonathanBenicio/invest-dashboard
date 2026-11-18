@@ -25,6 +25,11 @@ import { Badge } from "@/components/ui/badge"
 import { RendaFixaDto } from "@/api/dtos"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
+function formatarTaxa(asset: RendaFixaDto): string {
+  const taxa = asset.taxaJuros == null ? "Não informada" : `${asset.taxaJuros}%`
+  return asset.indexador ? `${taxa} · ${asset.indexador}` : taxa
+}
+
 interface FixedIncomeTableProps {
   data: RendaFixaDto[]
   groupNames?: Record<string, string>
@@ -163,7 +168,7 @@ export function FixedIncomeTable({
     {
       accessorKey: "taxaJuros",
       header: "Taxa",
-      cell: ({ row }) => <span className="text-sm">{row.original.taxaJuros}% {row.original.indexador}</span>,
+      cell: ({ row }) => <span className="text-sm">{formatarTaxa(row.original)}</span>,
     },
     {
       accessorKey: "dataVencimento",
@@ -355,7 +360,7 @@ export function FixedIncomeTable({
                       <p className="text-muted-foreground text-xs mb-1">Taxa</p>
                       <p className="font-medium flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
-                        {asset.taxaJuros}%
+                        {formatarTaxa(asset)}
                       </p>
                     </div>
                   </div>
