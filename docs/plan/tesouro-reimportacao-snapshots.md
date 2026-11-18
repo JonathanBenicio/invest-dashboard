@@ -33,7 +33,7 @@
 | [ ] Persistir revisão de divergências | ADR-0004, Issue #55, nova entidade/configuração e migration EF | Registro append-only inclui hash da comparação, autor, decisão, versão da carteira e data; revisão antiga não valida snapshot alterado | Parcial; migração aplicada em teste PostgreSQL isolado |
 | [ ] Expor revisão na prévia e no contrato | Serviço de diff, API de revisão e UI atual | Usuário vê posição/lote/evento ausente, conflito manual e saldo anterior/proposto antes de confirmar | Parcial em alterações locais; frontend ainda precisa de validação |
 | [ ] Integrar validação à confirmação | Decisões de eventos e de snapshot | Confirmação bloqueia revisão ausente/obsoleta; aceite atualiza base na mesma transação e preserva registros anteriores | Parcial; teste de dois snapshots passou, cobertura adicional pendente |
-| [ ] Permitir posição sem movimentações | Validação do saldo-base e cobertura de posição | Snapshot com lotes válidos e zero movimentos pode ser confirmado, sem fabricar eventos | Leitura e cálculo cobertos em teste unitário; confirmação HTTP ainda pendente |
+| [ ] Permitir posição sem movimentações | Validação do saldo-base e cobertura de posição | Snapshot com lotes válidos e zero movimentos pode ser confirmado, sem fabricar eventos | Teste de integração PostgreSQL passou; E2E de tela pendente |
 | [ ] Validar regressão e concorrência | Migração, API, UI e PostgreSQL isolado | Testes de segundo snapshot, ambiguidade, ausência, manual sem par, rollback, replay, concorrência e isolamento | Pendente |
 
 ## Critérios de aceite
@@ -49,12 +49,16 @@
 
 ## Validação
 
-O teste atual `HtmlCriaPosicaoInicial_ConfirmaSaldoBaseERegistraEventoOficial` passou em 18/11/2026 com SDK .NET 10.0.401 em contêiner e PostgreSQL 15 temporário. CI do PR #62 no commit `4fe4d0d` passou nos quatro jobs. Nenhuma validação dos critérios de reimportação abaixo foi executada.
+Testes direcionados passaram em 18/11/2026 com SDK .NET 10.0.401 em contêiner e PostgreSQL 15 temporário. Build Docker das imagens API/frontend e health checks locais passaram. Não acompanhei a CI por decisão do usuário; a validação manual da interface está com o usuário.
 
 | Verificação | Comando/método e ambiente | Estado | Evidência/limitação |
 |---|---|---|---|
-| Criação inicial HTML | teste de integração filtrado, PostgreSQL 15 temporário | passou | 1 teste passou; isso não cobre reimportação nem divergências |
-| Comparação de dois snapshots | teste de integração PostgreSQL `ConfirmacaoTesouroControllerTests` | passou | Inclui evento anterior não observado, manual sem vínculo bloqueado, vínculo posterior, substituição da base e leitura da auditoria; ainda faltam cenários de concorrência/rollback específicos |
+| Criação inicial HTML com eventos | teste de integração filtrado, PostgreSQL 15 temporário | passou | Upload, revisão, ativo, base, posição e evento oficial; não cobre tela |
+| Criação inicial HTML sem eventos | teste de integração filtrado, PostgreSQL 15 temporário | passou | Posição válida sem cartões de movimentação cria base sem evento fictício |
+| Reimportação de dois snapshots | teste de integração PostgreSQL `ConfirmacaoTesouroControllerTests` | passou | Ausência de evento é sinalizada, manual sem vínculo bloqueia, vínculo permite atualização, base anterior é desativada e auditoria fica consultável; rollback/concorrência específicos pendentes |
+| Diferentes taxas por aplicação e isolamento | testes de integração InMemory/PostgreSQL | passou | Duas linhas com 10,5% e 12% preservam taxas no lote; taxa global da posição Tesouro fica nula e não vaza entre duas carteiras. CDB continua usando taxa contratual. |
+| Unit tests direcionados | `ConfirmacaoTesouroCriacaoTests`, `ComparadorSnapshotTesouroTests`, `TesouroDiretoHtmlReaderTests` | passou | 20 testes passaram; inclui linhas com taxa múltipla, snapshot sem cartões, divergências e duplicatas |
+| Frontend | Docker Compose build com Bun e ESLint direcionado | passou | Build Vite passou; ESLint da conciliação/tabela passou. E2E manual da reimportação permanece pendente. |
 | Migration/rollback/concorrência | não executados | não executado | validar em PostgreSQL isolado depois da migration |
 | E2E de reimportação | não executado | não executado | Bun não está instalado no host; CI usa Bun e Playwright |
 
@@ -66,11 +70,11 @@ O teste atual `HtmlCriaPosicaoInicial_ConfirmaSaldoBaseERegistraEventoOficial` p
 | Um HTML representa um título, não a carteira inteira | Não é possível detectar automaticamente outros títulos ausentes | Não inferir remoção; planejar lote de vários arquivos se a carteira inteira precisar ser comparada | Limite atual da interface |
 | Movimento manual sem par não possui resolução intermediária | Atualização fica bloqueada ou pode perder a intenção do usuário | Requerer decisão auditável “incluído na nova base” ou cancelamento | Issue #57 aberta |
 | Revisão pode ficar obsoleta após concorrência | Confirmação aceita dados que o usuário não revisou | Hash do diff + versão da carteira + transação serializável | Pendente |
-| Snapshot sem movimentos não confirma mesmo com posição válida | Dados e custos da posição não podem ser atualizados | Separar “saldo de posição” de “movimentos extraídos”; permitir zero eventos somente após revisão | Gap confirmado no código |
+| Ausência integral de posição em HTML de um título | Não há saldo novo para aplicar nem escopo de carteira completa no arquivo | Manter base anterior e sinalizar fora do escopo daquele título; não inferir encerramento de outros títulos | Limite da fonte/contrato |
 
 ## Entrega e sincronização
 
-- Implementação/PR/commits: PR #62 contém upload, prévia e confirmação inicial; reimportação de divergências permanece pendente.
+- Implementação/PR/commits: PR #62 contém upload, prévia, confirmação inicial, comparação de snapshots e revisão auditável no commit `3adef8c`; taxas por aplicação no commit `43d8c14`; testes direcionados adicionais locais ainda aguardam CI/manual.
 - Relatório/evidências: resultado da criação inicial está registrado em [Issue #58](https://github.com/JonathanBenicio/invest-dashboard/issues/58).
-- Limitações restantes: resolução auditável para manual sem par, confirmação HTTP sem movimentos, concorrência/rollback específicos e validação frontend continuam pendentes.
+- Limitações restantes: resolução para manual sem par permanece bloqueante; não se infere ausência integral de outros títulos a partir de um HTML por título; E2E e validação manual pendentes.
 - Índices: ligar a Issues #55, #57, #58, Story US-IMPORT-002, ADR-0004, `docs/INDEX.md` e `conductor/tracks.md`.

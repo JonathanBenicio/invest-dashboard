@@ -2,8 +2,8 @@
 
 - Data: 2026-11-18
 - Estado da decisão: proposta
-- Implementação: parcial em alterações locais; branch `codex/tesouro-previa-e-cotacoes`
-- Validação: não executada
+- Implementação: parcial no PR #62, commit `3adef8c`
+- Validação: testes direcionados executados em PostgreSQL temporário e SDK .NET 10.0.401; ver plano vinculado
 - Issue: [#55 — contrato e regras de conciliação](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57 — persistir e reconciliar posições](https://github.com/JonathanBenicio/invest-dashboard/issues/57)
 - Story: [US-IMPORT-002](../USER-STORIES.md#us-import-002--reimportação-auditável-de-snapshots-html)
 - Plano: [reimportação auditável de snapshots](../plan/tesouro-reimportacao-snapshots.md)
@@ -47,12 +47,12 @@ O HTML é interpretado preliminarmente e não prova, por si só, cobertura compl
 
 ## Implementação
 
-- Estado e escopo implementado: parcial em alterações locais; comparação, aceite transacional e consulta da auditoria precisam de validação adicional.
-- Referências/PR/commits: Issues #55/#57/#58 e PR #62; implementação pendente.
-- Restante: revisão da proposta; entidade/configuração/migration; contrato do diff e da revisão; UI; testes PostgreSQL, rollback e E2E.
+- Estado e escopo implementado: diff de snapshots, hash, revisão persistida e aceite na confirmação; branch `codex/tesouro-previa-e-cotacoes`.
+- Referências/PR/commits: Issues #55/#57/#58; PR #62; commits `3adef8c` e `43d8c14`.
+- Restante: manual sem vínculo continua bloqueando; interface precisa de E2E/manual; mais casos de ausência integral, concorrência e rollback.
 
 ## Validação e gaps
 
 - Critérios de validação: comparações multiconjunto reproduzíveis; hash revalidado; revisão obsoleta recusada; rollback deixa base antiga ativa; auditoria mantém decisões anteriores; operação manual nunca é removida automaticamente.
-- Execuções e evidências reais: não executadas.
-- Limitações: cobertura incompleta do HTML e falta de ID estável impedem tratar o diff como prova. Um upload por título não permite reconciliar a coleção completa da carteira.
+- Execuções e evidências reais: testes unitários direcionados do comparador passaram; testes PostgreSQL de dois snapshots, revisão e bloqueio manual passaram em banco temporário em 18/11/2026. A leitura de HTML e confirmação de posição sem movimentos têm testes direcionados. Build da aplicação passou em Docker.
+- Limitações: cobertura incompleta do HTML e falta de ID estável impedem tratar o diff como prova. Um upload por título não permite reconciliar a coleção completa da carteira; manual sem vínculo continua bloqueado até tratamento posterior.
