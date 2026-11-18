@@ -18,6 +18,103 @@ namespace InvestDashboard.IntegrationTests.Controllers;
 public sealed class ConfirmacaoTesouroControllerTests
 {
     [RequiresPostgresFact]
+    public async Task HtmlCriaPosicaoInicial_ConfirmaSaldoBaseERegistraEventoOficial()
+    {
+        var connection = Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!;
+        await using var database = await IsolatedPostgresDatabase.CreateAsync(connection);
+        using var factory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString);
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            FakeAuthProvider.GenerateJwt(FakeAuthProvider.TestEmail));
+
+        var carteiraId = Guid.NewGuid();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+            db.Portfolios.Add(new Carteira(carteiraId, FakeAuthProvider.TestUserId.ToString(), "Carteira sintética"));
+            await db.SaveChangesAsync();
+        }
+
+        const string html = """
+            <div class="td-custom-meus-investimentos-titulo">
+              <h1 class="td-meus-investimentos-detalhe__titulo_card">Tesouro Prefixado 2035</h1>
+              <table><tbody><tr class="saldo-table-vencimento"><th><strong>VENCIMENTO: 01/01/2035</strong></th></tr></tbody></table>
+              <div class="td-posicao-detalhada__info">
+                <p class="td-posicao-detalhada__info__valor">Data: <span class="td-posicao-detalhada__info__data">02/03/2024</span></p>
+                <p class="td-posicao-detalhada__info__valor">Natureza: <span class="td-posicao-detalhada__info__data">Taxas</span></p>
+                <p class="td-posicao-detalhada__info__valor">Tipo: <span class="td-posicao-detalhada__info__data">Débito</span></p>
+                <p class="td-posicao-detalhada__info__valor">Quantidade: <span class="td-posicao-detalhada__info__data">-</span></p>
+                <p class="td-posicao-detalhada__info__valor">Preço (R$): <span class="td-posicao-detalhada__info__data">-</span></p>
+                <p class="td-posicao-detalhada__info__valor">Taxa (% a.a.): <span class="td-posicao-detalhada__info__data">-</span></p>
+                <p class="td-posicao-detalhada__info__valor">Valor (R$): <span class="td-posicao-detalhada__info__data">1,00</span></p>
+              </div>
+              <table><tbody>
+                <tr class="saldo-table-data-names"><td></td><td>DATA DA APLICAÇÃO</td><td>QUANTIDADE DE TÍTULOS</td><td>PREÇO DO TÍTULO NA APLICAÇÃO</td><td>VALOR INVESTIDO</td><td>RENTABILIDADE CONTRATADA</td></tr>
+                <tr class="saldo-table-data-names"><td colspan="2">RENTABILIDADE CONTRATADA</td><td>VALOR BRUTO</td><td>TEMPO DA APLICAÇÃO</td><td>ALÍQUOTA</td><td colspan="2">IMPOSTO PREVISTO</td><td colspan="2">TAXA DEVIDA</td><td>VALOR LÍQUIDO</td></tr>
+                <tr class="saldo-table-data-names"><td>ANUALIZADA</td><td>ACUMULADA</td><td>I.R.</td><td>IOF</td><td>B3</td><td>INSTITUIÇÃO FINANCEIRA</td></tr>
+                <tr class="saldo-table-data-values"><td></td><td><span>02/03/2024</span></td><td><span>1,00</span></td><td><span>20,00</span></td><td><span>20,00</span></td><td><span>10,50%</span></td><td><span>10,50%</span></td><td><span>10,50%</span></td><td><span>22,00</span></td><td><span>1</span></td><td><span>22,50%</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>0,00</span></td><td><span>22,00</span></td></tr>
+              </tbody></table>
+            </div>
+            """;
+
+        using var multipart = new MultipartFormDataContent();
+        multipart.Add(new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(html)), "arquivo", "extrato-sintetico.html");
+        using var upload = await client.PostAsync(
+            $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes?dataReferencia=2024-03-03", multipart);
+        upload.StatusCode.Should().Be(HttpStatusCode.Created, await upload.Content.ReadAsStringAsync());
+        using var loteJson = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
+        var loteId = loteJson.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
+        var loteRota = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{loteId}";
+
+        using var conciliacao = await client.PostAsJsonAsync($"{loteRota}/conciliacao", new { ativoId = (Guid?)null });
+        conciliacao.StatusCode.Should().Be(HttpStatusCode.OK, await conciliacao.Content.ReadAsStringAsync());
+        using var conciliacaoJson = JsonDocument.Parse(await conciliacao.Content.ReadAsStringAsync());
+        var dadosConciliacao = conciliacaoJson.RootElement.GetProperty("dados");
+        dadosConciliacao.GetProperty("podeCriarPosicao").GetBoolean().Should().BeTrue();
+        var carteiraVersao = dadosConciliacao.GetProperty("carteiraVersao").GetInt32();
+
+        using var revisao = await client.PostAsJsonAsync($"{loteRota}/revisoes", new
+        {
+            indiceEvento = 0,
+            decisao = "sem_vinculo",
+            ativoId = (Guid?)null,
+            transacaoId = (Guid?)null,
+            carteiraVersao,
+            revisaoAnterior = 0
+        });
+        revisao.StatusCode.Should().Be(HttpStatusCode.OK, await revisao.Content.ReadAsStringAsync());
+        using var revisaoJson = JsonDocument.Parse(await revisao.Content.ReadAsStringAsync());
+        var revisaoNumero = revisaoJson.RootElement.GetProperty("dados").GetProperty("revisao").GetInt32();
+
+        using var confirmacao = await client.PostAsJsonAsync($"{loteRota}/confirmacao", new
+        {
+            ativoId = (Guid?)null,
+            criarPosicao = true,
+            carteiraVersao,
+            revisoes = new[] { new { indiceEvento = 0, revisao = revisaoNumero } }
+        });
+        confirmacao.StatusCode.Should().Be(HttpStatusCode.OK, await confirmacao.Content.ReadAsStringAsync());
+        using var resultado = JsonDocument.Parse(await confirmacao.Content.ReadAsStringAsync());
+        resultado.RootElement.GetProperty("dados").GetProperty("estado").GetString().Should().Be("Confirmado");
+
+        using var scopeFinal = factory.Services.CreateScope();
+        var persistido = scopeFinal.ServiceProvider.GetRequiredService<InvestDbContext>();
+        var ativoCriado = await persistido.Assets.OfType<RendaFixa>().SingleAsync(a => a.Subtype == "TESOURO_DIRETO");
+        ativoCriado.Name.Should().Be("Tesouro Prefixado 2035");
+        ativoCriado.Indexer.Should().Be("PREFIXADO");
+        ativoCriado.InterestRate.Should().Be(10.50m);
+        var baseCriada = await persistido.Set<BasePosicaoTesouro>().SingleAsync(b => b.LoteId == loteId);
+        baseCriada.Ativa.Should().BeTrue();
+        baseCriada.Quantidade.Should().Be(1m);
+        baseCriada.CustoTotal.Should().Be(20m);
+        baseCriada.PrecoUnitario.Should().Be(22m);
+        var carteira = await persistido.Portfolios.Include(x => x.Positions).SingleAsync(x => x.Id == carteiraId);
+        carteira.Positions.Should().ContainSingle().Which.CurrentValue.Should().Be(22m);
+        var eventos = await persistido.Set<EventoOficialTesouro>().Where(e => e.LoteId == loteId).ToListAsync();
+        eventos.Should().ContainSingle().Which.AtivoId.Should().Be(ativoCriado.Id);
+    }
+
+    [RequiresPostgresFact]
     public async Task Confirmacao_RevalidaRevisoesEPreservaMovimentacaoPosteriorSemDuplicarEventos()
     {
         var connection = Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!;
