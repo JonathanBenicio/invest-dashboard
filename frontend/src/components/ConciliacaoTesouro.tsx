@@ -29,11 +29,12 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
   const todosLancamentosVinculados = resultado?.transacoes.every(transacao =>
     transacao.posteriorBase || vinculos.includes(transacao.id) ||
     (!!resultado.dataBaseAtiva && data(transacao.data).split('/').reverse().join('-') <= resultado.dataBaseAtiva)) ?? false
+  const aceiteSnapshotVigente = resultado?.comparacaoSnapshot?.requerAceite === true && aceitarDivergencias
   const apto = resultado?.podeConfirmar === true
   const criarPosicao = selecionado === NOVA_POSICAO && resultado?.criarPosicao === true && resultado.ativoId === null
   const ativoSelecionado = criarPosicao ? resultado?.podeCriarPosicao === true : !!resultado?.ativoId && resultado.ativoId === selecionado
   const podeConfirmar = apto && ativoSelecionado &&
-    revisoesValidas && vinculosUnicos && todosLancamentosVinculados &&
+    revisoesValidas && vinculosUnicos && (todosLancamentosVinculados || aceiteSnapshotVigente) &&
     (!resultado?.comparacaoSnapshot?.requerAceite || aceitarDivergencias) && !ocupado && !confirmando
 
   async function confirmar() {
@@ -102,8 +103,8 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
         {resultado.comparacaoSnapshot && <div className="space-y-2 rounded-md border p-3">
           <h4 className="font-medium">Comparação com o saldo anterior</h4>
           <p>Quantidade da base anterior: {resultado.comparacaoSnapshot.dataBaseAnterior ? resultado.comparacaoSnapshot.quantidadeAnterior.toLocaleString('pt-BR') : 'sem base de extrato'} · Proposta: {resultado.comparacaoSnapshot.quantidadeProposta.toLocaleString('pt-BR')}</p>
-          <ul className="list-disc space-y-1 pl-5">{resultado.comparacaoSnapshot.divergencias.map((item, indice) => <li key={`${item.tipo}-${item.chave}-${indice}`}>{item.descricao}{item.anterior ? ` · ${item.anterior}` : ''}{item.atual ? ` · ${item.atual}` : ''}</li>)}</ul>
-          {resultado.comparacaoSnapshot.requerAceite && <label className="flex items-start gap-2"><input type="checkbox" checked={aceitarDivergencias} onChange={event => setAceitarDivergencias(event.target.checked)} /><span>Revisei as divergências e aceito a nova base. Os registros anteriores serão mantidos.</span></label>}
+          <ul className="list-disc space-y-1 pl-5">{resultado.comparacaoSnapshot.divergencias.map((item, indice) => <li key={`${item.tipo}-${item.chave}-${indice}`}>{item.descricao}{item.tipo === 'movimento_manual_na_janela' ? ' · confira esta operação nas movimentações abaixo' : item.anterior ? ` · ${item.anterior}` : ''}{item.atual && item.tipo !== 'movimento_manual_na_janela' ? ` · ${item.atual}` : ''}</li>)}</ul>
+          {resultado.comparacaoSnapshot.requerAceite && <label className="flex items-start gap-2"><input type="checkbox" checked={aceitarDivergencias} onChange={event => setAceitarDivergencias(event.target.checked)} /><span>Revisei as divergências e aceito o saldo proposto como base. Movimentos manuais anteriores sem vínculo não serão reaplicados ao saldo, mas seus registros serão mantidos na auditoria.</span></label>}
         </div>}
         {resultado.eventos.length === 0 ? <p role="status">Este snapshot não contém movimentações. A confirmação atualizará apenas o saldo da posição na data de referência.</p> : <ul className="space-y-3">{resultado.eventos.map(evento => {
           const movimento = evento.dadosInterpretados
@@ -132,7 +133,7 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
         </li>)}</ul>}
         {!apto && <p>O extrato ou a posição escolhida não atende aos critérios para confirmar. Confira o título, o vencimento, a data de referência e os campos não interpretados.</p>}
         {apto && !revisoesValidas && <p>Carregue ou salve uma revisão vigente para cada movimentação. Os vínculos precisam corresponder à data, ao tipo, à quantidade e ao preço.</p>}
-        {apto && revisoesValidas && !todosLancamentosVinculados && <p>Vincule os lançamentos manuais que o saldo do extrato vai substituir.</p>}
+        {apto && revisoesValidas && !todosLancamentosVinculados && !aceitarDivergencias && <p>Vincule os lançamentos manuais que o saldo do extrato vai substituir ou revise e aceite explicitamente as divergências do snapshot.</p>}
         {!vinculosUnicos && <p role="alert">O mesmo lançamento manual aparece em mais de uma revisão. Corrija os vínculos antes de confirmar.</p>}
         {criarPosicao && <p role="status">A posição será criada com o título, vencimento, indexador e taxa reconhecidos no HTML, além do saldo na data do extrato.</p>}
         <AlertDialog>

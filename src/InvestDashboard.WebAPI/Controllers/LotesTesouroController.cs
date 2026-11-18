@@ -159,8 +159,9 @@ public sealed class LotesTesouroController(
             }
             var comparacao = pedido.CriarPosicao ? null : ComparadorSnapshotTesouro.Preparar(loteId, lote.HashConteudo,
                 carteira.Version, lote.DataReferencia, previa, anterior, previaAnterior, manuais.Values.ToArray(), saldoCalculado.Quantidade);
-            if (comparacao?.RequerAceite == true && (!pedido.AceitarDivergencias ||
-                !string.Equals(comparacao.Hash, pedido.HashDivergencias, StringComparison.Ordinal)))
+            var snapshotAceito = comparacao?.RequerAceite == true && pedido.AceitarDivergencias &&
+                string.Equals(comparacao.Hash, pedido.HashDivergencias, StringComparison.Ordinal);
+            if (comparacao?.RequerAceite == true && !snapshotAceito)
                 return Conflito("Revise e aceite as divergências atuais do snapshot antes de confirmar.");
             var vinculadas = new HashSet<Guid>();
             var oficiais = new List<EventoOficialTesouro>();
@@ -188,7 +189,7 @@ public sealed class LotesTesouroController(
             }
 
             if (manuais.Values.Any(x => DataCivil(x.TransactionDate) <= lote.DataReferencia &&
-                (anterior is null || DataCivil(x.TransactionDate) > anterior.DataReferencia) && !vinculadas.Contains(x.Id)))
+                (anterior is null || DataCivil(x.TransactionDate) > anterior.DataReferencia) && !vinculadas.Contains(x.Id)) && !snapshotAceito)
                 return Conflito("Há operações manuais anteriores à data-base sem correspondência no extrato.");
 
             var comparacaoJson = comparacao?.RequerAceite == true ? JsonSerializer.Serialize(comparacao) : null;

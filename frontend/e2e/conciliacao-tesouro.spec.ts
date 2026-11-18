@@ -82,15 +82,20 @@ test('confirma um lote apto com a versão e as revisões exibidas', async ({ pag
       if (url.pathname.endsWith('/lotes/lote-1')) return json({ ...resumo, previa })
       if (url.pathname.endsWith('/lotes/lote-1/conciliacao')) {
         const { ativoId } = JSON.parse(String(init?.body))
-        return json({ carteiraVersao: 4, dataReferencia: resumo.dataReferencia, ativoId, ativos: [{ ativoId: 'ativo-1', ticker: 'TESOURO35' }],
-          eventos: [{ indice: 0, dadosInterpretados: movimento, candidatos: [] }], transacoes: [], podeConfirmar: !!ativoId })
+        return json({ carteiraVersao: 4, dataReferencia: resumo.dataReferencia, dataBaseAtiva: '2026-09-30', ativoId, ativos: [{ ativoId: 'ativo-1', ticker: 'TESOURO35' }],
+          eventos: [{ indice: 0, dadosInterpretados: movimento, candidatos: [] }],
+          transacoes: [{ id: 'manual-1', tipo: 'Buy', data: '2026-10-02T12:00:00Z', quantidade: 1, preco: 99, posteriorBase: false }],
+          podeConfirmar: !!ativoId,
+          comparacaoSnapshot: { hash: 'hash-snapshot-1', dataBaseAnterior: '2026-09-30', quantidadeAnterior: 1, quantidadeProposta: 2, requerAceite: true,
+            divergencias: [{ tipo: 'movimento_manual_na_janela', chave: 'manual-1', descricao: 'Movimento manual na janela da nova base. Revise seu vínculo; o registro será preservado.', anterior: 'Buy · 2026-10-02 · quantidade 1 · preço 99', atual: null }] } })
       }
       if (url.pathname.endsWith('/lotes/lote-1/revisoes/0'))
         return json([{ id: 'revisao-2', indiceEvento: 0, revisao: 2, decisao: 'sem_vinculo', ativoId: 'ativo-1', transacaoId: null, carteiraVersao: 4 }])
       if (url.pathname.endsWith('/lotes/lote-1/confirmacao')) {
         const pedido = JSON.parse(String(init?.body))
         if (init?.method !== 'POST' || pedido.ativoId !== 'ativo-1' || pedido.carteiraVersao !== 4 ||
-          pedido.revisoes?.length !== 1 || pedido.revisoes[0].indiceEvento !== 0 || pedido.revisoes[0].revisao !== 2)
+          pedido.revisoes?.length !== 1 || pedido.revisoes[0].indiceEvento !== 0 || pedido.revisoes[0].revisao !== 2 ||
+          pedido.aceitarDivergencias !== true || pedido.hashDivergencias !== 'hash-snapshot-1')
           return new Response(null, { status: 400 })
         return json({ ...resumo, previa, estado: 'Confirmado', confirmadoEmUtc: '2026-11-14T12:20:00Z' })
       }
@@ -114,6 +119,9 @@ test('confirma um lote apto com a versão e as revisões exibidas', async ({ pag
   const confirmar = page.getByRole('button', { name: 'Confirmar importação' })
   await expect(confirmar).toBeDisabled()
   await page.getByRole('button', { name: 'Revisar esta movimentação' }).click()
+  await expect(page.getByText('Revisão 2: sem vínculo com lançamento manual')).toBeVisible()
+  await expect(confirmar).toBeDisabled()
+  await page.getByLabel(/Revisei as divergências e aceito o saldo proposto como base/).check()
   await expect(confirmar).toBeEnabled()
   await confirmar.click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmar lote' }).click()

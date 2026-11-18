@@ -51,6 +51,18 @@ export interface ResumoLoteTesouro {
 
 export interface LoteTesouro extends ResumoLoteTesouro { previa: PreviaTesouro }
 
+export type TipoDivergenciaSnapshotTesouro =
+  | 'snapshot_anterior_indisponivel'
+  | 'movimento_manual_na_janela'
+  | 'saldo_nao_explicado'
+  | 'cobertura_nao_comprovada'
+  | 'movimento_sem_quantidade'
+  | 'lote_anterior_sem_identidade'
+  | 'lote_nao_observado'
+  | 'evento_ambiguo'
+  | 'evento_anterior_sem_identidade'
+  | 'evento_nao_observado'
+
 export interface ConciliacaoTesouro {
   carteiraVersao: number
   dataReferencia: string
@@ -68,7 +80,7 @@ export interface ConciliacaoTesouro {
     quantidadeAnterior: number
     quantidadeProposta: number
     requerAceite: boolean
-    divergencias: { tipo: string; chave: string; descricao: string; anterior: string | null; atual: string | null }[]
+    divergencias: { tipo: TipoDivergenciaSnapshotTesouro; chave: string; descricao: string; anterior: string | null; atual: string | null }[]
   } | null
 }
 

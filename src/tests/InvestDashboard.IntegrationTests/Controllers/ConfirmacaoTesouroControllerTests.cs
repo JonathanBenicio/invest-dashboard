@@ -325,27 +325,20 @@ public sealed class ConfirmacaoTesouroControllerTests
             carteiraVersao = versaoPosterior, revisaoAnterior = 0
         });
         semVinculo.StatusCode.Should().Be(HttpStatusCode.OK);
-        using var manualNaoConciliado = await client.PostAsJsonAsync($"{rotaPosterior}/confirmacao", new
+        using var semAceiteDivergencias = await client.PostAsJsonAsync($"{rotaPosterior}/confirmacao", new
         {
-            ativoId, carteiraVersao = versaoPosterior, revisoes = new[] { new { indiceEvento = 0, revisao = 1 } },
-            hashDivergencias = novoHash, aceitarDivergencias = true
+            ativoId, carteiraVersao = versaoPosterior, revisoes = new[] { new { indiceEvento = 0, revisao = 1 } }
         });
-        manualNaoConciliado.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        semAceiteDivergencias.StatusCode.Should().Be(HttpStatusCode.Conflict);
         using (var scopeBloqueio = factory.Services.CreateScope())
         {
             var dbBloqueio = scopeBloqueio.ServiceProvider.GetRequiredService<InvestDbContext>();
             (await dbBloqueio.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == loteId)).Ativa.Should().BeTrue();
             (await dbBloqueio.Set<RevisaoSnapshotTesouro>().AnyAsync(x => x.LoteId == lotePosteriorId)).Should().BeFalse();
         }
-        using var novaRevisao = await client.PostAsJsonAsync($"{rotaPosterior}/revisoes", new
-        {
-            indiceEvento = 0, decisao = "vincular", ativoId, transacaoId = posteriorId,
-            carteiraVersao = versaoPosterior, revisaoAnterior = 1
-        });
-        novaRevisao.StatusCode.Should().Be(HttpStatusCode.OK, await novaRevisao.Content.ReadAsStringAsync());
         using var novaConfirmacao = await client.PostAsJsonAsync($"{rotaPosterior}/confirmacao", new
         {
-            ativoId, carteiraVersao = versaoPosterior, revisoes = new[] { new { indiceEvento = 0, revisao = 2 } },
+            ativoId, carteiraVersao = versaoPosterior, revisoes = new[] { new { indiceEvento = 0, revisao = 1 } },
             hashDivergencias = novoHash, aceitarDivergencias = true
         });
         novaConfirmacao.StatusCode.Should().Be(HttpStatusCode.OK, await novaConfirmacao.Content.ReadAsStringAsync());
@@ -358,6 +351,10 @@ public sealed class ConfirmacaoTesouroControllerTests
         (await dbFinal.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == loteId)).Ativa.Should().BeFalse();
         (await dbFinal.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == lotePosteriorId)).Ativa.Should().BeTrue();
         (await dbFinal.Transactions.Select(x => x.Id).ToArrayAsync()).Should().BeEquivalentTo([manualId, posteriorId]);
+        var eventoPosterior = await dbFinal.Set<EventoOficialTesouro>().SingleAsync(x => x.LoteId == lotePosteriorId);
+        eventoPosterior.TransacaoId.Should().BeNull();
+        var revisaoSnapshot = await dbFinal.Set<RevisaoSnapshotTesouro>().SingleAsync(x => x.LoteId == lotePosteriorId);
+        revisaoSnapshot.DivergenciasJson.Should().Contain(posteriorId.ToString("N"));
 
         async Task VerificarPendente()
         {
