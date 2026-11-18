@@ -35,6 +35,6 @@ Permitir que o usuário crie ou atualize uma carteira com seu extrato do Tesouro
 
 ## Pendências e validação
 
-Validar criação inicial e reimportações de snapshots HTML posteriores, manter XLSX adiado, revisar reimportações de snapshots posteriores, definir reconciliação de taxas e eventos ausentes e decidir associação de cotações para avaliação da carteira. Atualizar a ADR e os critérios das issues quando essas partes forem completadas.
+Adicionar testes específicos para a criação inicial HTML, validar reimportações de snapshots posteriores, manter XLSX adiado, definir reconciliação de taxas e eventos ausentes e decidir associação de cotações para avaliação da carteira. Atualizar a ADR e os critérios das issues quando essas partes forem completadas.
 
 A branch `codex/tesouro-previa-e-cotacoes` foi validada pela CI do PR #62. A confirmação local acrescentou testes com PostgreSQL de concorrência e repetição. A validação mais recente passou com 154 testes unitários e 101 de integração, além de duas verificações externas ignoradas. Os seis testes Playwright direcionados, TypeScript e ESLint direcionado passaram com respostas sintéticas.
