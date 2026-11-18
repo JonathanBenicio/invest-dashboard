@@ -14,6 +14,7 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 | US-TAX-002 | Imposto de Renda | Estimativa mensal versionada implementada em escopo limitado | Endpoint `GET /api/v1/taxes/estimativa-mensal` e análise exibem estimativa, fonte, versão e limitações. Vendas recentes podem informar modalidade; dados legados/sem modalidade são excluídos e marcados incompletos. Revisão profissional antes de release. |
 | US-PORT-001 | Histórico patrimonial | Posições, cotações e avaliações manuais com histórico | API/UI exibem origem/horário, preservam o último valor com aviso e omitem histórico incompleto. Teste live do `BrapiMarketDataClient` cobriu cotação, histórico e busca reais; limites/token da conta contratada seguem pendentes. Avaliação manual persiste no PostgreSQL; autenticação Supabase real não tem conta de homologação. |
 | US-PORT-002 | Visualização e filtragem | Implementada; filtros combinados cobertos em teste | Endpoint oferece tipo, subtipo, emissor, setor, status, busca e paginação. Teste cobre filtros combinados, ordenação e paginação em InMemory e PostgreSQL; CI de `a9ad5ac` passou. |
+| US-PORT-003 | Avaliação atual de posições do Tesouro Direto | Proposta; rascunho parcial em branch separada | [Issue #64](https://github.com/JonathanBenicio/invest-dashboard/issues/64), [plano](plan/avaliacao-liquida-tesouro-direto.md) e [ADR-0003 proposta](adrs/0003-tesouro-market-valuation.md). PU base × quantidade mostra valor bruto de referência; tributos/taxas do extrato permanecem datados. Líquido não validado. |
 | US-SIM-001 | Simulação de investimentos | API/UI integradas; taxa informada manualmente | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs) recebe contrato PT-BR (`valorInicial`, `aporteMensal`, `taxaJurosAnual`) para estratégias determinística e Monte Carlo; frontend carrega estratégias da API (`nome/descricao`), exibe resultado e estado de erro. Seleção automática de taxa configurada ainda não integrada. |
 | US-COMP-001 | Análise de posições | Carteira/posições e CDI conectados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) lê carteira, posições, histórico e CDI diário do BCB SGS 12; normaliza ambas as séries em datas completas comuns e mostra origem/atualização. Ibovespa B3 foi movido a funcionalidade futura por decisão do usuário. |
 | US-IMPORT-001 | Importação CSV de operações | Importador genérico implementado; layouts reais aguardam amostras | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê e valida CSV, envia operações com idempotência e atualiza consultas. [E2E](../frontend/e2e-real-api/csv-import.spec.ts) percorre a UI sem MSW e confirma transações/posições no PostgreSQL. [Plano de análise de CSVs de corretoras](plan/broker-csv-import-plan.md) define o procedimento por layout; faltam amostras reais anonimizadas. |
@@ -65,6 +66,36 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 **Como** investidor, **quero** visualizar e filtrar ativos por classe, status ou instituição, **para** gerenciar recortes da carteira.
 
 **Gap:** O contrato inclui status e emissor além de tipo/subtipo/setor/busca. Combinação representativa, ordenação e paginação têm teste para InMemory e PostgreSQL; ambos passaram em CI. Cobertura de todas as combinações permanece pendente.
+
+## US-PORT-003 — Avaliação atual de posições do Tesouro Direto
+
+- Estado: proposta; rascunho local de consulta por posição em branch separada, sem commit ou validação.
+- Issue: [#64](https://github.com/JonathanBenicio/invest-dashboard/issues/64); iniciativa relacionada: [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53).
+- ADR: [0003 — cotação pública na avaliação de posições do Tesouro Direto](adrs/0003-tesouro-market-valuation.md), proposta.
+- Plano: [avaliação atual de posições do Tesouro Direto](plan/avaliacao-liquida-tesouro-direto.md).
+
+**Como** investidor, **quero** ver o valor bruto da posição do Tesouro Direto calculado com cotação pública e os dados do extrato identificados pela sua data, **para** acompanhar o mercado sem confundir observação histórica com líquido atual.
+
+### Contexto e limites
+
+O usuário aceitou o PU base público × quantidade como referência de valor bruto e os impostos/taxas do HTML como observações datadas. O campo `aliquotaIr` do extrato pode definir a faixa na data do documento; se já estiver em 15%, não é necessário recalcular o prazo desde a compra para escolher essa faixa. Para faixas maiores, a idade pode avançar por dias corridos entre a data do extrato e a cotação. O líquido deve ficar indisponível quando dados atuais de custos, lotes ou eventos forem insuficientes. A hipótese “dias úteis × 22%” não foi aprovada como fórmula; revalidar regra fiscal em fontes oficiais. Cotação pública não garante preço efetivo de venda.
+
+### Critérios de aceite verificáveis
+
+- [ ] Dado título/vencimento associado e posição atual, quando houver cotação oficial, então PU base, quantidade e valor bruto são exibidos com fonte/data sem exigir novo extrato. Evidência: testes API/interface.
+- [ ] Dado extrato confirmado, quando impostos e taxas forem exibidos, então seus valores preservam a data de referência e não são rotulados como encargos atuais. Evidência: contrato e revisão da interface.
+- [ ] Dado `aliquotaIr` e `diasCorridos` no extrato, quando a cotação for posterior, então 15% permanece como piso e as demais faixas avançam por dias corridos, sem usar dias úteis como prazo fiscal. Evidência: testes de transição por limite.
+- [ ] Dado custo ausente, cupom não reconciliado, operação posterior ou quantidade divergente, quando o líquido for solicitado, então fica indisponível com motivo e sem reutilizar taxa antiga como atual. Evidência: testes por cenário.
+- [ ] Dada uma compra/venda, quando a posição for consultada, então a quantidade atual é combinada à cotação sem criar transação nem alterar custo de aquisição. Evidência: teste de atualização e ledger.
+- [ ] Dado usuário sem acesso à carteira, quando consultar a posição, então nenhum dado pessoal da posição é revelado. Evidência: teste multiusuário.
+
+### Contratos, evidências e gaps
+
+- Ator/autorização: investidor autenticado; consulta limitada a carteiras acessíveis.
+- Contrato de API: pendente de validação; proposta registrada em `docs/API-CONTRACTS-PT-BR.md` após implementação.
+- Persistência: ADR-0003 propõe manter ledger e dados do extrato separados da cotação. Histórico público e comparação com CDI ficam em plano futuro.
+- Compatibilidade: CSV de operações permanece inalterado; XLSX foi adiado.
+- Evidências/gaps: revisão somente leitura encontrou risco de cupom e taxa histórica; ambos bloqueiam líquido atual. Frontend ajustou data `DateOnly` e invalidação após movimento. Build backend passou em contêiner .NET 10.0.401. O teste PostgreSQL da criação inicial HTML passou, mas não cobre o novo endpoint de avaliação; validação frontend e da cotação permanecem pendentes.
 
 ## US-SIM-001 — Simulação de investimentos
 

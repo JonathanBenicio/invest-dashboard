@@ -27,6 +27,7 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Registro histórico 0001: stack e padrão arquitetural](adrs/0001-core-tech-stack.md)
 - [ADRs existentes](adrs/) — localização canônica atual para novos ADRs; mantida para evitar movimentação desnecessária.
 - [Proposta: avaliações de renda fixa por posição](adrs/0002-position-scoped-valuations.md) — implementação validada localmente; status ainda proposto até revisão.
+- [ADR-0003: cotação pública na avaliação de posições do Tesouro Direto](adrs/0003-tesouro-market-valuation.md) — proposta; separação entre cotação de mercado, extrato e ledger pendente de revisão.
 
 **Pendência editorial:** o registro de stack em `docs/0002-monorepo-tech-stack.md` e `docs/adrs/0001-core-tech-stack.md` se sobrepõe e ambos se declaram aceitos; além disso, o identificador `0001` é usado para decisões diferentes. Os caminhos são listados explicitamente para desambiguar a navegação. Nenhum registro foi renumerado, movido ou declarado substituído; resolver status e eventual consolidação exige decisão dos responsáveis.
 
@@ -35,6 +36,7 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Plano de implementação da plataforma](plan/plan.md) (preexistente; confirmar premissas antes de reutilizar)
 - [Importação de extrato do Tesouro Direto](plan/tesouro-direto-extrato-plano.md) — iniciativa #53, em refinamento.
 - [Refinamento da importação e dos dados de mercado do Tesouro Direto](plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md) — implementação parcial e pendências.
+- [Avaliação atual de posições do Tesouro Direto](plan/avaliacao-liquida-tesouro-direto.md) — Issue #64, branch separada do PR #62; metodologia líquida ainda pendente.
 - [Gestão de carteira](plan/carteira.md)
 - [Fechamento dos gaps das telas que usavam mocks](plan/mock-era-parity.md)
 - [Correções da revisão do PR #44](plan/pr-44-review-fixes.md) — planejado; isolamento de extratos, avaliação cronológica e indicadores com cotação atual.
