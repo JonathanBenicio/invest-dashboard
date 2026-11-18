@@ -101,6 +101,35 @@ export interface CotacaoTesouroPublico {
   puBaseManha: number
 }
 
+export interface AvaliacaoPosicaoTesouroDto {
+  posicaoId: string
+  ativoId: string
+  ticker: string
+  titulo: string
+  dataVencimento: string
+  quantidade: number
+  origemCotacao: string | null
+  urlFonteCotacao: string | null
+  dataCotacao: string | null
+  coletadoEmUtc: string | null
+  puBase: number | null
+  valorBrutoMercado: number | null
+  dataExtrato: string | null
+  valorBrutoExtrato: number | null
+  impostoRendaExtrato: number | null
+  iofExtrato: number | null
+  valorLiquidoExtrato: number | null
+  dataTaxasExtrato: string | null
+  taxaCustodiaExtrato: number | null
+  taxaInstituicaoExtrato: number | null
+  impostoRendaEstimado: number | null
+  iofEstimado: number | null
+  dataCalculoImpostos: string | null
+  valorLiquidoEstimado: number | null
+  motivoLiquidoIndisponivel: string | null
+  avisos: string[]
+}
+
 export const tesouroDiretoService = {
   previa: (carteiraId: string, arquivo: File) => {
     const dados = new FormData()
@@ -139,4 +168,6 @@ export const tesouroDiretoService = {
     api.get<RespostaApi<MetadadosTesouro & { cotacoes: CotacaoTesouroPublico[] }>>('/tesouro-direto/cotacoes', {
       params: { tipoTitulo: titulo.tipoTitulo, dataVencimento: titulo.dataVencimento, dataDe, dataAte }, timeoutMs: 130_000,
     }),
+  avaliacao: (posicaoId: string) =>
+    api.get<RespostaApi<AvaliacaoPosicaoTesouroDto>>(`/investments/${encodeURIComponent(posicaoId)}/tesouro-direto/avaliacao`, { timeoutMs: 130_000 }),
 }

@@ -56,6 +56,7 @@ builder.Services.AddHttpClient<IInvitationEmailSender, SupabaseInvitationEmailSe
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<IEstimativaImpostoAppService, EstimativaImpostoAppService>();
 builder.Services.AddScoped<ILeitorPreviaTesouro, LeitorPreviaTesouro>();
+builder.Services.AddScoped<IAvaliacaoTesouroAppService, AvaliacaoTesouroAppService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<TesouroTransparenteCkanProvider>();
 builder.Services.AddSingleton<ITesouroTransparenteConsulta, TesouroTransparenteConsulta>();

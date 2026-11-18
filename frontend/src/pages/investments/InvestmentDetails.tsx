@@ -15,6 +15,7 @@ import { marketDataService } from "@/api/services/market-data.service"
 import { formatQuoteObservation, useMarketQuotes } from "@/hooks/use-market-quotes"
 import { transactionService } from "@/api/services/transaction.service"
 import { groupService } from "@/api/services/group.service"
+import { AvaliacaoTesouro, useAvaliacaoTesouro } from "@/components/AvaliacaoTesouro"
 import type { RegistrarTransacaoRequest } from "@/api/dtos/transacao.dto"
 import { formatCurrency, localDateInputToISOString, toLocalDateInputValue } from "@/lib/utils"
 import { ArrowLeft, BarChart3, CalendarDays, MinusCircle, PlusCircle, TrendingDown, TrendingUp, Wallet } from "lucide-react"
@@ -25,7 +26,13 @@ type TransactionAction = "Buy" | "Sell"
 type HistoricalPricePoint = { date: string; price: number }
 
 const money = (value: number) => formatCurrency(value)
-const dateLabel = (value: string) => new Intl.DateTimeFormat("pt-BR").format(new Date(value))
+const dateLabel = (value: string) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-").map(Number)
+    return new Intl.DateTimeFormat("pt-BR").format(new Date(year, month - 1, day))
+  }
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(value))
+}
 
 export default function InvestmentDetails() {
   const { id } = investmentDetailsRoute.useParams()
@@ -43,6 +50,8 @@ export default function InvestmentDetails() {
   const { data: investmentResponse, isLoading, isError } = useInvestment(id)
   const { data: transactionsResponse, isLoading: isLoadingTransactions, isError: isTransactionsError, refetch: refetchTransactions } = useInvestmentTransactions(id)
   const storedAsset = investmentResponse?.dados
+  const isTesouroDireto = storedAsset?.tipo === "fixed_income" && storedAsset.subtipo.toUpperCase() === "TESOURO_DIRETO"
+  const tesouroValuationQuery = useAvaliacaoTesouro(id, isTesouroDireto)
   const groupsQuery = useQuery({
     queryKey: ['portfolio-groups'],
     queryFn: groupService.list,
@@ -61,6 +70,18 @@ export default function InvestmentDetails() {
   const { quotesBySymbol, isLoading: isLoadingQuote } = useMarketQuotes(quoteTickers)
   const quote = storedAsset ? quotesBySymbol.get(storedAsset.ticker.toUpperCase()) : undefined
   const asset = useMemo(() => {
+    const treasuryValuation = tesouroValuationQuery.data?.dados
+    if (storedAsset?.tipo === "fixed_income" && storedAsset.subtipo.toUpperCase() === "TESOURO_DIRETO" && treasuryValuation?.puBase !== null && treasuryValuation?.puBase !== undefined) {
+      const currentValue = treasuryValuation.valorBrutoMercado ?? storedAsset.quantidade * treasuryValuation.puBase
+      const gain = currentValue - storedAsset.totalInvestido
+      return {
+        ...storedAsset,
+        precoAtual: treasuryValuation.puBase,
+        valorAtual: currentValue,
+        ganho: gain,
+        percentualGanho: storedAsset.totalInvestido > 0 ? (gain / storedAsset.totalInvestido) * 100 : 0,
+      }
+    }
     if (!storedAsset || !quote) return storedAsset
 
     const currentValue = storedAsset.quantidade * quote.preco
@@ -72,7 +93,7 @@ export default function InvestmentDetails() {
       ganho: gain,
       percentualGanho: storedAsset.totalInvestido > 0 ? (gain / storedAsset.totalInvestido) * 100 : 0,
     }
-  }, [quote, storedAsset])
+  }, [quote, storedAsset, tesouroValuationQuery.data])
   const transactions = transactionsResponse?.dados ?? []
   const requiresTaxModality = Boolean(storedAsset && storedAsset.tipo !== "fixed_income" &&
     ["ACAO", "STOCK", "FII"].includes(storedAsset.subtipo.toUpperCase()))
@@ -116,6 +137,7 @@ export default function InvestmentDetails() {
         queryClient.invalidateQueries({ queryKey: ["investment", id] }),
         queryClient.invalidateQueries({ queryKey: ["investments"] }),
         queryClient.invalidateQueries({ queryKey: ["portfolios"] }),
+        queryClient.invalidateQueries({ queryKey: ["tesouro-position-valuation", id] }),
       ])
       setDialogOpen(false)
       setQuantity("")
@@ -200,11 +222,13 @@ export default function InvestmentDetails() {
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Metric title="Valor da posição" value={money(asset.valorAtual)} icon={<Wallet className="h-4 w-4" />} detail={`${asset.quantidade} unidades`} />
+        <Metric title={isTesouroDireto ? "Valor bruto da posição" : "Valor da posição"} value={money(asset.valorAtual)} icon={<Wallet className="h-4 w-4" />} detail={isTesouroDireto ? tesouroValuationQuery.data?.dados.dataCotacao ? `${asset.quantidade} unidades · cotação ${dateLabel(tesouroValuationQuery.data.dados.dataCotacao)}` : tesouroValuationQuery.isLoading ? "Consultando PU base público..." : "Sem cotação atual; exibindo último valor salvo" : `${asset.quantidade} unidades`} />
         <Metric title="Custo da posição" value={money(asset.totalInvestido)} icon={<BarChart3 className="h-4 w-4" />} detail={`Preço médio ${money(asset.precoMedio)}`} />
-        <Metric title={isFixedIncome ? "Valor por unidade" : "Cotação atual"} value={money(asset.precoAtual)} icon={<CalendarDays className="h-4 w-4" />} detail={isFixedIncome ? "Atualizado por extrato" : quote ? formatQuoteObservation(quote.origem.toUpperCase(), quote.observadoEmUtc) : isLoadingQuote ? "Buscando cotação Brapi..." : "Cotação Brapi indisponível; último preço salvo"} />
+        <Metric title={isTesouroDireto ? "PU base atual" : isFixedIncome ? "Valor por unidade" : "Cotação atual"} value={money(asset.precoAtual)} icon={<CalendarDays className="h-4 w-4" />} detail={isTesouroDireto ? tesouroValuationQuery.data?.dados.origemCotacao ? `Tesouro Transparente · ${dateLabel(tesouroValuationQuery.data.dados.dataCotacao!)}` : "PU base da última atualização salva" : isFixedIncome ? "Atualizado por extrato" : quote ? formatQuoteObservation(quote.origem.toUpperCase(), quote.observadoEmUtc) : isLoadingQuote ? "Buscando cotação Brapi..." : "Cotação Brapi indisponível; último preço salvo"} />
         <Metric title="Resultado não realizado" value={money(asset.ganho)} icon={asset.ganho >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />} detail={`${asset.percentualGanho.toFixed(2)}%`} valueClass={gainClass} />
       </div>
+
+      {isTesouroDireto && <AvaliacaoTesouro value={tesouroValuationQuery.data?.dados} isLoading={tesouroValuationQuery.isLoading} isError={tesouroValuationQuery.isError} onRetry={() => void tesouroValuationQuery.refetch()} />}
 
       {isFixedIncome && <Card>
         <CardHeader><CardTitle>Estimativa até o vencimento</CardTitle></CardHeader>
