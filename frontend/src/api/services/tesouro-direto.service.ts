@@ -62,6 +62,14 @@ export interface ConciliacaoTesouro {
   podeConfirmar: boolean
   podeCriarPosicao: boolean
   criarPosicao: boolean
+  comparacaoSnapshot?: {
+    hash: string
+    dataBaseAnterior: string | null
+    quantidadeAnterior: number
+    quantidadeProposta: number
+    requerAceite: boolean
+    divergencias: { tipo: string; chave: string; descricao: string; anterior: string | null; atual: string | null }[]
+  } | null
 }
 
 export interface RevisaoTesouro {
@@ -125,6 +133,7 @@ export const tesouroDiretoService = {
   ),
   confirmar: (carteiraId: string, loteId: string, pedido: {
     ativoId: string | null; criarPosicao: boolean; carteiraVersao: number; revisoes: { indiceEvento: number; revisao: number }[]
+    hashDivergencias?: string | null; aceitarDivergencias?: boolean
   }) => api.post<RespostaApi<LoteTesouro>>(
     `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/confirmacao`, pedido,
   ),

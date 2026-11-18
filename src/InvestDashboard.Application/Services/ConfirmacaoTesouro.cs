@@ -55,7 +55,7 @@ public static class ConfirmacaoTesouro
     {
         saldo = default;
         if (previa.LinhasNaoInterpretadas.Count > 0 || previa.Posicoes.Count == 0 ||
-            previa.Movimentacoes.Count is 0 or > 10_000)
+            previa.Movimentacoes.Count > 10_000)
             return false;
         decimal quantidade = 0, custo = 0, bruto = 0;
         foreach (var linha in previa.Posicoes)

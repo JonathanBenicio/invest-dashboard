@@ -50,6 +50,18 @@ public sealed class ConciliacaoTesouroController(ICarteiraRepository carteiras, 
         }
         var ativo = carteira.Positions.SingleOrDefault(p => p.AtivoId == ativoId)?.Ativo as RendaFixa;
         var ativa = (await bases.GetAtivasAsync(carteiraId, cancellationToken)).SingleOrDefault(b => b.AtivoId == ativoId);
+        var loteAnterior = ativa is null ? null : await lotes.BuscarPorIdAsync(carteiraId, usuarioId.Value, ativa.LoteId, cancellationToken);
+        PreviaTesouroDto? previaAnterior = null;
+        if (loteAnterior is not null)
+        {
+            try { previaAnterior = JsonSerializer.Deserialize<PreviaTesouroDto>(loteAnterior.PreviaJson); }
+            catch (JsonException) { previaAnterior = null; }
+        }
+        var saldoAtual = ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out var saldoCalculado)
+            ? saldoCalculado.Quantidade : 0m;
+        var comparacaoSnapshot = ComparadorSnapshotTesouro.Preparar(loteId, lote.HashConteudo, carteira.Version,
+            lote.DataReferencia, previa, ativa, previaAnterior,
+            historico.Where(item => item.AtivoId == ativoId).ToArray(), saldoAtual);
         var podeConfirmar = lote.Estado == "Pendente" && ConfirmacaoTesouro.TituloCompativel(previa, ativo) &&
             (ativa is null || ativa.DataReferencia < lote.DataReferencia) &&
             ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out _) &&
@@ -57,7 +69,8 @@ public sealed class ConciliacaoTesouroController(ICarteiraRepository carteiras, 
         return Ok(new RespostaApi<ConciliacaoTesouroDto>(resultado with
         {
             PodeConfirmar = podeConfirmar,
-            DataBaseAtiva = ativa?.DataReferencia
+            DataBaseAtiva = ativa?.DataReferencia,
+            ComparacaoSnapshot = comparacaoSnapshot
         }));
     }
 }

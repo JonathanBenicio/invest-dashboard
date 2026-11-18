@@ -32,8 +32,6 @@ public sealed class TesouroDiretoHtmlReader
         // de scripts, constrói somente um DOM a partir dos bytes já recebidos.
         using var document = new HtmlParser().ParseDocument(html);
         var cartoes = document.QuerySelectorAll("div.td-posicao-detalhada__info");
-        if (cartoes.Length == 0)
-            throw new InvalidDataException("Estrutura de movimentações não reconhecida no arquivo HTML.");
 
         var containers = document.QuerySelectorAll("div.td-custom-meus-investimentos-titulo");
         if (containers.Length != 1 || EstaOculto(containers[0]) ||
@@ -81,7 +79,10 @@ public sealed class TesouroDiretoHtmlReader
             movimentacoes.Add(new TesouroDiretoHtmlMovimentacao(campos));
         }
 
-        return new TesouroDiretoHtmlExtrato(titulo, vencimento, movimentacoes, LerPosicoes(containers[0]));
+        var posicoes = LerPosicoes(containers[0]);
+        if (movimentacoes.Count == 0 && posicoes.Count == 0)
+            throw new InvalidDataException("Estrutura de posição ou movimentação não reconhecida no arquivo HTML.");
+        return new TesouroDiretoHtmlExtrato(titulo, vencimento, movimentacoes, posicoes);
     }
 
     private static IReadOnlyList<TesouroDiretoHtmlPosicao> LerPosicoes(IElement container)

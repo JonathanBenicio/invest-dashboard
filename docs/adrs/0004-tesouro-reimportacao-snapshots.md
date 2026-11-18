@@ -1,0 +1,58 @@
+# ADR-0004 — revisão auditável de divergências entre snapshots do Tesouro Direto
+
+- Data: 2026-11-18
+- Estado da decisão: proposta
+- Implementação: parcial em alterações locais; branch `codex/tesouro-previa-e-cotacoes`
+- Validação: não executada
+- Issue: [#55 — contrato e regras de conciliação](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57 — persistir e reconciliar posições](https://github.com/JonathanBenicio/invest-dashboard/issues/57)
+- Story: [US-IMPORT-002](../USER-STORIES.md#us-import-002--reimportação-auditável-de-snapshots-html)
+- Plano: [reimportação auditável de snapshots](../plan/tesouro-reimportacao-snapshots.md)
+
+> Esta proposta não declara uma divergência como verdadeira. O HTML pode não apresentar cobertura temporal completa e não oferece identificador estável de movimento; o sistema deve chamar a ausência de “não observada no snapshot” até o usuário revisá-la.
+
+## Contexto e problema
+
+O sistema persiste cada importação HTML como lote, permite revisar eventos por lote e usa uma base ativa por posição. Reimportar uma data posterior atualiza a base quando movimentos manuais do intervalo foram vinculados. Movimentos sem correspondência bloqueiam confirmação. Hoje não existe comparação entre os eventos/lotes da base anterior e a nova prévia, nem registro de revisão de posições/eventos ausentes. A confirmação também exige ao menos um movimento mesmo quando há posição válida.
+
+O HTML é interpretado preliminarmente e não prova, por si só, cobertura completa. A posição pode conter várias linhas de aquisição, e os cartões de movimento não expõem ID genérico estável. Comparar só valor/data pode confundir operações idênticas.
+
+## Decisão proposta
+
+- Comparar a prévia nova com o lote apontado pela base ativa do mesmo título/vencimento; comparar somente os escopos que o arquivo declara e não inferir posições de outros títulos.
+- Produzir um diff de linhas/eventos com correspondência multiconjunto por campos observáveis. Marcar registros ausentes como potenciais divergências, não removê-los nem deduplicá-los automaticamente.
+- Se houver divergências, bloquear a confirmação até o usuário revisar e aceitar a nova base. Manual sem par continua bloqueando a confirmação até haver correspondência revisada; tratamento alternativo continua pendente. Nenhum dos casos apaga transações ou eventos antigos.
+- Persistir a decisão de forma append-only com carteira, lote, autor, versão da carteira, hash do diff, ação e instante UTC. Uma nova prévia, diferença ou alteração da carteira invalida a revisão anterior.
+- Manter a base anterior ativa até que a nova base, eventos, decisão e rebuild sejam gravados na mesma transação serializável. Em falha, rollback mantém o estado anterior.
+- Permitir snapshot com posição válida e zero movimentos, desde que os dados da posição sejam interpretáveis e divergências/manuais tenham revisão explícita. Não inventar movimentos para satisfazer o fluxo.
+- Um único HTML por título não permite concluir que outro título da carteira está ausente. Comparação de carteira inteira exigirá um lote explícito com múltiplos arquivos ou fonte com cobertura da carteira.
+
+## Alternativas e trade-offs
+
+| Alternativa | Benefícios | Custos/riscos | Motivo da avaliação |
+|---|---|---|---|
+| Remover divergências/lançamentos ausentes automaticamente | Fluxo curto | Pode apagar posição legítima por HTML parcial e perde proveniência | Rejeitada conforme regra de produto do usuário |
+| Deduplicar eventos por data e valor | Implementação simples | Operações legítimas podem ser idênticas | Rejeitada |
+| Bloquear todo snapshot que contenha divergência sem mecanismo de revisão | Evita alteração incorreta | Deixa importação permanentemente travada em casos legítimos | Insuficiente |
+| Revisão explícita, versionada e persistida por hash do diff | Usuário controla a decisão e há trilha auditável; snapshots anteriores são preservados | Exige novo contrato/modelo/tabela, UI e migration PostgreSQL | Recomendada para revisão |
+
+## Consequências e migração
+
+- Application calcula diff sem escolher pares automaticamente; WebAPI expõe divergências e recebe a revisão; frontend destaca campos e exige ação antes de confirmar.
+- Será necessária nova entidade/tabela de revisão de snapshot ligada ao lote/carteira. O histórico anterior não será reescrito; decisões serão append-only. Incluir índice único por lote/hash/revisão e índice de consulta por lote/carteira.
+- O controller de confirmação precisa revalidar hash, autor, versão e revisão sob a mesma transação serializável que troca a base ativa.
+- PostgreSQL é requisito deste fluxo. EF InMemory não prova constraints, transação serializável, unique indexes ou rollback; testar a migration em banco PostgreSQL temporário.
+- A API preserva histórico manual e oficial. A revisão registra a comparação aceita. Movimento manual sem vínculo continua bloqueando a confirmação; uma resolução distinta depende de implementação futura.
+- Migração: tabela nova sem preenchimento de decisões antigas; lotes existentes continuam sem decisão de snapshot e só exigem revisão se forem reimportados depois da migration. Rollback remove a tabela nova, sem apagar lotes/eventos/base já existentes.
+- Não há inferência de posição ausente em outro título quando o upload contém só um título.
+
+## Implementação
+
+- Estado e escopo implementado: parcial em alterações locais; comparação, aceite transacional e consulta da auditoria precisam de validação adicional.
+- Referências/PR/commits: Issues #55/#57/#58 e PR #62; implementação pendente.
+- Restante: revisão da proposta; entidade/configuração/migration; contrato do diff e da revisão; UI; testes PostgreSQL, rollback e E2E.
+
+## Validação e gaps
+
+- Critérios de validação: comparações multiconjunto reproduzíveis; hash revalidado; revisão obsoleta recusada; rollback deixa base antiga ativa; auditoria mantém decisões anteriores; operação manual nunca é removida automaticamente.
+- Execuções e evidências reais: não executadas.
+- Limitações: cobertura incompleta do HTML e falta de ID estável impedem tratar o diff como prova. Um upload por título não permite reconciliar a coleção completa da carteira.

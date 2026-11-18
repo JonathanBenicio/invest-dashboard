@@ -17,6 +17,16 @@ public sealed class ConfirmacaoTesouroCriacaoTests
         ativo.MaturityDate.Should().Be(new DateTime(2035, 1, 1, 0, 0, 0, DateTimeKind.Utc));
     }
 
+    [Fact]
+    public void CalculaSaldoInicialDeSnapshotValidoSemMovimentacoes()
+    {
+        var previa = Previa("Tesouro Prefixado 2035", "10,50%");
+
+        ConfirmacaoTesouro.TentarCalcularSaldo(previa, new DateOnly(2024, 3, 3), out var saldo).Should().BeTrue();
+        saldo.Quantidade.Should().Be(1m);
+        saldo.CustoTotal.Should().Be(21m);
+    }
+
     [Theory]
     [InlineData("Tesouro Prefixado 2035", "10% a 12%")]
     [InlineData("Título desconhecido", "10%")]

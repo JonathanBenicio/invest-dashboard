@@ -5,6 +5,7 @@
 - PR: [#62](https://github.com/JonathanBenicio/invest-dashboard/pull/62), em revisão.
 - ADR: pendente para criação de posições, identidade de eventos, reimportação de snapshots e avaliação pública.
 - Plano detalhado: [refinamento da importação e dados de mercado](tesouro-direto-importacao-e-dados-mercado-refinamento.md).
+- Reimportação de snapshots: [plano auditável para comparação e revisão de divergências](tesouro-reimportacao-snapshots.md), ligado às Issues #55, #57 e #58.
 
 ## Objetivo
 

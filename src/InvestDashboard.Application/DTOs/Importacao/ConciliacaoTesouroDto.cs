@@ -12,6 +12,19 @@ public sealed record EventoConciliacaoTesouroDto(
     [property: JsonPropertyName("indice")] int Indice,
     [property: JsonPropertyName("dadosInterpretados")] DadosMovimentoTesouroDto? DadosInterpretados,
     [property: JsonPropertyName("candidatos")] IReadOnlyList<Guid> Candidatos);
+public sealed record DivergenciaSnapshotTesouroDto(
+    [property: JsonPropertyName("tipo")] string Tipo,
+    [property: JsonPropertyName("chave")] string Chave,
+    [property: JsonPropertyName("descricao")] string Descricao,
+    [property: JsonPropertyName("anterior")] string? Anterior,
+    [property: JsonPropertyName("atual")] string? Atual);
+public sealed record ComparacaoSnapshotTesouroDto(
+    [property: JsonPropertyName("hash")] string Hash,
+    [property: JsonPropertyName("dataBaseAnterior")] DateOnly? DataBaseAnterior,
+    [property: JsonPropertyName("quantidadeAnterior")] decimal QuantidadeAnterior,
+    [property: JsonPropertyName("quantidadeProposta")] decimal QuantidadeProposta,
+    [property: JsonPropertyName("divergencias")] IReadOnlyList<DivergenciaSnapshotTesouroDto> Divergencias,
+    [property: JsonPropertyName("requerAceite")] bool RequerAceite);
 public sealed record ConciliacaoTesouroDto(
     [property: JsonPropertyName("carteiraVersao")] int CarteiraVersao,
     [property: JsonPropertyName("dataReferencia")] DateOnly DataReferencia,
@@ -22,4 +35,5 @@ public sealed record ConciliacaoTesouroDto(
     [property: JsonPropertyName("podeConfirmar")] bool PodeConfirmar,
     [property: JsonPropertyName("dataBaseAtiva")] DateOnly? DataBaseAtiva = null,
     [property: JsonPropertyName("podeCriarPosicao")] bool PodeCriarPosicao = false,
-    [property: JsonPropertyName("criarPosicao")] bool CriarPosicao = false);
+    [property: JsonPropertyName("criarPosicao")] bool CriarPosicao = false,
+    [property: JsonPropertyName("comparacaoSnapshot")] ComparacaoSnapshotTesouroDto? ComparacaoSnapshot = null);

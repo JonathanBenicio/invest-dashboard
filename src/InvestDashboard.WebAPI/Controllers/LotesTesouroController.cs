@@ -61,6 +61,23 @@ public sealed class LotesTesouroController(
 
     private static readonly TimeZoneInfo FusoBrasil = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
 
+    [HttpGet("{loteId:guid}/revisao-snapshot")]
+    public async Task<IActionResult> RevisaoSnapshot(Guid carteiraId, Guid loteId, CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "no-store";
+        if (usuario.UserId is not Guid autor || !await PodeGerenciar(carteiraId, autor, ct)) return NotFound();
+        if (await lotes.BuscarPorIdAsync(carteiraId, autor, loteId, ct) is null) return NotFound();
+        var revisao = await db.Set<RevisaoSnapshotTesouro>().AsNoTracking()
+            .Where(x => x.CarteiraId == carteiraId && x.LoteId == loteId)
+            .OrderByDescending(x => x.CriadoEmUtc).FirstOrDefaultAsync(ct);
+        return revisao is null ? NotFound() : Ok(new RespostaApi<object>(new
+        {
+            revisao.AutorId, revisao.AtivoId, revisao.HashComparacao, revisao.Decisao,
+            revisao.CarteiraVersao, revisao.CriadoEmUtc,
+            Comparacao = JsonSerializer.Deserialize<ComparacaoSnapshotTesouroDto>(revisao.DivergenciasJson)
+        }));
+    }
+
     [HttpPost("{loteId:guid}/confirmacao")]
     public async Task<ActionResult<RespostaApi<LoteTesouroResposta>>> Confirmar(Guid carteiraId, Guid loteId,
         [FromBody] ConfirmarLoteTesouroDto pedido, CancellationToken ct)
@@ -133,6 +150,18 @@ public sealed class LotesTesouroController(
             var manuais = (await transacoes.GetByPortfolioIdAsync(carteiraId, ct))
                 .Where(x => x.AtivoId == ativoId && x.Type is TipoTransacao.Buy or TipoTransacao.Sell)
                 .ToDictionary(x => x.Id);
+            var loteAnterior = anterior is null ? null : await lotes.BuscarPorIdAsync(carteiraId, autor, anterior.LoteId, ct);
+            PreviaTesouroDto? previaAnterior = null;
+            if (loteAnterior is not null)
+            {
+                try { previaAnterior = JsonSerializer.Deserialize<PreviaTesouroDto>(loteAnterior.PreviaJson); }
+                catch (JsonException) { previaAnterior = null; }
+            }
+            var comparacao = pedido.CriarPosicao ? null : ComparadorSnapshotTesouro.Preparar(loteId, lote.HashConteudo,
+                carteira.Version, lote.DataReferencia, previa, anterior, previaAnterior, manuais.Values.ToArray(), saldoCalculado.Quantidade);
+            if (comparacao?.RequerAceite == true && (!pedido.AceitarDivergencias ||
+                !string.Equals(comparacao.Hash, pedido.HashDivergencias, StringComparison.Ordinal)))
+                return Conflito("Revise e aceite as divergências atuais do snapshot antes de confirmar.");
             var vinculadas = new HashSet<Guid>();
             var oficiais = new List<EventoOficialTesouro>();
             var agora = DateTime.UtcNow;
@@ -161,6 +190,13 @@ public sealed class LotesTesouroController(
             if (manuais.Values.Any(x => DataCivil(x.TransactionDate) <= lote.DataReferencia &&
                 (anterior is null || DataCivil(x.TransactionDate) > anterior.DataReferencia) && !vinculadas.Contains(x.Id)))
                 return Conflito("Há operações manuais anteriores à data-base sem correspondência no extrato.");
+
+            var comparacaoJson = comparacao?.RequerAceite == true ? JsonSerializer.Serialize(comparacao) : null;
+            if (comparacaoJson?.Length > 1_000_000)
+                return Conflito("A comparação contém divergências demais para ser confirmada. Divida a análise e contate o suporte.");
+            if (comparacao?.RequerAceite == true)
+                db.Add(new RevisaoSnapshotTesouro(Guid.NewGuid(), carteiraId, loteId, autor, ativoId!.Value,
+                    comparacao.Hash, comparacaoJson!, "aceitar_nova_base", carteira.Version, agora));
 
             // A restrição de base ativa é verificada pelo PostgreSQL a cada instrução.
             // Desative antes de inserir a nova base, mantendo as duas etapas na mesma transação.

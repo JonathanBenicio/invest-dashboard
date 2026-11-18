@@ -17,6 +17,7 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 | US-SIM-001 | Simulação de investimentos | API/UI integradas; taxa informada manualmente | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs) recebe contrato PT-BR (`valorInicial`, `aporteMensal`, `taxaJurosAnual`) para estratégias determinística e Monte Carlo; frontend carrega estratégias da API (`nome/descricao`), exibe resultado e estado de erro. Seleção automática de taxa configurada ainda não integrada. |
 | US-COMP-001 | Análise de posições | Carteira/posições e CDI conectados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) lê carteira, posições, histórico e CDI diário do BCB SGS 12; normaliza ambas as séries em datas completas comuns e mostra origem/atualização. Ibovespa B3 foi movido a funcionalidade futura por decisão do usuário. |
 | US-IMPORT-001 | Importação CSV de operações | Importador genérico implementado; layouts reais aguardam amostras | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê e valida CSV, envia operações com idempotência e atualiza consultas. [E2E](../frontend/e2e-real-api/csv-import.spec.ts) percorre a UI sem MSW e confirma transações/posições no PostgreSQL. [Plano de análise de CSVs de corretoras](plan/broker-csv-import-plan.md) define o procedimento por layout; faltam amostras reais anonimizadas. |
+| US-IMPORT-002 | Reimportação auditável de snapshots HTML | Proposta; comparação de divergências não implementada | Issues [#55](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57](https://github.com/JonathanBenicio/invest-dashboard/issues/57), [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58), [ADR-0004](adrs/0004-tesouro-reimportacao-snapshots.md) e [plano](plan/tesouro-reimportacao-snapshots.md). |
 
 ## US-AUTH-001 — Autenticação segura
 
@@ -87,6 +88,37 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 **Estado:** a implementação valida campos, números brasileiros, datas, compra/venda, compra de renda fixa, carteira de destino e idempotência por linha. Operações são enviadas ao endpoint real e as consultas são invalidadas após sucesso. O MSW usado no E2E da interface é uma fixture explícita. O teste PostgreSQL confirma o contrato HTTP, idempotência, rejeição de linha inválida e persistência do ledger entre hosts.
 
 **Gap:** validar parsing com extratos reais anonimizados de corretoras. O procedimento está em [broker-csv-import-plan.md](plan/broker-csv-import-plan.md). XLS/XLSX e conectores diretos de corretora não são suportados.
+
+## US-IMPORT-002 — Reimportação auditável de snapshots HTML
+
+- Estado: proposta; confirmação inicial está implementada, mas divergências entre snapshots e revisão auditável de ausências ainda não.
+- Issues: [#55](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57](https://github.com/JonathanBenicio/invest-dashboard/issues/57) e [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58); iniciativa: [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53).
+- ADR: [0004 — revisão auditável de divergências entre snapshots](adrs/0004-tesouro-reimportacao-snapshots.md), proposta.
+- Plano: [reimportação auditável de snapshots do Tesouro Direto](plan/tesouro-reimportacao-snapshots.md).
+
+**Como** investidor, **quero** importar um snapshot HTML posterior e revisar diferenças de posições, eventos e movimentos manuais, **para** atualizar o saldo sem perder operações ou apagar dados por ausência no arquivo.
+
+### Contexto e limites
+
+O sistema já associa eventos HTML a movimentos manuais mediante revisão, mantém eventos por lote e ativa nova base em transação serializável. Um manual sem par bloqueia hoje toda a confirmação; o sistema não compara eventos/lotes com o lote anterior. O HTML não fornece identificador estável e um upload representa um título, portanto ausências são “não observadas neste snapshot”, não prova de exclusão.
+
+### Critérios de aceite verificáveis
+
+- [ ] Dado uma base e um lote anterior do mesmo título, quando um snapshot posterior for preparado, então quantidade/saldo anterior e proposto e registros potencialmente ausentes são exibidos para revisão. Evidência: testes com dois HTML sintéticos.
+- [ ] Dado evento ambíguo ou duplicado, quando revisar a conciliação, então o sistema não escolhe nem deduplica automaticamente e preserva as alternativas. Evidência: teste multiconjunto.
+- [ ] Dado movimento manual sem evento correspondente, quando revisar o snapshot, então a confirmação fica bloqueada e a transação original permanece preservada. A resolução auditável desse conflito permanece pendente. Evidência: integração PostgreSQL.
+- [ ] Dada divergência de snapshot, quando o usuário revisa, então o registro inclui autor, lote, versão da carteira, hash comparado e decisão; alteração posterior invalida a revisão. Evidência: teste de obsolescência/concorrência.
+- [ ] Dado upload de um título que não contém outro título da carteira, quando o snapshot for comparado, então nenhuma posição externa ao escopo do arquivo é removida nem classificada como encerrada. Evidência: teste multiativo.
+- [ ] Dado posições válidas sem movimentos, quando o snapshot for confirmado após revisar conflitos, então a base pode ser atualizada sem criar movimento fictício. Evidência: teste de integração.
+- [ ] A base anterior só é substituída junto com a decisão e o rebuild em transação; rollback mantém estado anterior. Evidência: PostgreSQL.
+
+### Contratos, evidências e gaps
+
+- Autorização: usuário autenticado com permissão de gerenciar a carteira; revisar/reconfirmar a mesma versão.
+- Contrato: endpoints de prévia/conciliacão/revisão/confirmação existentes; contrato do diff de snapshot ainda pendente.
+- Persistência: revisão de movimento atual é append-only; a revisão de divergências precisa de persistência própria conforme ADR-0004.
+- Evidências: teste PostgreSQL da criação inicial HTML passou em 18/11/2026; teste existente cobre replay, revisão obsoleta, vínculo manual e movimento posterior. Reimportação com ausência, manual sem par, posição ausente e zero eventos não foi testada.
+- XLSX: adiado pelo usuário e fora desta história.
 
 ## Manutenção do catálogo
 

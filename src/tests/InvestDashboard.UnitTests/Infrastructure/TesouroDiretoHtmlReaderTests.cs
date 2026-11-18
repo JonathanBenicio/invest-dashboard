@@ -68,6 +68,10 @@ public sealed class TesouroDiretoHtmlReaderTests
         campos["quantidade_titulos"].Should().Be("0,01");
         campos["imposto_previsto_ir"].Should().Be("0,01");
         campos["valor_liquido"].Should().Be("1,23");
+
+        var semCartoes = new TesouroDiretoHtmlReader().Ler(Documento(tabela));
+        semCartoes.Posicoes.Should().ContainSingle();
+        semCartoes.Movimentacoes.Should().BeEmpty();
     }
 
     [Fact]

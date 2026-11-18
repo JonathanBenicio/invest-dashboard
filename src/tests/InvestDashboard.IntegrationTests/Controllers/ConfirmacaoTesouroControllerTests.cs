@@ -168,7 +168,11 @@ public sealed class ConfirmacaoTesouroControllerTests
 
         var rota = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{loteId}";
         var revisoes = new[] { new { indiceEvento = 0, revisao = 1 }, new { indiceEvento = 1, revisao = 1 } };
-        var pedido = new { ativoId, carteiraVersao = versao, revisoes };
+        using var comparacao = await client.PostAsJsonAsync($"{rota}/conciliacao", new { ativoId });
+        comparacao.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var comparacaoJson = JsonDocument.Parse(await comparacao.Content.ReadAsStringAsync());
+        var hash = comparacaoJson.RootElement.GetProperty("dados").GetProperty("comparacaoSnapshot").GetProperty("hash").GetString();
+        var pedido = new { ativoId, carteiraVersao = versao, revisoes, hashDivergencias = hash, aceitarDivergencias = true };
         using var acessoIndevido = await outro.PostAsJsonAsync($"{rota}/confirmacao", pedido);
         acessoIndevido.StatusCode.Should().Be(HttpStatusCode.NotFound);
         using var semRevisoes = await client.PostAsJsonAsync($"{rota}/confirmacao", pedido);
@@ -181,6 +185,10 @@ public sealed class ConfirmacaoTesouroControllerTests
         using var revisaoTaxa = await client.PostAsJsonAsync($"{rota}/revisoes",
             new { indiceEvento = 1, decisao = "sem_vinculo", ativoId, carteiraVersao = versao, revisaoAnterior = 0 });
         revisaoTaxa.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var semAceite = await client.PostAsJsonAsync($"{rota}/confirmacao", new { ativoId, carteiraVersao = versao, revisoes });
+        semAceite.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using var hashObsoleto = await client.PostAsJsonAsync($"{rota}/confirmacao", new { ativoId, carteiraVersao = versao, revisoes, hashDivergencias = new string('0', 64), aceitarDivergencias = true });
+        hashObsoleto.StatusCode.Should().Be(HttpStatusCode.Conflict);
         using var versaoObsoleta = await client.PostAsJsonAsync($"{rota}/confirmacao",
             new { ativoId, carteiraVersao = versao + 1, revisoes });
         versaoObsoleta.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -213,6 +221,7 @@ public sealed class ConfirmacaoTesouroControllerTests
         var eventos = await persistido.Set<EventoOficialTesouro>().Where(x => x.LoteId == loteId)
             .OrderBy(x => x.IndiceEvento).ToListAsync();
         eventos.Select(x => x.TransacaoId).Should().Equal(manualId, null);
+        (await persistido.Set<RevisaoSnapshotTesouro>().CountAsync(x => x.LoteId == loteId)).Should().Be(1);
         var saldo = await persistido.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == loteId);
         saldo.Ativa.Should().BeTrue();
         saldo.DataReferencia.Should().Be(referencia);
@@ -222,6 +231,66 @@ public sealed class ConfirmacaoTesouroControllerTests
         var posicaoConfirmada = carteiraConfirmada.Positions.Single(p => p.AtivoId == ativoId);
         posicaoConfirmada.Quantity.Should().Be(2m);
         posicaoConfirmada.TotalCost.Should().Be(51m);
+
+        var lotePosteriorId = Guid.NewGuid();
+        var dataPosterior = new DateOnly(2024, 3, 5);
+        var versaoPosterior = carteiraConfirmada.Version;
+        var linhaPosterior = new DadosPosicaoTesouroDto(new DateOnly(2024, 3, 2), 2m, 20m, 51m, "10%", null, null, 52m,
+            3, null, null, null, null, null, 52m, []);
+        var compraPosterior = new DadosMovimentoTesouroDto(new DateOnly(2024, 3, 4), "Compra", "Crédito", 1m, 30m, null, 30m, []);
+        var previaPosterior = new PreviaTesouroDto(carteiraId, "html", "portal_tesouro_html", titulo, "2035-01-01", null,
+            [new(1, new Dictionary<string, string>(), linhaPosterior)], [new([], compraPosterior)], [], [], true, false, false);
+        persistido.Add(new LoteImportacaoTesouro(lotePosteriorId, carteiraId, usuario, dataPosterior,
+            new string('b', 64), "html", JsonSerializer.Serialize(previaPosterior), DateTime.UtcNow));
+        await persistido.SaveChangesAsync();
+
+        var rotaPosterior = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{lotePosteriorId}";
+        using var novaConciliacao = await client.PostAsJsonAsync($"{rotaPosterior}/conciliacao", new { ativoId });
+        novaConciliacao.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var novaJson = JsonDocument.Parse(await novaConciliacao.Content.ReadAsStringAsync());
+        var novaComparacao = novaJson.RootElement.GetProperty("dados").GetProperty("comparacaoSnapshot");
+        novaComparacao.GetProperty("divergencias").EnumerateArray()
+            .Any(x => x.GetProperty("tipo").GetString() == "evento_nao_observado").Should().BeTrue();
+        var novoHash = novaComparacao.GetProperty("hash").GetString();
+        using var semVinculo = await client.PostAsJsonAsync($"{rotaPosterior}/revisoes", new
+        {
+            indiceEvento = 0, decisao = "sem_vinculo", ativoId,
+            carteiraVersao = versaoPosterior, revisaoAnterior = 0
+        });
+        semVinculo.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var manualNaoConciliado = await client.PostAsJsonAsync($"{rotaPosterior}/confirmacao", new
+        {
+            ativoId, carteiraVersao = versaoPosterior, revisoes = new[] { new { indiceEvento = 0, revisao = 1 } },
+            hashDivergencias = novoHash, aceitarDivergencias = true
+        });
+        manualNaoConciliado.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using (var scopeBloqueio = factory.Services.CreateScope())
+        {
+            var dbBloqueio = scopeBloqueio.ServiceProvider.GetRequiredService<InvestDbContext>();
+            (await dbBloqueio.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == loteId)).Ativa.Should().BeTrue();
+            (await dbBloqueio.Set<RevisaoSnapshotTesouro>().AnyAsync(x => x.LoteId == lotePosteriorId)).Should().BeFalse();
+        }
+        using var novaRevisao = await client.PostAsJsonAsync($"{rotaPosterior}/revisoes", new
+        {
+            indiceEvento = 0, decisao = "vincular", ativoId, transacaoId = posteriorId,
+            carteiraVersao = versaoPosterior, revisaoAnterior = 1
+        });
+        novaRevisao.StatusCode.Should().Be(HttpStatusCode.OK, await novaRevisao.Content.ReadAsStringAsync());
+        using var novaConfirmacao = await client.PostAsJsonAsync($"{rotaPosterior}/confirmacao", new
+        {
+            ativoId, carteiraVersao = versaoPosterior, revisoes = new[] { new { indiceEvento = 0, revisao = 2 } },
+            hashDivergencias = novoHash, aceitarDivergencias = true
+        });
+        novaConfirmacao.StatusCode.Should().Be(HttpStatusCode.OK, await novaConfirmacao.Content.ReadAsStringAsync());
+        using var auditoria = await client.GetAsync($"{rotaPosterior}/revisao-snapshot");
+        auditoria.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var acessoAuditoria = await outro.GetAsync($"{rotaPosterior}/revisao-snapshot");
+        acessoAuditoria.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        using var scopeFinal = factory.Services.CreateScope();
+        var dbFinal = scopeFinal.ServiceProvider.GetRequiredService<InvestDbContext>();
+        (await dbFinal.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == loteId)).Ativa.Should().BeFalse();
+        (await dbFinal.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == lotePosteriorId)).Ativa.Should().BeTrue();
+        (await dbFinal.Transactions.Select(x => x.Id).ToArrayAsync()).Should().BeEquivalentTo([manualId, posteriorId]);
 
         async Task VerificarPendente()
         {

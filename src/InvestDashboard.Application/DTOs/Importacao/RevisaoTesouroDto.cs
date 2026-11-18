@@ -29,4 +29,6 @@ public sealed record ConfirmarLoteTesouroDto(
     [property: JsonPropertyName("ativoId")] Guid? AtivoId,
     [property: JsonPropertyName("criarPosicao")] bool CriarPosicao,
     [property: JsonPropertyName("carteiraVersao")] int CarteiraVersao,
-    [property: JsonPropertyName("revisoes")] IReadOnlyList<RevisaoParaConfirmacaoTesouroDto> Revisoes);
+    [property: JsonPropertyName("revisoes")] IReadOnlyList<RevisaoParaConfirmacaoTesouroDto> Revisoes,
+    [property: JsonPropertyName("hashDivergencias")] string? HashDivergencias = null,
+    [property: JsonPropertyName("aceitarDivergencias")] bool AceitarDivergencias = false);

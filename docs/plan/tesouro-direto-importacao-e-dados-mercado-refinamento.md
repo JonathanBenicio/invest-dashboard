@@ -59,6 +59,8 @@ Critérios futuros: reimportar sem duplicar; preservar histórico e operações 
 
 ## Validação e pendências
 
+As divergências de reimportação, operações manuais sem par e ausência de eventos/lotes são detalhadas no [plano auditável de snapshots](tesouro-reimportacao-snapshots.md). O fluxo atual bloqueia movimentos manuais não conciliados, mas ainda não compara o lote novo com o anterior nem persiste a revisão de ausências.
+
 A confirmação aplica a revisão vigente a uma posição existente do Tesouro com título e vencimento compatíveis. O fluxo usa uma transação serializável para registrar os eventos oficiais, trocar a base ativa e reconstruir a posição a partir dos lançamentos manuais posteriores. Repetições do mesmo lote reaproveitam o resultado confirmado. Operações originais e eventos oficiais ficam disponíveis para auditoria. O endpoint de eventos é por lote, sem somar observações de extratos sobrepostos.
 
 A confirmação HTML atualiza posição existente por título e vencimento ou cria uma posição inicial quando título, vencimento, indexador, taxa contratual e saldo podem ser reconhecidos. O XLSX foi adiado pelo usuário. Taxas contratuais ambíguas ou campos essenciais ausentes bloqueiam a criação. A API recusa campos essenciais ausentes, divergências de versão e operações manuais sem correspondência no intervalo da nova base. O histórico anterior à base é sinalizado como incompleto quando os dados não permitem reconstruí-lo. A avaliação por cotação pública permanece separada.

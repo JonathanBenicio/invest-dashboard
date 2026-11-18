@@ -18,6 +18,7 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
   const [erro, setErro] = useState('')
   const [revisoes, setRevisoes] = useState<Record<number, RevisaoTesouro | null>>({})
   const [confirmando, setConfirmando] = useState(false)
+  const [aceitarDivergencias, setAceitarDivergencias] = useState(false)
   const uniaoRevisoes = resultado?.eventos.map(evento => revisoes[evento.indice]) ?? []
   const revisoesValidas = uniaoRevisoes.every((revisao, indice) => revisao != null &&
     revisao.ativoId === resultado?.ativoId && revisao.carteiraVersao === resultado?.carteiraVersao &&
@@ -32,7 +33,8 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
   const criarPosicao = selecionado === NOVA_POSICAO && resultado?.criarPosicao === true && resultado.ativoId === null
   const ativoSelecionado = criarPosicao ? resultado?.podeCriarPosicao === true : !!resultado?.ativoId && resultado.ativoId === selecionado
   const podeConfirmar = apto && ativoSelecionado &&
-    uniaoRevisoes.length > 0 && revisoesValidas && vinculosUnicos && todosLancamentosVinculados && !ocupado && !confirmando
+    revisoesValidas && vinculosUnicos && todosLancamentosVinculados &&
+    (!resultado?.comparacaoSnapshot?.requerAceite || aceitarDivergencias) && !ocupado && !confirmando
 
   async function confirmar() {
     if (!podeConfirmar || !resultado) return
@@ -44,11 +46,15 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
         criarPosicao,
         carteiraVersao: resultado.carteiraVersao,
         revisoes: uniaoRevisoes.flatMap(revisao => revisao ? [{ indiceEvento: revisao.indiceEvento, revisao: revisao.revisao }] : []),
+        hashDivergencias: resultado.comparacaoSnapshot?.hash,
+        aceitarDivergencias,
       })
       onConfirmado(resposta.dados)
     } catch (error) {
       if (error instanceof ApiError && error.status === 409) {
         setRevisoes({})
+        setResultado(null)
+        setAceitarDivergencias(false)
         setConsulta(atual => atual + 1)
         setErro('O lote, a carteira ou uma revisão mudou. Reabra o lote e compare novamente antes de confirmar.')
       } else {
@@ -65,6 +71,7 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
     try {
       const resposta = await tesouroDiretoService.conciliacao(carteiraId, loteId, ativoId)
       setRevisoes({})
+      setAceitarDivergencias(false)
       setResultado(resposta.dados)
       setConsulta(atual => atual + 1)
     } catch {
@@ -92,7 +99,13 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
       </div>}
       {selecionado && (resultado.ativoId === selecionado || criarPosicao) && <>
         <p>Compare os dados antes de decidir. As sugestões não confirmam que os registros sejam a mesma operação.</p>
-        <ul className="space-y-3">{resultado.eventos.map(evento => {
+        {resultado.comparacaoSnapshot && <div className="space-y-2 rounded-md border p-3">
+          <h4 className="font-medium">Comparação com o saldo anterior</h4>
+          <p>Quantidade da base anterior: {resultado.comparacaoSnapshot.dataBaseAnterior ? resultado.comparacaoSnapshot.quantidadeAnterior.toLocaleString('pt-BR') : 'sem base de extrato'} · Proposta: {resultado.comparacaoSnapshot.quantidadeProposta.toLocaleString('pt-BR')}</p>
+          <ul className="list-disc space-y-1 pl-5">{resultado.comparacaoSnapshot.divergencias.map((item, indice) => <li key={`${item.tipo}-${item.chave}-${indice}`}>{item.descricao}{item.anterior ? ` · ${item.anterior}` : ''}{item.atual ? ` · ${item.atual}` : ''}</li>)}</ul>
+          {resultado.comparacaoSnapshot.requerAceite && <label className="flex items-start gap-2"><input type="checkbox" checked={aceitarDivergencias} onChange={event => setAceitarDivergencias(event.target.checked)} /><span>Revisei as divergências e aceito a nova base. Os registros anteriores serão mantidos.</span></label>}
+        </div>}
+        {resultado.eventos.length === 0 ? <p role="status">Este snapshot não contém movimentações. A confirmação atualizará apenas o saldo da posição na data de referência.</p> : <ul className="space-y-3">{resultado.eventos.map(evento => {
           const movimento = evento.dadosInterpretados
           const candidatos = resultado.transacoes.filter(transacao => evento.candidatos.includes(transacao.id))
           const tipoEvento = movimento?.natureza === 'Compra' && movimento.tipo === 'Crédito' ? 'Buy' : movimento?.natureza === 'Venda' && movimento.tipo === 'Débito' ? 'Sell' : null
@@ -112,7 +125,7 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
               candidatos={evento.candidatos} transacoes={resultado.transacoes} bloqueado={ocupado || confirmando}
               onRevisao={revisao => setRevisoes(atuais => ({ ...atuais, [evento.indice]: revisao }))} />
           </li>
-        })}</ul>
+        })}</ul>}
         <h4 className="font-medium">Movimentações existentes na carteira</h4>
         {resultado.transacoes.length === 0 ? <p>Nenhuma movimentação encontrada para esta posição.</p> : <ul className="space-y-1">{resultado.transacoes.map(item => <li key={item.id}>
           {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : resultado.eventos.some(evento => evento.candidatos.includes(item.id)) ? ' · sugerida para comparação' : ' · sem correspondência sugerida'}
