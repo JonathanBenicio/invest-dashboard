@@ -8,7 +8,8 @@ public sealed record RegistrarRevisaoTesouroDto(
     [property: JsonPropertyName("ativoId")] Guid? AtivoId,
     [property: JsonPropertyName("transacaoId")] Guid? TransacaoId,
     [property: JsonPropertyName("carteiraVersao")] int CarteiraVersao,
-    [property: JsonPropertyName("revisaoAnterior")] int RevisaoAnterior);
+    [property: JsonPropertyName("revisaoAnterior")] int RevisaoAnterior,
+    [property: JsonPropertyName("hashPrevia")] string? HashPrevia = null);
 
 public sealed record RevisaoTesouroDto(
     [property: JsonPropertyName("id")] Guid Id,

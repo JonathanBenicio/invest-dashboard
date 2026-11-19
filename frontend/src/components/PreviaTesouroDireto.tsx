@@ -1,11 +1,13 @@
 import { queryKeys } from '@/api/query-keys'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { ColumnDef } from '@tanstack/react-table'
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { tesouroDiretoService, type LoteTesouro } from '@/api/services/tesouro-direto.service'
 import { ReferenciaPublicaTesouro } from './ReferenciaPublicaTesouro'
 import { ConciliacaoTesouro } from './ConciliacaoTesouro'
@@ -13,13 +15,73 @@ import { ConciliacaoTesouro } from './ConciliacaoTesouro'
 type Carteira = { id: string; nome: string }
 
 const nomesCampos: Record<string, string> = {
-  data: 'data', natureza: 'natureza', tipo: 'tipo', quantidade: 'quantidade', preco: 'preço', taxaAnual: 'taxa anual', valor: 'valor',
+  data: 'data', natureza: 'natureza', tipo: 'tipo', quantidade: 'quantidade', preco: 'preço', taxaAnual: 'taxa do título (% a.a.)', valor: 'valor',
+  data_aplicacao: 'data de aplicação', quantidade_titulos: 'quantidade de títulos', preco_aplicacao: 'preço de aplicação', valor_investido: 'valor investido',
+  rentabilidade_contratada: 'rentabilidade contratada', rentabilidade_bruta_anualizada: 'rentabilidade anualizada', rentabilidade_bruta_acumulada: 'rentabilidade acumulada',
+  valor_bruto: 'valor bruto', dias_corridos: 'dias corridos', aliquota_ir: 'alíquota de IR', imposto_previsto_ir: 'IR previsto', imposto_previsto_iof: 'IOF previsto',
+  taxa_devida_b3: 'taxa B3 devida (R$)', taxa_devida_instituicao: 'taxa da instituição devida (R$)', valor_liquido: 'valor líquido',
   dataAplicacao: 'data de aplicação', quantidadeTitulos: 'quantidade de títulos', precoAplicacao: 'preço de aplicação', valorInvestido: 'valor investido',
   rentabilidadeContratada: 'rentabilidade contratada', rentabilidadeBrutaAnualizada: 'rentabilidade anualizada', rentabilidadeBrutaAcumulada: 'rentabilidade acumulada',
   valorBruto: 'valor bruto', diasCorridos: 'dias corridos', aliquotaIr: 'alíquota de IR', impostoPrevistoIr: 'IR previsto', impostoPrevistoIof: 'IOF previsto',
-  taxaDevidaB3: 'taxa B3', taxaDevidaInstituicao: 'taxa da instituição', valorLiquido: 'valor líquido',
+  taxaDevidaB3: 'taxa B3 devida (R$)', taxaDevidaInstituicao: 'taxa da instituição devida (R$)', valorLiquido: 'valor líquido',
 }
-const rotuloCampo = (campo: string) => nomesCampos[campo] ?? campo.replace(/_/g, ' ')
+const rotuloCampo = (campo: string) => {
+  const normalizado = campo.trim().replace(/:$/, '')
+  return normalizado.toLocaleLowerCase('pt-BR') === 'taxa (% a.a.)'
+    ? 'Taxa do título (% a.a.)'
+    : nomesCampos[normalizado] ?? normalizado.replace(/_/g, ' ')
+}
+
+type LinhaPreviaTabela = {
+  id: string
+  numero: string
+  campos: Record<string, string>
+  leitura: string
+  requerRevisao: boolean
+}
+
+function TabelaPreviaTesouro({ caption, cabecalhoNumero, linhas }: {
+  caption: string
+  cabecalhoNumero: string
+  linhas: LinhaPreviaTabela[]
+}) {
+  const campos = useMemo(() => [...new Set(linhas.flatMap(linha => Object.keys(linha.campos)))], [linhas])
+  const colunas = useMemo<ColumnDef<LinhaPreviaTabela>[]>(() => [
+    {
+      accessorKey: 'numero',
+      header: cabecalhoNumero,
+      cell: ({ getValue }) => <span className="whitespace-nowrap">{getValue<string>()}</span>,
+    },
+    ...campos.map(campo => ({
+      id: campo,
+      accessorFn: (linha: LinhaPreviaTabela) => linha.campos[campo] ?? '',
+      header: rotuloCampo(campo),
+      cell: ({ getValue }) => <span className="whitespace-nowrap">{getValue<string>() || '—'}</span>,
+    })),
+    {
+      accessorKey: 'leitura',
+      header: 'Leitura',
+      cell: ({ row }) => <span className={row.original.requerRevisao ? 'text-amber-700 dark:text-amber-300' : 'whitespace-nowrap'}>{row.original.leitura}</span>,
+    },
+  ], [cabecalhoNumero, campos])
+  const tabela = useReactTable({ data: linhas, columns: colunas, getCoreRowModel: getCoreRowModel() })
+
+  return <div className="rounded-md border">
+    <Table className="min-w-max text-sm" aria-label={caption}>
+      <TableCaption className="sr-only">{caption}</TableCaption>
+      <TableHeader>{tabela.getHeaderGroups().map(grupo => <TableRow key={grupo.id}>
+        {grupo.headers.map(cabecalho => <TableHead key={cabecalho.id} scope="col">
+          {cabecalho.isPlaceholder ? null : flexRender(cabecalho.column.columnDef.header, cabecalho.getContext())}
+        </TableHead>)}
+      </TableRow>)}</TableHeader>
+      <TableBody>{tabela.getRowModel().rows.map(linha => <TableRow key={linha.original.id}>
+        {linha.getVisibleCells().map(celula => <TableCell key={celula.id}>
+          {flexRender(celula.column.columnDef.cell, celula.getContext())}
+        </TableCell>)}
+      </TableRow>)}</TableBody>
+    </Table>
+  </div>
+}
 
 export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tentarNovamente }: { carteiras: Carteira[]; carregando: boolean; erroCarteiras: boolean; tentarNovamente: () => void }) {
   const [carteira, setCarteira] = useState('')
@@ -32,8 +94,34 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
   const queryClient = useQueryClient()
   const historico = useQuery({ queryKey: ['tesouro-lotes', carteira, pagina], queryFn: () => tesouroDiretoService.lotes(carteira, pagina), enabled: !!carteira, retry: false })
   const previa = lote?.previa
-  const colunasPosicao = [...new Set(previa?.posicoes.flatMap(posicao => Object.keys(posicao.camposBrutos)) ?? [])]
-  const colunasMovimentacao = [...new Set(previa?.movimentacoes.flatMap(item => item.campos.map(campo => campo.rotulo)) ?? [])]
+  const linhasPosicao = useMemo<LinhaPreviaTabela[]>(() => previa?.posicoes.map(posicao => {
+    const camposNaoInterpretados = posicao.dadosInterpretados?.camposNaoInterpretados ?? []
+    return {
+      id: `posicao-${posicao.numeroLinha}`,
+      numero: String(posicao.numeroLinha),
+      campos: posicao.camposBrutos,
+      leitura: camposNaoInterpretados.length
+        ? `Revisar: ${camposNaoInterpretados.map(rotuloCampo).join(', ')}`
+        : posicao.dadosInterpretados ? 'Interpretada' : 'Não interpretada',
+      requerRevisao: camposNaoInterpretados.length > 0 || !posicao.dadosInterpretados,
+    }
+  }) ?? [], [previa])
+  const linhasMovimentacao = useMemo<LinhaPreviaTabela[]>(() => previa?.movimentacoes.map((movimentacao, indice) => {
+    const camposNaoInterpretados = movimentacao.dadosInterpretados?.camposNaoInterpretados ?? []
+    const camposNaoAplicaveis = movimentacao.dadosInterpretados?.camposNaoAplicaveis ?? []
+    const camposEssenciaisNaoInterpretados = camposNaoInterpretados
+    const leitura = [
+      camposEssenciaisNaoInterpretados.length ? `Revisar: ${camposEssenciaisNaoInterpretados.map(rotuloCampo).join(', ')}` : null,
+      camposNaoAplicaveis.length ? `Não aplicável: ${camposNaoAplicaveis.map(rotuloCampo).join(', ')}` : null,
+    ].filter((estado): estado is string => estado !== null)
+    return {
+      id: `movimento-${indice}`,
+      numero: String(indice + 1),
+      campos: Object.fromEntries(movimentacao.campos.map(campo => [campo.rotulo, campo.valor])),
+      leitura: leitura.length ? leitura.join(' · ') : movimentacao.dadosInterpretados ? 'Interpretada' : 'Não interpretada',
+      requerRevisao: camposEssenciaisNaoInterpretados.length > 0 || !movimentacao.dadosInterpretados,
+    }
+  }) ?? [], [previa])
 
   async function analisar() {
     if (!carteira || !arquivo || !dataReferencia) return
@@ -124,6 +212,7 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
       </CardHeader>
       <CardContent className="space-y-5">
         <p className="text-sm">Data de referência informada: {lote.dataReferencia.split('-').reverse().join('/')}</p>
+        <p className="text-xs text-muted-foreground">Nos movimentos, “Taxa (% a.a.)” é a taxa do título/operação; não é uma cobrança em reais. Os custos aparecem em “Taxa devida” (B3 e instituição), em R$. IR/IOF previstos e valor líquido são os valores do extrato para a data de referência deste lote e podem mudar até um resgate ou evento de custódia. <a className="underline underline-offset-2" href="https://www.tesourodireto.com.br/b/impostos-e-taxas-no-tesouro-direto" target="_blank" rel="noreferrer">Entenda impostos e taxas</a>.</p>
         {previa.titulo && <p className="font-medium">{previa.titulo}{previa.vencimento ? ` · vencimento ${previa.vencimento.split('-').reverse().join('/')}` : ''}</p>}
         {previa.vencimentoOriginal && <p className="text-sm">Vencimento informado no arquivo: {previa.vencimentoOriginal}</p>}
         {previa.titulo && previa.vencimento && <ReferenciaPublicaTesouro key={`${previa.titulo}|${previa.vencimento}`} titulo={previa.titulo} vencimento={previa.vencimento} />}
@@ -142,39 +231,14 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
           <p>Linhas: {previa.linhasNaoInterpretadas.join(', ')}.</p>
         </div>}
         <section className="space-y-3"><h3 className="font-semibold">Posições identificadas ({previa.posicoes.length})</h3>
-          {previa.posicoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma posição identificada neste arquivo.</p> : <div className="rounded-md border">
-            <Table className="min-w-max" aria-label="Posições identificadas no extrato">
-              <TableHeader><TableRow><TableHead>Linha</TableHead>{colunasPosicao.map(campo => <TableHead key={campo}>{rotuloCampo(campo)}</TableHead>)}<TableHead>Leitura</TableHead></TableRow></TableHeader>
-              <TableBody>{previa.posicoes.map(posicao => {
-                const camposNaoInterpretados = posicao.dadosInterpretados?.camposNaoInterpretados ?? []
-                return <TableRow key={posicao.numeroLinha}>
-                  <TableCell className="whitespace-nowrap">{posicao.numeroLinha}</TableCell>
-                  {colunasPosicao.map(campo => <TableCell key={campo} className="whitespace-nowrap">{posicao.camposBrutos[campo] || '—'}</TableCell>)}
-                  <TableCell className={camposNaoInterpretados.length ? 'min-w-56 text-amber-700 dark:text-amber-300' : 'whitespace-nowrap'}>
-                    {camposNaoInterpretados.length ? `Revisar: ${camposNaoInterpretados.map(rotuloCampo).join(', ')}` : posicao.dadosInterpretados ? 'Interpretada' : 'Não interpretada'}
-                  </TableCell>
-                </TableRow>
-              })}</TableBody>
-            </Table>
-          </div>}
+          {previa.posicoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma posição identificada neste arquivo.</p> :
+            <TabelaPreviaTesouro caption="Posições identificadas no extrato" cabecalhoNumero="Linha" linhas={linhasPosicao} />
+          }
         </section>
         <section className="space-y-3"><h3 className="font-semibold">Movimentações identificadas ({previa.movimentacoes.length})</h3>
-          {previa.movimentacoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma movimentação identificada neste arquivo.</p> : <div className="rounded-md border">
-            <Table className="min-w-max" aria-label="Movimentações identificadas no extrato">
-              <TableHeader><TableRow><TableHead>Nº</TableHead>{colunasMovimentacao.map(campo => <TableHead key={campo}>{rotuloCampo(campo)}</TableHead>)}<TableHead>Leitura</TableHead></TableRow></TableHeader>
-              <TableBody>{previa.movimentacoes.map((movimentacao, index) => {
-                const camposNaoInterpretados = movimentacao.dadosInterpretados?.camposNaoInterpretados ?? []
-                const valores = new Map(movimentacao.campos.map(campo => [campo.rotulo, campo.valor]))
-                return <TableRow key={`${lote.id}-${index}`}>
-                  <TableCell className="whitespace-nowrap">{index + 1}</TableCell>
-                  {colunasMovimentacao.map(campo => <TableCell key={campo} className="whitespace-nowrap">{valores.get(campo) || '—'}</TableCell>)}
-                  <TableCell className={camposNaoInterpretados.length ? 'min-w-56 text-amber-700 dark:text-amber-300' : 'whitespace-nowrap'}>
-                    {camposNaoInterpretados.length ? `Revisar: ${camposNaoInterpretados.map(rotuloCampo).join(', ')}` : movimentacao.dadosInterpretados ? 'Interpretada' : 'Não interpretada'}
-                  </TableCell>
-                </TableRow>
-              })}</TableBody>
-            </Table>
-          </div>}
+          {previa.movimentacoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma movimentação identificada neste arquivo.</p> :
+            <TabelaPreviaTesouro caption="Movimentações identificadas no extrato" cabecalhoNumero="Nº" linhas={linhasMovimentacao} />
+          }
         </section>
       </CardContent>
     </Card>}

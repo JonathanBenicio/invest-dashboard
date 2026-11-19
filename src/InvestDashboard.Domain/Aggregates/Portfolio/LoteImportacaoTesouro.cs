@@ -39,6 +39,14 @@ public sealed class LoteImportacaoTesouro : Entity<Guid>
         Estado = "Confirmado"; ConfirmadoEmUtc = confirmadoEmUtc;
     }
 
+    public void AtualizarPreviaPendente(string previaJson)
+    {
+        if (Estado != "Pendente") throw new InvalidOperationException("Somente uma prévia pendente pode ser atualizada.");
+        if (string.IsNullOrWhiteSpace(previaJson) || previaJson.Length > 4_000_000)
+            throw new ArgumentException("Prévia inválida ou muito grande.", nameof(previaJson));
+        PreviaJson = previaJson;
+    }
+
 #pragma warning disable CS8618
     private LoteImportacaoTesouro() { }
 #pragma warning restore CS8618

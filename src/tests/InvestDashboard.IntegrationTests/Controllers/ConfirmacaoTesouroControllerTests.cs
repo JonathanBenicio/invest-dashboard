@@ -65,6 +65,8 @@ public sealed class ConfirmacaoTesouroControllerTests
         upload.StatusCode.Should().Be(HttpStatusCode.Created, await upload.Content.ReadAsStringAsync());
         using var loteJson = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
         var loteId = loteJson.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
+        var hashPrevia = loteJson.RootElement.GetProperty("dados").GetProperty("hashPrevia").GetString()
+            ?? throw new InvalidOperationException("A resposta não incluiu o hash da prévia.");
         var loteRota = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{loteId}";
 
         using var conciliacao = await client.PostAsJsonAsync($"{loteRota}/conciliacao", new { ativoId = (Guid?)null });
@@ -81,7 +83,8 @@ public sealed class ConfirmacaoTesouroControllerTests
             ativoId = (Guid?)null,
             transacaoId = (Guid?)null,
             carteiraVersao,
-            revisaoAnterior = 0
+            revisaoAnterior = 0,
+            hashPrevia
         });
         revisao.StatusCode.Should().Be(HttpStatusCode.OK, await revisao.Content.ReadAsStringAsync());
         using var revisaoJson = JsonDocument.Parse(await revisao.Content.ReadAsStringAsync());
@@ -234,6 +237,10 @@ public sealed class ConfirmacaoTesouroControllerTests
         }
 
         var rota = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{loteId}";
+        using var loteAtual = await client.GetAsync(rota);
+        using var loteAtualJson = JsonDocument.Parse(await loteAtual.Content.ReadAsStringAsync());
+        var hashPrevia = loteAtualJson.RootElement.GetProperty("dados").GetProperty("hashPrevia").GetString()
+            ?? throw new InvalidOperationException("A resposta não incluiu o hash da prévia.");
         var revisoes = new[] { new { indiceEvento = 0, revisao = 1 }, new { indiceEvento = 1, revisao = 1 } };
         using var comparacao = await client.PostAsJsonAsync($"{rota}/conciliacao", new { ativoId });
         comparacao.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -247,10 +254,10 @@ public sealed class ConfirmacaoTesouroControllerTests
         await VerificarPendente();
 
         using var revisaoCompra = await client.PostAsJsonAsync($"{rota}/revisoes",
-            new { indiceEvento = 0, decisao = "vincular", ativoId, transacaoId = manualId, carteiraVersao = versao, revisaoAnterior = 0 });
+            new { indiceEvento = 0, decisao = "vincular", ativoId, transacaoId = manualId, carteiraVersao = versao, revisaoAnterior = 0, hashPrevia });
         revisaoCompra.StatusCode.Should().Be(HttpStatusCode.OK);
         using var revisaoTaxa = await client.PostAsJsonAsync($"{rota}/revisoes",
-            new { indiceEvento = 1, decisao = "sem_vinculo", ativoId, carteiraVersao = versao, revisaoAnterior = 0 });
+            new { indiceEvento = 1, decisao = "sem_vinculo", ativoId, carteiraVersao = versao, revisaoAnterior = 0, hashPrevia });
         revisaoTaxa.StatusCode.Should().Be(HttpStatusCode.OK);
         using var semAceite = await client.PostAsJsonAsync($"{rota}/confirmacao", new { ativoId, carteiraVersao = versao, revisoes });
         semAceite.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -312,6 +319,10 @@ public sealed class ConfirmacaoTesouroControllerTests
         await persistido.SaveChangesAsync();
 
         var rotaPosterior = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{lotePosteriorId}";
+        using var lotePosteriorAtual = await client.GetAsync(rotaPosterior);
+        using var lotePosteriorJson = JsonDocument.Parse(await lotePosteriorAtual.Content.ReadAsStringAsync());
+        var hashPreviaPosterior = lotePosteriorJson.RootElement.GetProperty("dados").GetProperty("hashPrevia").GetString()
+            ?? throw new InvalidOperationException("A resposta não incluiu o hash da prévia.");
         using var novaConciliacao = await client.PostAsJsonAsync($"{rotaPosterior}/conciliacao", new { ativoId });
         novaConciliacao.StatusCode.Should().Be(HttpStatusCode.OK);
         using var novaJson = JsonDocument.Parse(await novaConciliacao.Content.ReadAsStringAsync());
@@ -322,7 +333,7 @@ public sealed class ConfirmacaoTesouroControllerTests
         using var semVinculo = await client.PostAsJsonAsync($"{rotaPosterior}/revisoes", new
         {
             indiceEvento = 0, decisao = "sem_vinculo", ativoId,
-            carteiraVersao = versaoPosterior, revisaoAnterior = 0
+            carteiraVersao = versaoPosterior, revisaoAnterior = 0, hashPrevia = hashPreviaPosterior
         });
         semVinculo.StatusCode.Should().Be(HttpStatusCode.OK);
         using var semAceiteDivergencias = await client.PostAsJsonAsync($"{rotaPosterior}/confirmacao", new

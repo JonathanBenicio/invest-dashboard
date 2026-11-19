@@ -24,6 +24,7 @@ export interface PreviaTesouro {
       taxaAnual: number | null
       valor: number | null
       camposNaoInterpretados: string[]
+      camposNaoAplicaveis?: string[] | null
     } | null
   }[]
   linhasNaoInterpretadas: number[]
@@ -49,7 +50,7 @@ export interface ResumoLoteTesouro {
   confirmadoEmUtc: string | null
 }
 
-export interface LoteTesouro extends ResumoLoteTesouro { previa: PreviaTesouro }
+export interface LoteTesouro extends ResumoLoteTesouro { previa: PreviaTesouro; hashPrevia: string }
 
 export type TipoDivergenciaSnapshotTesouro =
   | 'snapshot_anterior_indisponivel'
@@ -76,6 +77,7 @@ export interface ConciliacaoTesouro {
   posicaoPropostaDisponivel: boolean
   podeCriarPosicao: boolean
   criarPosicao: boolean
+  motivosCriacaoPosicao?: string[] | null
   comparacaoSnapshot?: {
     hash: string
     dataBaseAnterior: string | null
@@ -105,6 +107,7 @@ export interface RegistrarRevisaoTesouro {
   transacaoId: string | null
   carteiraVersao: number
   revisaoAnterior: number
+  hashPrevia: string
 }
 
 interface MetadadosTesouro {

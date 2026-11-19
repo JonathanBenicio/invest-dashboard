@@ -92,12 +92,21 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
     {ocupado && <p role="status">Consultando movimentações...</p>}
     {erro && <p role="alert" className="text-destructive">{erro}</p>}
     {resultado && <>
-      {resultado.ativos.length === 0 && !resultado.podeCriarPosicao ? <p>Não há posição correspondente e o HTML não contém dados suficientes para criar uma nova posição.</p> : <div className="grid gap-2">
+      {resultado.ativos.length === 0 && !resultado.podeCriarPosicao ? <div role="status" className="space-y-2 rounded-md border p-3">
+        <h4 className="font-medium">Não há uma posição de renda fixa nesta carteira, e esta prévia ainda não pode criar uma nova.</h4>
+        {resultado.motivosCriacaoPosicao?.length ? <ul className="list-disc space-y-1 pl-5">{resultado.motivosCriacaoPosicao.map((motivo, indice) => <li key={`${indice}-${motivo}`}>{motivo}</li>)}</ul> : <p>Revise o título, vencimento, linhas de posição e movimentações na tabela da prévia.</p>}
+        <p><strong>Como seguir:</strong> confira a coluna Leitura e corrija os campos indicados no portal. Depois, envie uma nova prévia. Se o título já existir, selecione a carteira que contém essa posição.</p>
+      </div> : <div className="grid gap-2">
         <label htmlFor="tesouro-conciliacao-ativo" className="font-medium">Posição da carteira para comparar</label>
         <Select value={selecionado} onValueChange={setSelecionado} disabled={ocupado || confirmando}>
           <SelectTrigger id="tesouro-conciliacao-ativo"><SelectValue placeholder="Selecione uma posição" /></SelectTrigger>
           <SelectContent>{resultado.ativos.map(ativo => <SelectItem key={ativo.ativoId} value={ativo.ativoId}>{ativo.ticker}</SelectItem>)}{resultado.podeCriarPosicao && <SelectItem value={NOVA_POSICAO}>Criar posição a partir do HTML</SelectItem>}</SelectContent>
         </Select>
+        {!resultado.podeCriarPosicao && resultado.motivosCriacaoPosicao?.length ? <div role="status" className="space-y-1 rounded-md border p-3 text-sm">
+          <p className="font-medium">A criação de uma nova posição está bloqueada por estes motivos:</p>
+          <ul className="list-disc space-y-1 pl-5">{resultado.motivosCriacaoPosicao.map((motivo, indice) => <li key={`${indice}-${motivo}`}>{motivo}</li>)}</ul>
+          <p>Se o título já estiver na carteira, selecione a posição existente. Para uma posição nova, corrija os campos marcados na tabela e envie outra prévia.</p>
+        </div> : null}
         <Button type="button" variant="outline" disabled={!selecionado || ocupado || confirmando} onClick={() => void analisar(selecionado === NOVA_POSICAO ? null : selecionado)}>Comparar movimentações</Button>
       </div>}
       {selecionado && (resultado.ativoId === selecionado || criarPosicao) && <>
@@ -124,7 +133,7 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
             {candidatos.length === 0 ? <p>Nenhuma correspondência sugerida.</p> : <ul className="mt-1 space-y-1">{candidatos.map(item => <li key={item.id}>
               {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : ''}
             </li>)}</ul>}
-            <RevisaoEventoTesouro key={`${consulta}-${evento.indice}`} carteiraId={carteiraId} loteId={loteId} ativoId={criarPosicao ? null : resultado.ativoId} carteiraVersao={resultado.carteiraVersao}
+            <RevisaoEventoTesouro key={`${consulta}-${evento.indice}`} carteiraId={carteiraId} loteId={loteId} hashPrevia={lote.hashPrevia} ativoId={criarPosicao ? null : resultado.ativoId} carteiraVersao={resultado.carteiraVersao}
               indiceEvento={evento.indice} tipoEvento={motivosSemVinculo.length === 0 ? tipoEvento : null} motivosSemVinculo={motivosSemVinculo}
               candidatos={evento.candidatos} transacoes={resultado.transacoes} bloqueado={ocupado || confirmando}
               onRevisao={revisao => setRevisoes(atuais => ({ ...atuais, [evento.indice]: revisao }))} />

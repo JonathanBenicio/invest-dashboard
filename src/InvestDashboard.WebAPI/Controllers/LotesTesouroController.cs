@@ -23,7 +23,7 @@ using Npgsql;
 namespace InvestDashboard.WebAPI.Controllers;
 
 public sealed record LoteTesouroResposta(Guid Id, Guid CarteiraId, DateOnly DataReferencia, string Formato,
-    string Estado, DateTime CriadoEmUtc, DateTime? ConfirmadoEmUtc, PreviaTesouroDto Previa);
+    string Estado, DateTime CriadoEmUtc, DateTime? ConfirmadoEmUtc, PreviaTesouroDto Previa, string HashPrevia);
 
 [Authorize]
 [ApiController]
@@ -286,21 +286,53 @@ public sealed class LotesTesouroController(
             if (arquivo.Length == 0 || await multipart.ReadNextSectionAsync(cancellationToken) is not null) return ArquivoInvalido();
             var hash = Convert.ToHexString(SHA256.HashData(arquivo.GetBuffer().AsSpan(0, checked((int)arquivo.Length)))).ToLowerInvariant();
             var formato = extensao == ".htm" ? "html" : extensao[1..];
-            var existente = await lotes.BuscarPorChaveAsync(carteiraId, usuarioId.Value, hash, dataReferencia.Value, cancellationToken);
-            if (existente is not null)
-                return existente.Formato == formato ? Ok(new RespostaApi<LoteTesouroResposta>(Mapear(existente))) : ArquivoInvalido();
+            var existente = await db.Set<LoteImportacaoTesouro>().AsNoTracking().FirstOrDefaultAsync(
+                x => x.CarteiraId == carteiraId && x.UsuarioId == usuarioId.Value &&
+                    x.HashConteudo == hash && x.DataReferencia == dataReferencia.Value, cancellationToken);
+            if (existente is not null && existente.Formato != formato) return ArquivoInvalido();
+            if (existente?.Estado == "Confirmado")
+                return Ok(new RespostaApi<LoteTesouroResposta>(Mapear(existente)));
+
             arquivo.Position = 0;
             var previa = leitor.Ler(carteiraId, formato, arquivo);
+            var previaJson = JsonSerializer.Serialize(previa);
+            try
+            {
+                existente = await BuscarOuAtualizarPreviaPendenteAsync(carteiraId, usuarioId.Value, hash,
+                    dataReferencia.Value, formato, previaJson, cancellationToken);
+            }
+            catch (Exception erro) when (ConflitoConcorrencia(erro))
+            {
+                db.ChangeTracker.Clear();
+                return Conflito("A prévia mudou durante a reimportação. Envie o arquivo novamente para carregar a versão atual.");
+            }
+            if (existente is not null)
+                return Ok(new RespostaApi<LoteTesouroResposta>(Mapear(existente)));
             var lote = new LoteImportacaoTesouro(Guid.NewGuid(), carteiraId, usuarioId.Value, dataReferencia.Value,
-                hash, formato, JsonSerializer.Serialize(previa), DateTime.UtcNow);
+                hash, formato, previaJson, DateTime.UtcNow);
             await lotes.AdicionarAsync(lote, cancellationToken);
             try { await lotes.SalvarAsync(cancellationToken); }
             catch (DbUpdateException erro) when (erro.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
             {
                 // Uma requisição concorrente pode ter gravado a mesma chave.
-                existente = await lotes.BuscarPorChaveAsync(carteiraId, usuarioId.Value, hash, dataReferencia.Value, cancellationToken);
+                db.ChangeTracker.Clear();
+                try
+                {
+                    existente = await BuscarOuAtualizarPreviaPendenteAsync(carteiraId, usuarioId.Value, hash,
+                        dataReferencia.Value, formato, previaJson, cancellationToken);
+                }
+                catch (Exception concorrencia) when (ConflitoConcorrencia(concorrencia))
+                {
+                    db.ChangeTracker.Clear();
+                    return Conflito("A prévia mudou durante a reimportação. Envie o arquivo novamente para carregar a versão atual.");
+                }
                 if (existente is null) return Conflict(new RespostaApi<LoteTesouroResposta>(null!, false, "Não foi possível criar o lote: já existe uma importação com esta data e conteúdo."));
                 return Ok(new RespostaApi<LoteTesouroResposta>(Mapear(existente)));
+            }
+            catch (Exception erro) when (ConflitoConcorrencia(erro))
+            {
+                db.ChangeTracker.Clear();
+                return Conflito("A prévia mudou durante a reimportação. Envie o arquivo novamente para carregar a versão atual.");
             }
             return CreatedAtAction(nameof(Obter), new { carteiraId, loteId = lote.Id }, new RespostaApi<LoteTesouroResposta>(Mapear(lote)));
         }
@@ -339,10 +371,42 @@ public sealed class LotesTesouroController(
             await carteiras.CanManageAsync(carteiraId, id, cancellationToken);
     }
 
+    private async Task<LoteImportacaoTesouro?> BuscarOuAtualizarPreviaPendenteAsync(Guid carteiraId, Guid usuarioId,
+        string hash, DateOnly dataReferencia, string formato, string previaJson, CancellationToken cancellationToken)
+    {
+        if (!db.Database.IsNpgsql())
+            return await AtualizarPreviaPendenteAsync();
+
+        await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        var existente = await AtualizarPreviaPendenteAsync();
+        await transaction.CommitAsync(cancellationToken);
+        return existente;
+
+        async Task<LoteImportacaoTesouro?> AtualizarPreviaPendenteAsync()
+        {
+            var lote = await lotes.BuscarPorChaveAsync(carteiraId, usuarioId, hash, dataReferencia, cancellationToken);
+            if (lote is null || lote.Formato != formato || lote.Estado != "Pendente" ||
+                string.Equals(lote.PreviaJson, previaJson, StringComparison.Ordinal))
+                return lote;
+
+            var possuiRevisoes = await db.Set<DecisaoConciliacaoTesouro>()
+                .AnyAsync(x => x.CarteiraId == carteiraId && x.LoteId == lote.Id, cancellationToken);
+            var possuiAuditoria = await db.Set<RevisaoSnapshotTesouro>()
+                .AnyAsync(x => x.CarteiraId == carteiraId && x.LoteId == lote.Id, cancellationToken);
+            if (possuiRevisoes || possuiAuditoria) return lote;
+
+            // Uma nova versão do leitor pode corrigir uma prévia ainda não revisada.
+            lote.AtualizarPreviaPendente(previaJson);
+            await lotes.SalvarAsync(cancellationToken);
+            return lote;
+        }
+    }
+
     private static LoteTesouroResposta Mapear(LoteImportacaoTesouro lote) =>
         new(lote.Id, lote.CarteiraId, lote.DataReferencia, lote.Formato, lote.Estado,
             lote.CriadoEmUtc, lote.ConfirmadoEmUtc,
-            JsonSerializer.Deserialize<PreviaTesouroDto>(lote.PreviaJson) ?? throw new InvalidOperationException("Prévia indisponível."));
+            JsonSerializer.Deserialize<PreviaTesouroDto>(lote.PreviaJson) ?? throw new InvalidOperationException("Prévia indisponível."),
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(lote.PreviaJson))).ToLowerInvariant());
 
     private BadRequestObjectResult ArquivoInvalido() =>
         BadRequest(new RespostaApi<LoteTesouroResposta>(null!, false, "Arquivo inválido ou formato não reconhecido."));

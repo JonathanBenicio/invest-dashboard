@@ -14,8 +14,8 @@ const descrever = (item: Transacao) => {
   return `${tipo} · ${data} · quantidade ${item.quantidade.toLocaleString('pt-BR')} · preço ${item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
 }
 
-export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVersao, indiceEvento, tipoEvento, motivosSemVinculo, candidatos, transacoes, onRevisao, bloqueado }: {
-  carteiraId: string; loteId: string; ativoId: string | null; carteiraVersao: number; indiceEvento: number
+export function RevisaoEventoTesouro({ carteiraId, loteId, hashPrevia, ativoId, carteiraVersao, indiceEvento, tipoEvento, motivosSemVinculo, candidatos, transacoes, onRevisao, bloqueado }: {
+  carteiraId: string; loteId: string; hashPrevia: string; ativoId: string | null; carteiraVersao: number; indiceEvento: number
   tipoEvento: 'Buy' | 'Sell' | null; motivosSemVinculo: string[]; candidatos: string[]; transacoes: Transacao[]
   onRevisao: (revisao: RevisaoTesouro | null) => void; bloqueado: boolean
 }) {
@@ -46,7 +46,7 @@ export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVers
     try {
       const resposta = await tesouroDiretoService.registrarRevisao(carteiraId, loteId, {
         indiceEvento, decisao: opcao === 'sem_vinculo' ? 'sem_vinculo' : 'vincular', ativoId,
-        transacaoId: opcao === 'sem_vinculo' ? null : opcao, carteiraVersao, revisaoAnterior,
+        transacaoId: opcao === 'sem_vinculo' ? null : opcao, carteiraVersao, revisaoAnterior, hashPrevia,
       })
       onRevisao(resposta.dados)
       setHistorico([...historico, resposta.dados]); setOpcao(''); setSalvo(true)
@@ -54,7 +54,7 @@ export function RevisaoEventoTesouro({ carteiraId, loteId, ativoId, carteiraVers
       if (error instanceof ApiError && error.status === 409) {
         onRevisao(null)
         setConflito(true)
-        setErro('A carteira ou uma revisão mudou. Compare novamente as movimentações antes de registrar sua decisão.')
+        setErro('A carteira, uma revisão ou a prévia mudou. Reabra o lote e compare novamente as movimentações antes de registrar sua decisão.')
       } else {
         setErro('Não foi possível salvar a revisão. Tente novamente.')
       }

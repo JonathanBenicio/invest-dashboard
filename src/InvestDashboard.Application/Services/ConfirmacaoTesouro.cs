@@ -20,23 +20,11 @@ public static class ConfirmacaoTesouro
             return null;
 
         var titulo = previa.Titulo.Trim();
-        var normalizado = titulo.Normalize(NormalizationForm.FormD);
-        var indexador = normalizado.Contains("SELIC", StringComparison.OrdinalIgnoreCase) ? "SELIC"
-            : normalizado.Contains("IPCA", StringComparison.OrdinalIgnoreCase) ||
-              normalizado.Contains("RENDA+", StringComparison.OrdinalIgnoreCase) ||
-              normalizado.Contains("EDUCA+", StringComparison.OrdinalIgnoreCase) ? "IPCA"
-            : normalizado.Contains("IGPM", StringComparison.OrdinalIgnoreCase) ||
-              normalizado.Contains("IGP-M", StringComparison.OrdinalIgnoreCase) ? "IGPM"
-            : normalizado.Contains("PREFIXADO", StringComparison.OrdinalIgnoreCase) ? "PREFIXADO"
-            : null;
+        var indexador = IdentificarIndexador(titulo);
         if (indexador is null) return null;
         foreach (var linha in previa.Posicoes)
         {
-            var contrato = linha.DadosInterpretados?.RentabilidadeContratada?.Trim();
-            if (string.IsNullOrWhiteSpace(contrato)) return null;
-            var taxas = Regex.Matches(contrato, @"([0-9]+(?:[.,][0-9]+)?)\s*%", RegexOptions.CultureInvariant);
-            if (taxas.Count != 1 || !decimal.TryParse(taxas[0].Groups[1].Value.Replace(',', '.'),
-                    NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out _)) return null;
+            if (!TaxaContratadaValida(linha.DadosInterpretados?.RentabilidadeContratada)) return null;
         }
 
         var referencia = Encoding.UTF8.GetBytes($"{titulo}|{vencimento:yyyy-MM-dd}".ToUpperInvariant());
@@ -44,6 +32,89 @@ public static class ConfirmacaoTesouro
         return new RendaFixa(Guid.NewGuid(), ticker, titulo, precoUnitario, DateTime.UtcNow,
             indexador, null, vencimento.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc), "Tesouro Nacional", "TESOURO_DIRETO");
     }
+
+    public static IReadOnlyList<string> MotivosCriacaoPosicaoInicial(PreviaTesouroDto previa,
+        DateOnly dataReferencia, string estadoLote, bool tituloJaExiste)
+    {
+        var motivos = new List<string>();
+        if (estadoLote != "Pendente") motivos.Add("Esta prévia já foi processada. Abra a posição existente para continuar.");
+        if (previa.Formato != "html") motivos.Add("A criação inicial está disponível somente para extrato HTML.");
+        if (string.IsNullOrWhiteSpace(previa.Titulo)) motivos.Add("O título não foi reconhecido no HTML.");
+        else if (IdentificarIndexador(previa.Titulo) is null)
+            motivos.Add("Não foi possível reconhecer o tipo do título pelo nome. Confira se o título é Prefixado, Selic ou indexado a IPCA/IGP-M.");
+        if (!DateOnly.TryParseExact(previa.Vencimento, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
+            motivos.Add("O vencimento não foi identificado em um formato válido no HTML.");
+        if (previa.Posicoes.Count == 0)
+            motivos.Add("Nenhuma linha de posição foi encontrada. O HTML precisa conter a posição do título, não apenas movimentações.");
+        else
+        {
+            var linhasSemTaxa = previa.Posicoes.Select((linha, indice) => (linha, indice))
+                .Where(item => !TaxaContratadaValida(item.linha.DadosInterpretados?.RentabilidadeContratada))
+                .Select(item => (item.indice + 1).ToString(CultureInfo.InvariantCulture)).ToArray();
+            if (linhasSemTaxa.Length > 0)
+                motivos.Add($"A rentabilidade contratada não foi reconhecida em {FormatarLinhas(linhasSemTaxa)}. Confira esses campos na tabela de posições.");
+        }
+        if (tituloJaExiste)
+            motivos.Add("Este título já tem uma posição na carteira. Selecione a posição existente para atualizar o saldo.");
+        if (previa.LinhasNaoInterpretadas.Count > 0)
+            motivos.Add($"Há {previa.LinhasNaoInterpretadas.Count} linhas sem interpretação; confira a tabela da prévia e o arquivo original.");
+        if (!TentarCalcularSaldo(previa, dataReferencia, out _))
+        {
+            if (previa.Movimentacoes.Count > 10_000)
+                motivos.Add("O extrato excede o limite de movimentações aceito para uma prévia.");
+            else if (previa.Posicoes.Count > 0 && previa.LinhasNaoInterpretadas.Count == 0)
+                motivos.Add("Não foi possível calcular o saldo: cada linha precisa de data de aplicação, quantidade, valor investido e valor bruto válidos.");
+        }
+
+        var movimentacoesIncompletas = previa.Movimentacoes.Select((movimento, indice) => (movimento, indice))
+            .Where(item => !EventoCompleto(item.movimento.DadosInterpretados, dataReferencia)).ToArray();
+        if (movimentacoesIncompletas.Length > 0)
+        {
+            var campos = movimentacoesIncompletas.SelectMany(item => item.movimento.DadosInterpretados?.CamposNaoInterpretados ?? [])
+                .Distinct(StringComparer.Ordinal).ToArray();
+            var detalhes = campos.Length == 0 ? "Confira data, natureza, tipo, quantidade, preço e valor." :
+                $"Revise estes campos na tabela de movimentações: {string.Join(", ", campos.Select(RotuloCampoMovimento))}.";
+            motivos.Add($"Há {movimentacoesIncompletas.Length} movimentações que precisam de revisão. {detalhes}");
+        }
+
+        return motivos.Distinct(StringComparer.Ordinal).ToArray();
+    }
+
+    private static string? IdentificarIndexador(string titulo)
+    {
+        var normalizado = titulo.Normalize(NormalizationForm.FormD);
+        return normalizado.Contains("SELIC", StringComparison.OrdinalIgnoreCase) ? "SELIC"
+            : normalizado.Contains("IPCA", StringComparison.OrdinalIgnoreCase) ||
+              normalizado.Contains("RENDA+", StringComparison.OrdinalIgnoreCase) ||
+              normalizado.Contains("EDUCA+", StringComparison.OrdinalIgnoreCase) ? "IPCA"
+            : normalizado.Contains("IGPM", StringComparison.OrdinalIgnoreCase) ||
+              normalizado.Contains("IGP-M", StringComparison.OrdinalIgnoreCase) ? "IGPM"
+            : normalizado.Contains("PREFIXADO", StringComparison.OrdinalIgnoreCase) ? "PREFIXADO"
+            : null;
+    }
+
+    private static bool TaxaContratadaValida(string? contrato)
+    {
+        if (string.IsNullOrWhiteSpace(contrato)) return false;
+        var taxas = Regex.Matches(contrato.Trim(), @"([0-9]+(?:[.,][0-9]+)?)\s*%", RegexOptions.CultureInvariant);
+        return taxas.Count == 1 && decimal.TryParse(taxas[0].Groups[1].Value.Replace(',', '.'),
+            NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out _);
+    }
+
+    private static string RotuloCampoMovimento(string campo) => campo switch
+    {
+        "data" => "data",
+        "natureza" => "natureza",
+        "tipo" => "tipo",
+        "quantidade" => "quantidade",
+        "preco" => "preço",
+        "taxaAnual" => "taxa do título (% a.a.)",
+        "valor" => "valor",
+        _ => campo
+    };
+
+    private static string FormatarLinhas(IReadOnlyList<string> linhas) =>
+        linhas.Count == 1 ? $"na linha {linhas[0]}" : $"nas linhas {string.Join(", ", linhas)}";
 
     public static bool TituloCompativel(PreviaTesouroDto previa, RendaFixa? ativo) =>
         ativo is not null && ativo.Subtype == "TESOURO_DIRETO" && previa.Formato == "html" &&
@@ -88,9 +159,14 @@ public static class ConfirmacaoTesouro
         _ => null
     };
 
-    public static bool EventoCompleto(DadosMovimentoTesouroDto? m, DateOnly dataReferencia) =>
-        m?.Data is DateOnly data && data <= dataReferencia && m.Valor is not null &&
-        m.CamposNaoInterpretados is { Count: 0 } &&
-        ((m.Natureza == "Taxas" && m.Tipo is "Crédito" or "Débito") ||
-            (TipoNegociacao(m) is not null && m.Quantidade is > 0 && m.Preco is > 0));
+    public static bool EventoCompleto(DadosMovimentoTesouroDto? m, DateOnly dataReferencia)
+    {
+        if (m?.Data is not DateOnly data || data > dataReferencia || m.Valor is null || m.CamposNaoInterpretados is null)
+            return false;
+
+        if (m.CamposNaoInterpretados.Count > 0) return false;
+
+        return (m.Natureza == "Taxas" && m.Tipo is "Crédito" or "Débito") ||
+            (TipoNegociacao(m) is not null && m.Quantidade is > 0 && m.Preco is > 0);
+    }
 }

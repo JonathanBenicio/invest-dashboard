@@ -54,9 +54,9 @@ public sealed class LeitorPreviaTesouro : ILeitorPreviaTesouro
         var naoAplicaveis = new List<string>();
         decimal? LerNumero(int indice, string nome, bool moeda = false, bool percentual = false, bool positivo = false)
         {
-            // O portal mostra um traço nestes três campos em cartões de taxas.
-            // Não converter a ausência em zero nem aplicá-la a outras naturezas.
-            if (natureza == "Taxas" && campos[indice].Valor.Trim() is "-" or "--" or "—" or "–")
+            // Traços em campos opcionais do cartão não são erros nem valores zero.
+            var campoNaoAplicavel = natureza == "Taxas" || ((natureza is "Compra" or "Venda") && nome == "taxaAnual");
+            if (campoNaoAplicavel && campos[indice].Valor.Trim() is "-" or "--" or "—" or "–")
             {
                 naoAplicaveis.Add(nome);
                 return null;

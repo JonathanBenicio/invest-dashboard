@@ -41,12 +41,15 @@ public sealed class ConciliacaoTesouroController(ICarteiraRepository carteiras, 
             var posicaoInicialDisponivel = ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out _);
             var podeCriar = lote.Estado == "Pendente" && inicial is not null && !jaExiste && posicaoInicialDisponivel &&
                 previa.Movimentacoes.All(m => ConfirmacaoTesouro.EventoCompleto(m.DadosInterpretados, lote.DataReferencia));
+            var motivosCriacao = podeCriar ? Array.Empty<string>() :
+                ConfirmacaoTesouro.MotivosCriacaoPosicaoInicial(previa, lote.DataReferencia, lote.Estado, jaExiste);
             return Ok(new RespostaApi<ConciliacaoTesouroDto>(resultado with
             {
                 PodeConfirmar = podeCriar,
                 PodeCriarPosicao = podeCriar,
                 CriarPosicao = true,
-                PosicaoPropostaDisponivel = posicaoInicialDisponivel
+                PosicaoPropostaDisponivel = posicaoInicialDisponivel,
+                MotivosCriacaoPosicao = motivosCriacao
             }));
         }
         var ativo = carteira.Positions.SingleOrDefault(p => p.AtivoId == ativoId)?.Ativo as RendaFixa;

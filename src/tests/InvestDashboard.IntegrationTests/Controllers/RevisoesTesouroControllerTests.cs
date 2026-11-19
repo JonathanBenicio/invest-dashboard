@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using InvestDashboard.Application.DTOs.Importacao;
@@ -29,6 +31,7 @@ public sealed class RevisoesTesouroControllerTests
         outro.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", FakeAuthProvider.GenerateJwtForUser(FakeAuthProvider.SecondTestUserId, FakeAuthProvider.SecondTestSessionId, FakeAuthProvider.SecondTestEmail, FakeAuthProvider.SecondTestName));
         var carteiraId = Guid.NewGuid(); var ativoId = Guid.NewGuid(); var loteId = Guid.NewGuid(); var manualId = Guid.NewGuid(); var outroManualId = Guid.NewGuid(); var terceiroManualId = Guid.NewGuid();
         int versao;
+        string hashPrevia;
         using (var scope = factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
@@ -49,13 +52,15 @@ public sealed class RevisoesTesouroControllerTests
              new([], movimento with { Quantidade = null }), new([], movimento with { Preco = null }),
              new([], movimento with { CamposNaoInterpretados = ["natureza"] }),
              new([], movimento with { Data = new DateOnly(2024, 3, 1), Quantidade = 2m, Preco = 30m })], [], [], true, false, false);
-            var lote = new LoteImportacaoTesouro(loteId, carteiraId, FakeAuthProvider.TestUserId, new DateOnly(2024, 3, 3), new string('a', 64), "html", JsonSerializer.Serialize(previa), DateTime.UtcNow);
+            var previaJson = JsonSerializer.Serialize(previa);
+            hashPrevia = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(previaJson))).ToLowerInvariant();
+            var lote = new LoteImportacaoTesouro(loteId, carteiraId, FakeAuthProvider.TestUserId, new DateOnly(2024, 3, 3), new string('a', 64), "html", previaJson, DateTime.UtcNow);
             db.AddRange(carteira, ativo, manual, outroManual, terceiroManual, lote);
             await db.SaveChangesAsync();
         }
         var url = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{loteId}/revisoes";
         object Revisao(int indice, string decisao, Guid? transacao, int anterior, int? carteiraVersao = null) => new
-        { indiceEvento = indice, decisao, ativoId, transacaoId = transacao, carteiraVersao = carteiraVersao ?? versao, revisaoAnterior = anterior };
+        { indiceEvento = indice, decisao, ativoId, transacaoId = transacao, carteiraVersao = carteiraVersao ?? versao, revisaoAnterior = anterior, hashPrevia };
         (await outro.PostAsJsonAsync(url, Revisao(0, "vincular", manualId, 0))).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await client.PostAsJsonAsync(url, Revisao(0, "vincular", manualId, 0, versao + 1))).StatusCode.Should().Be(HttpStatusCode.Conflict);
         (await client.PostAsJsonAsync(url, Revisao(2, "vincular", manualId, 0))).StatusCode.Should().Be(HttpStatusCode.BadRequest);

@@ -9,7 +9,7 @@ test('revisa candidatos da carteira sem confirmar ou gravar associação', async
       const json = (dados: unknown) => new Response(JSON.stringify({ dados }), { status: 200, headers: { 'Content-Type': 'application/json' } })
       if (url.pathname.endsWith('/tesouro-direto/lotes')) {
         if (init?.method === 'GET') return json([])
-        return json({ id: 'lote-1', carteiraId: 'portfolio-1', dataReferencia: '2026-11-14', formato: 'html', estado: 'Pendente', criadoEmUtc: '2026-11-14T12:00:00Z', confirmadoEmUtc: null,
+        return json({ id: 'lote-1', carteiraId: 'portfolio-1', dataReferencia: '2026-11-14', formato: 'html', estado: 'Pendente', criadoEmUtc: '2026-11-14T12:00:00Z', confirmadoEmUtc: null, hashPrevia: 'hash-previa-1',
           previa: { carteiraId: 'portfolio-1', formato: 'html', titulo: 'Título sintético', vencimento: '2035-01-01', posicoes: [], movimentacoes: [], linhasNaoInterpretadas: [], avisos: [], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false } })
       }
       if (url.pathname.endsWith('/lotes/lote-1/conciliacao')) {
@@ -23,10 +23,10 @@ test('revisa candidatos da carteira sem confirmar ou gravar associação', async
       if (url.pathname.endsWith('/lotes/lote-1/revisoes/0')) return json([])
       if (url.pathname.endsWith('/lotes/lote-1/revisoes/1')) return json([{ id: 'revisao-antiga', indiceEvento: 1, revisao: 1, decisao: 'sem_vinculo', ativoId: 'ativo-1', transacaoId: null, carteiraVersao: 0, criadoEmUtc: '2026-11-14T12:00:00Z', divergencias: ['carteiraAlterada'] }])
       if (url.pathname.endsWith('/lotes/lote-1/revisoes')) {
-        const pedido = JSON.parse(String(init?.body)) as { indiceEvento: number; decisao: string; ativoId: string; transacaoId: string | null; carteiraVersao: number; revisaoAnterior: number }
+        const pedido = JSON.parse(String(init?.body)) as { indiceEvento: number; decisao: string; ativoId: string; transacaoId: string | null; carteiraVersao: number; revisaoAnterior: number; hashPrevia: string }
         revisoesEnviadas++
         if (revisoesEnviadas > 1) return new Response(null, { status: 409 })
-        if (pedido.indiceEvento !== 0 || pedido.decisao !== 'sem_vinculo' || pedido.ativoId !== 'ativo-1' || pedido.transacaoId !== null || pedido.carteiraVersao !== 1 || pedido.revisaoAnterior !== 0) return new Response(null, { status: 400 })
+        if (pedido.indiceEvento !== 0 || pedido.decisao !== 'sem_vinculo' || pedido.ativoId !== 'ativo-1' || pedido.transacaoId !== null || pedido.carteiraVersao !== 1 || pedido.revisaoAnterior !== 0 || pedido.hashPrevia !== 'hash-previa-1') return new Response(null, { status: 400 })
         return json({ id: 'revisao-1', ...pedido, revisao: 1, criadoEmUtc: '2026-11-14T12:00:00Z' })
       }
       return original(input, init)
@@ -73,7 +73,7 @@ test('confirma um lote apto com a versão e as revisões exibidas', async ({ pag
   await page.addInitScript(() => {
     const original = window.fetch.bind(window)
     const movimento = { natureza: 'Compra', tipo: 'Crédito', data: '2026-10-01', quantidade: 2, preco: 100, camposNaoInterpretados: [] }
-    const resumo = { id: 'lote-1', carteiraId: 'portfolio-1', dataReferencia: '2026-11-14', formato: 'html', estado: 'Pendente', criadoEmUtc: '2026-11-14T12:00:00Z', confirmadoEmUtc: null }
+    const resumo = { id: 'lote-1', carteiraId: 'portfolio-1', dataReferencia: '2026-11-14', formato: 'html', estado: 'Pendente', criadoEmUtc: '2026-11-14T12:00:00Z', confirmadoEmUtc: null, hashPrevia: 'hash-previa-1' }
     const previa = { carteiraId: 'portfolio-1', formato: 'html', titulo: 'Título sintético', vencimento: '2035-01-01', posicoes: [{ numeroLinha: 1, camposBrutos: {} }], movimentacoes: [{ campos: [], dadosInterpretados: movimento }], linhasNaoInterpretadas: [], avisos: [], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false }
     window.fetch = async (input, init) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.origin)

@@ -1,4 +1,6 @@
 using System.Data;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using InvestDashboard.Application.DTOs.Common;
 using InvestDashboard.Application.DTOs.Importacao;
@@ -58,6 +60,7 @@ public sealed class RevisoesTesouroController(InvestDbContext db, ICarteiraRepos
         var usuarioId = usuario.UserId;
         if (usuarioId is null) return NotFound();
         if (pedido.IndiceEvento < 0 || pedido.RevisaoAnterior is < 0 or >= 100 || pedido.CarteiraVersao < 0 ||
+            pedido.HashPrevia is not { Length: 64 } || pedido.HashPrevia.Any(c => !Uri.IsHexDigit(c)) ||
             pedido.Decisao is not ("vincular" or "sem_vinculo") ||
             (pedido.Decisao == "vincular" && (!pedido.AtivoId.HasValue || !pedido.TransacaoId.HasValue)) ||
             (pedido.Decisao == "sem_vinculo" && pedido.TransacaoId.HasValue)) return BadRequest();
@@ -73,6 +76,8 @@ public sealed class RevisoesTesouroController(InvestDbContext db, ICarteiraRepos
             var lote = await lotes.BuscarPorIdAsync(carteiraId, usuarioId.Value, loteId, cancellationToken);
             if (lote is null) return NotFound();
             if (lote.Estado != "Pendente" || carteira.Version != pedido.CarteiraVersao) return Conflict();
+            var hashPrevia = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(lote.PreviaJson))).ToLowerInvariant();
+            if (!string.Equals(hashPrevia, pedido.HashPrevia, StringComparison.Ordinal)) return Conflict();
             var previa = JsonSerializer.Deserialize<PreviaTesouroDto>(lote.PreviaJson);
             if (previa is null || pedido.IndiceEvento >= previa.Movimentacoes.Count) return BadRequest();
             if (pedido.AtivoId.HasValue && !carteira.Positions.Any(p => p.AtivoId == pedido.AtivoId && p.TipoAtivo == TipoAtivo.RendaFixa)) return NotFound();
@@ -145,7 +150,7 @@ public sealed class RevisoesTesouroController(InvestDbContext db, ICarteiraRepos
     private static bool ConflitoConcorrencia(Exception erro)
     {
         for (Exception? causa = erro; causa is not null; causa = causa.InnerException)
-            if (causa is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.SerializationFailure }) return true;
+            if (causa is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation or PostgresErrorCodes.SerializationFailure or PostgresErrorCodes.DeadlockDetected }) return true;
         return false;
     }
 }
