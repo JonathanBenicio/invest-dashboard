@@ -16,7 +16,7 @@ public static class ComparadorSnapshotTesouro
     public static ComparacaoSnapshotTesouroDto? Preparar(Guid loteAtualId, string hashConteudoAtual, int carteiraVersao,
         DateOnly dataReferenciaAtual, PreviaTesouroDto previaAtual, BasePosicaoTesouro? baseAnterior,
         PreviaTesouroDto? previaAnterior, IReadOnlyCollection<Transacao> transacoes,
-        decimal quantidadeAtual)
+        decimal? quantidadeAtual)
     {
         if (baseAnterior is null && previaAnterior is null && transacoes.Count == 0)
             return null;
@@ -40,6 +40,11 @@ public static class ComparadorSnapshotTesouro
             CompararMovimentacoes(previaAnterior.Movimentacoes, previaAtual.Movimentacoes, divergencias);
         }
 
+        if (previaAtual.Posicoes.Count == 0 && (baseAnterior is not null || previaAnterior is not null))
+            Adicionar(divergencias, "posicao_nao_observada", "posicao",
+                "Este arquivo não apresenta uma posição interpretável do título. A ausência não comprova encerramento nem saldo zero; a base anterior não será substituída.",
+                baseAnterior is null ? null : $"{baseAnterior.DataReferencia:yyyy-MM-dd} · quantidade {Numero(baseAnterior.Quantidade)}", null);
+
         foreach (var manual in transacoesNaJanela)
             Adicionar(divergencias, "movimento_manual_na_janela", manual.Id.ToString("N"),
                 "Movimento manual na janela da nova base. Revise seu vínculo; o registro será preservado.",
@@ -47,11 +52,12 @@ public static class ComparadorSnapshotTesouro
 
         var quantidadeEsperada = transacoesNaJanela.Length == 0 ? CalcularQuantidadeEsperada(quantidadeAnterior, dataBaseAnterior,
             dataReferenciaAtual, previaAtual.Movimentacoes, divergencias) : null;
-        if (quantidadeEsperada.HasValue && Math.Abs(quantidadeEsperada.Value - quantidadeAtual) >= 0.00000001m)
+        if (quantidadeEsperada.HasValue && quantidadeAtual.HasValue &&
+            Math.Abs(quantidadeEsperada.Value - quantidadeAtual.Value) >= 0.00000001m)
             Adicionar(divergencias, "saldo_nao_explicado", "quantidade",
                 "A quantidade proposta não coincide com a base anterior mais as movimentações reconhecidas.",
                 quantidadeEsperada.Value.ToString("0.########", CultureInfo.InvariantCulture),
-                quantidadeAtual.ToString("0.########", CultureInfo.InvariantCulture));
+                quantidadeAtual.Value.ToString("0.########", CultureInfo.InvariantCulture));
 
         if (!previaAtual.CoberturaCompleta)
             Adicionar(divergencias, "cobertura_nao_comprovada", "html",

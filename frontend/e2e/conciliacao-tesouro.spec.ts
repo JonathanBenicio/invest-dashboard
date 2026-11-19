@@ -85,7 +85,7 @@ test('confirma um lote apto com a versão e as revisões exibidas', async ({ pag
         return json({ carteiraVersao: 4, dataReferencia: resumo.dataReferencia, dataBaseAtiva: '2026-09-30', ativoId, ativos: [{ ativoId: 'ativo-1', ticker: 'TESOURO35' }],
           eventos: [{ indice: 0, dadosInterpretados: movimento, candidatos: [] }],
           transacoes: [{ id: 'manual-1', tipo: 'Buy', data: '2026-10-02T12:00:00Z', quantidade: 1, preco: 99, posteriorBase: false }],
-          podeConfirmar: !!ativoId,
+          podeConfirmar: !!ativoId, posicaoPropostaDisponivel: true,
           comparacaoSnapshot: { hash: 'hash-snapshot-1', dataBaseAnterior: '2026-09-30', quantidadeAnterior: 1, quantidadeProposta: 2, requerAceite: true,
             divergencias: [{ tipo: 'movimento_manual_na_janela', chave: 'manual-1', descricao: 'Movimento manual na janela da nova base. Revise seu vínculo; o registro será preservado.', anterior: 'Buy · 2026-10-02 · quantidade 1 · preço 99', atual: null }] } })
       }

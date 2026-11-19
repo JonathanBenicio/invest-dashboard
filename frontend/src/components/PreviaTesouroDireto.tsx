@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { tesouroDiretoService, type LoteTesouro } from '@/api/services/tesouro-direto.service'
 import { ReferenciaPublicaTesouro } from './ReferenciaPublicaTesouro'
 import { ConciliacaoTesouro } from './ConciliacaoTesouro'
@@ -18,6 +19,7 @@ const nomesCampos: Record<string, string> = {
   valorBruto: 'valor bruto', diasCorridos: 'dias corridos', aliquotaIr: 'alíquota de IR', impostoPrevistoIr: 'IR previsto', impostoPrevistoIof: 'IOF previsto',
   taxaDevidaB3: 'taxa B3', taxaDevidaInstituicao: 'taxa da instituição', valorLiquido: 'valor líquido',
 }
+const rotuloCampo = (campo: string) => nomesCampos[campo] ?? campo.replace(/_/g, ' ')
 
 export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tentarNovamente }: { carteiras: Carteira[]; carregando: boolean; erroCarteiras: boolean; tentarNovamente: () => void }) {
   const [carteira, setCarteira] = useState('')
@@ -30,6 +32,8 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
   const queryClient = useQueryClient()
   const historico = useQuery({ queryKey: ['tesouro-lotes', carteira, pagina], queryFn: () => tesouroDiretoService.lotes(carteira, pagina), enabled: !!carteira, retry: false })
   const previa = lote?.previa
+  const colunasPosicao = [...new Set(previa?.posicoes.flatMap(posicao => Object.keys(posicao.camposBrutos)) ?? [])]
+  const colunasMovimentacao = [...new Set(previa?.movimentacoes.flatMap(item => item.campos.map(campo => campo.rotulo)) ?? [])]
 
   async function analisar() {
     if (!carteira || !arquivo || !dataReferencia) return
@@ -138,22 +142,39 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
           <p>Linhas: {previa.linhasNaoInterpretadas.join(', ')}.</p>
         </div>}
         <section className="space-y-3"><h3 className="font-semibold">Posições identificadas ({previa.posicoes.length})</h3>
-          {previa.posicoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma posição identificada neste arquivo.</p> : previa.posicoes.map((posicao, index) => <div key={posicao.numeroLinha} className="rounded-md border p-3 text-sm">
-            <p className="font-medium">Posição {index + 1}</p>
-            {!!posicao.dadosInterpretados?.camposNaoInterpretados.length && <p role="status" className="mt-2 text-amber-700 dark:text-amber-300">
-              Não foi possível interpretar: {posicao.dadosInterpretados.camposNaoInterpretados.map(campo => nomesCampos[campo] ?? campo).join(', ')}. Confira os valores originais abaixo.
-            </p>}
-            <dl className="mt-2 grid gap-2 sm:grid-cols-2">{Object.entries(posicao.camposBrutos).map(([rotulo, valor]) => <div key={rotulo}><dt className="text-muted-foreground">{rotulo.replace(/_/g, ' ')}</dt><dd className="break-words">{valor || '—'}</dd></div>)}</dl>
-          </div>)}
+          {previa.posicoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma posição identificada neste arquivo.</p> : <div className="rounded-md border">
+            <Table className="min-w-max" aria-label="Posições identificadas no extrato">
+              <TableHeader><TableRow><TableHead>Linha</TableHead>{colunasPosicao.map(campo => <TableHead key={campo}>{rotuloCampo(campo)}</TableHead>)}<TableHead>Leitura</TableHead></TableRow></TableHeader>
+              <TableBody>{previa.posicoes.map(posicao => {
+                const camposNaoInterpretados = posicao.dadosInterpretados?.camposNaoInterpretados ?? []
+                return <TableRow key={posicao.numeroLinha}>
+                  <TableCell className="whitespace-nowrap">{posicao.numeroLinha}</TableCell>
+                  {colunasPosicao.map(campo => <TableCell key={campo} className="whitespace-nowrap">{posicao.camposBrutos[campo] || '—'}</TableCell>)}
+                  <TableCell className={camposNaoInterpretados.length ? 'min-w-56 text-amber-700 dark:text-amber-300' : 'whitespace-nowrap'}>
+                    {camposNaoInterpretados.length ? `Revisar: ${camposNaoInterpretados.map(rotuloCampo).join(', ')}` : posicao.dadosInterpretados ? 'Interpretada' : 'Não interpretada'}
+                  </TableCell>
+                </TableRow>
+              })}</TableBody>
+            </Table>
+          </div>}
         </section>
         <section className="space-y-3"><h3 className="font-semibold">Movimentações identificadas ({previa.movimentacoes.length})</h3>
-          {previa.movimentacoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma movimentação identificada neste arquivo.</p> : previa.movimentacoes.map((movimentacao, index) => <div key={index} className="rounded-md border p-3 text-sm">
-            <p className="mb-2 font-medium">Movimentação {index + 1}</p>
-            {!!movimentacao.dadosInterpretados?.camposNaoInterpretados.length && <p role="status" className="mb-2 text-amber-700 dark:text-amber-300">
-              Não foi possível interpretar: {movimentacao.dadosInterpretados.camposNaoInterpretados.map(campo => nomesCampos[campo] ?? campo).join(', ')}. Confira os valores originais abaixo.
-            </p>}
-            <dl className="grid gap-2 sm:grid-cols-2">{movimentacao.campos.map((campo, campoIndex) => <div key={campoIndex}><dt className="text-muted-foreground">{campo.rotulo}</dt><dd className="break-words">{campo.valor}</dd></div>)}</dl>
-          </div>)}
+          {previa.movimentacoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma movimentação identificada neste arquivo.</p> : <div className="rounded-md border">
+            <Table className="min-w-max" aria-label="Movimentações identificadas no extrato">
+              <TableHeader><TableRow><TableHead>Nº</TableHead>{colunasMovimentacao.map(campo => <TableHead key={campo}>{rotuloCampo(campo)}</TableHead>)}<TableHead>Leitura</TableHead></TableRow></TableHeader>
+              <TableBody>{previa.movimentacoes.map((movimentacao, index) => {
+                const camposNaoInterpretados = movimentacao.dadosInterpretados?.camposNaoInterpretados ?? []
+                const valores = new Map(movimentacao.campos.map(campo => [campo.rotulo, campo.valor]))
+                return <TableRow key={`${lote.id}-${index}`}>
+                  <TableCell className="whitespace-nowrap">{index + 1}</TableCell>
+                  {colunasMovimentacao.map(campo => <TableCell key={campo} className="whitespace-nowrap">{valores.get(campo) || '—'}</TableCell>)}
+                  <TableCell className={camposNaoInterpretados.length ? 'min-w-56 text-amber-700 dark:text-amber-300' : 'whitespace-nowrap'}>
+                    {camposNaoInterpretados.length ? `Revisar: ${camposNaoInterpretados.map(rotuloCampo).join(', ')}` : movimentacao.dadosInterpretados ? 'Interpretada' : 'Não interpretada'}
+                  </TableCell>
+                </TableRow>
+              })}</TableBody>
+            </Table>
+          </div>}
         </section>
       </CardContent>
     </Card>}

@@ -31,8 +31,10 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
     (!!resultado.dataBaseAtiva && data(transacao.data).split('/').reverse().join('-') <= resultado.dataBaseAtiva)) ?? false
   const aceiteSnapshotVigente = resultado?.comparacaoSnapshot?.requerAceite === true && aceitarDivergencias
   const apto = resultado?.podeConfirmar === true
+  const posicaoPropostaDisponivel = resultado?.posicaoPropostaDisponivel === true
   const criarPosicao = selecionado === NOVA_POSICAO && resultado?.criarPosicao === true && resultado.ativoId === null
   const ativoSelecionado = criarPosicao ? resultado?.podeCriarPosicao === true : !!resultado?.ativoId && resultado.ativoId === selecionado
+  const acaoSemPosicaoProposta = resultado?.dataBaseAtiva ? 'A base anterior será preservada.' : 'Nenhuma base será criada.'
   const podeConfirmar = apto && ativoSelecionado &&
     revisoesValidas && vinculosUnicos && (todosLancamentosVinculados || aceiteSnapshotVigente) &&
     (!resultado?.comparacaoSnapshot?.requerAceite || aceitarDivergencias) && !ocupado && !confirmando
@@ -102,11 +104,12 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
         <p>Compare os dados antes de decidir. As sugestões não confirmam que os registros sejam a mesma operação.</p>
         {resultado.comparacaoSnapshot && <div className="space-y-2 rounded-md border p-3">
           <h4 className="font-medium">Comparação com o saldo anterior</h4>
-          <p>Quantidade da base anterior: {resultado.comparacaoSnapshot.dataBaseAnterior ? resultado.comparacaoSnapshot.quantidadeAnterior.toLocaleString('pt-BR') : 'sem base de extrato'} · Proposta: {resultado.comparacaoSnapshot.quantidadeProposta.toLocaleString('pt-BR')}</p>
+          <p>Quantidade da base anterior: {resultado.comparacaoSnapshot.dataBaseAnterior ? resultado.comparacaoSnapshot.quantidadeAnterior.toLocaleString('pt-BR') : 'sem base de extrato'} · Proposta: {posicaoPropostaDisponivel && resultado.comparacaoSnapshot.quantidadeProposta != null ? resultado.comparacaoSnapshot.quantidadeProposta.toLocaleString('pt-BR') : lote.previa.posicoes.length === 0 ? 'posição não observada neste arquivo' : 'posição não interpretável'}</p>
           <ul className="list-disc space-y-1 pl-5">{resultado.comparacaoSnapshot.divergencias.map((item, indice) => <li key={`${item.tipo}-${item.chave}-${indice}`}>{item.descricao}{item.tipo === 'movimento_manual_na_janela' ? ' · confira esta operação nas movimentações abaixo' : item.anterior ? ` · ${item.anterior}` : ''}{item.atual && item.tipo !== 'movimento_manual_na_janela' ? ` · ${item.atual}` : ''}</li>)}</ul>
-          {resultado.comparacaoSnapshot.requerAceite && <label className="flex items-start gap-2"><input type="checkbox" checked={aceitarDivergencias} onChange={event => setAceitarDivergencias(event.target.checked)} /><span>Revisei as divergências e aceito o saldo proposto como base. Movimentos manuais anteriores sem vínculo não serão reaplicados ao saldo, mas seus registros serão mantidos na auditoria.</span></label>}
+          {resultado.comparacaoSnapshot.requerAceite && posicaoPropostaDisponivel && <label className="flex items-start gap-2"><input type="checkbox" checked={aceitarDivergencias} onChange={event => setAceitarDivergencias(event.target.checked)} /><span>Revisei as divergências e aceito o saldo proposto como base. Movimentos manuais anteriores sem vínculo não serão reaplicados ao saldo, mas seus registros serão mantidos na auditoria.</span></label>}
         </div>}
-        {resultado.eventos.length === 0 ? <p role="status">Este snapshot não contém movimentações. A confirmação atualizará apenas o saldo da posição na data de referência.</p> : <ul className="space-y-3">{resultado.eventos.map(evento => {
+        {!posicaoPropostaDisponivel && <p role="status">O HTML não contém uma posição interpretável para este título. Isso não equivale a saldo zero nem comprova encerramento; a confirmação ficará bloqueada. {acaoSemPosicaoProposta}</p>}
+        {resultado.eventos.length === 0 ? posicaoPropostaDisponivel ? <p role="status">Este snapshot não contém movimentações. A confirmação atualizará apenas o saldo da posição na data de referência.</p> : <p role="status">Este snapshot não contém movimentações e não apresenta posição interpretável.</p> : <ul className="space-y-3">{resultado.eventos.map(evento => {
           const movimento = evento.dadosInterpretados
           const candidatos = resultado.transacoes.filter(transacao => evento.candidatos.includes(transacao.id))
           const tipoEvento = movimento?.natureza === 'Compra' && movimento.tipo === 'Crédito' ? 'Buy' : movimento?.natureza === 'Venda' && movimento.tipo === 'Débito' ? 'Sell' : null
@@ -131,7 +134,7 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
         {resultado.transacoes.length === 0 ? <p>Nenhuma movimentação encontrada para esta posição.</p> : <ul className="space-y-1">{resultado.transacoes.map(item => <li key={item.id}>
           {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : resultado.eventos.some(evento => evento.candidatos.includes(item.id)) ? ' · sugerida para comparação' : ' · sem correspondência sugerida'}
         </li>)}</ul>}
-        {!apto && <p>O extrato ou a posição escolhida não atende aos critérios para confirmar. Confira o título, o vencimento, a data de referência e os campos não interpretados.</p>}
+        {!apto && posicaoPropostaDisponivel && <p>O extrato ou a posição escolhida não atende aos critérios para confirmar. Confira o título, o vencimento, a data de referência e os campos não interpretados.</p>}
         {apto && !revisoesValidas && <p>Carregue ou salve uma revisão vigente para cada movimentação. Os vínculos precisam corresponder à data, ao tipo, à quantidade e ao preço.</p>}
         {apto && revisoesValidas && !todosLancamentosVinculados && !aceitarDivergencias && <p>Vincule os lançamentos manuais que o saldo do extrato vai substituir ou revise e aceite explicitamente as divergências do snapshot.</p>}
         {!vinculosUnicos && <p role="alert">O mesmo lançamento manual aparece em mais de uma revisão. Corrija os vínculos antes de confirmar.</p>}

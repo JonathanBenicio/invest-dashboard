@@ -53,6 +53,7 @@ export interface LoteTesouro extends ResumoLoteTesouro { previa: PreviaTesouro }
 
 export type TipoDivergenciaSnapshotTesouro =
   | 'snapshot_anterior_indisponivel'
+  | 'posicao_nao_observada'
   | 'movimento_manual_na_janela'
   | 'saldo_nao_explicado'
   | 'cobertura_nao_comprovada'
@@ -72,13 +73,14 @@ export interface ConciliacaoTesouro {
   eventos: { indice: number; dadosInterpretados: PreviaTesouro['movimentacoes'][number]['dadosInterpretados']; candidatos: string[] }[]
   transacoes: { id: string; tipo: string; data: string; quantidade: number; preco: number; posteriorBase: boolean }[]
   podeConfirmar: boolean
+  posicaoPropostaDisponivel: boolean
   podeCriarPosicao: boolean
   criarPosicao: boolean
   comparacaoSnapshot?: {
     hash: string
     dataBaseAnterior: string | null
     quantidadeAnterior: number
-    quantidadeProposta: number
+    quantidadeProposta: number | null
     requerAceite: boolean
     divergencias: { tipo: TipoDivergenciaSnapshotTesouro; chave: string; descricao: string; anterior: string | null; atual: string | null }[]
   } | null

@@ -22,7 +22,7 @@ public sealed record ComparacaoSnapshotTesouroDto(
     [property: JsonPropertyName("hash")] string Hash,
     [property: JsonPropertyName("dataBaseAnterior")] DateOnly? DataBaseAnterior,
     [property: JsonPropertyName("quantidadeAnterior")] decimal QuantidadeAnterior,
-    [property: JsonPropertyName("quantidadeProposta")] decimal QuantidadeProposta,
+    [property: JsonPropertyName("quantidadeProposta")] decimal? QuantidadeProposta,
     [property: JsonPropertyName("divergencias")] IReadOnlyList<DivergenciaSnapshotTesouroDto> Divergencias,
     [property: JsonPropertyName("requerAceite")] bool RequerAceite);
 public sealed record ConciliacaoTesouroDto(
@@ -36,4 +36,5 @@ public sealed record ConciliacaoTesouroDto(
     [property: JsonPropertyName("dataBaseAtiva")] DateOnly? DataBaseAtiva = null,
     [property: JsonPropertyName("podeCriarPosicao")] bool PodeCriarPosicao = false,
     [property: JsonPropertyName("criarPosicao")] bool CriarPosicao = false,
-    [property: JsonPropertyName("comparacaoSnapshot")] ComparacaoSnapshotTesouroDto? ComparacaoSnapshot = null);
+    [property: JsonPropertyName("comparacaoSnapshot")] ComparacaoSnapshotTesouroDto? ComparacaoSnapshot = null,
+    [property: JsonPropertyName("posicaoPropostaDisponivel")] bool PosicaoPropostaDisponivel = false);
