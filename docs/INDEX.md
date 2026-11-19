@@ -39,7 +39,7 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Plano de implementação da plataforma](plan/plan.md) (preexistente; confirmar premissas antes de reutilizar)
 - [Importação de extrato do Tesouro Direto](plan/tesouro-direto-extrato-plano.md) — iniciativa #53, em refinamento.
 - [Refinamento da importação e dos dados de mercado do Tesouro Direto](plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md) — implementação parcial e pendências.
-- [Reimportação auditável de snapshots do Tesouro Direto](plan/tesouro-reimportacao-snapshots.md) — Issues #55/#57/#58; comparação, auditoria, aceite de manual sem vínculo e E2E direcionada validados; aguardam teste manual, rollback e ausência integral.
+- [Reimportação auditável de snapshots do Tesouro Direto](plan/tesouro-reimportacao-snapshots.md) — Issues #55/#57/#58; inclui revisão de posição ausente e prévia em tabelas; aguardam validação manual, rollback e concorrência.
 - [Gestão de carteira](plan/carteira.md)
 - [Fechamento dos gaps das telas que usavam mocks](plan/mock-era-parity.md)
 - [Correções da revisão do PR #44](plan/pr-44-review-fixes.md) — planejado; isolamento de extratos, avaliação cronológica e indicadores com cotação atual.

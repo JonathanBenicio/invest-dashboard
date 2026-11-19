@@ -1,10 +1,10 @@
 # Plano — reimportação auditável de snapshots do Tesouro Direto
 
-- Estado: em andamento; comparação, auditoria e aceite explícito de movimentos sem vínculo estão cobertos por testes direcionados. A validação manual do usuário e lacunas de concorrência, rollback e ausência integral continuam pendentes.
+- Estado: em andamento; comparação, auditoria, aceite explícito de movimentos sem vínculo e sinalização de posição não observada estão implementados no código local. Builds passaram; validação manual, concorrência/rollback e decisão sobre encerramento explícito continuam pendentes.
 - Issues: [#55 — contrato/regras de conciliação](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57 — persistência/reconciliação](https://github.com/JonathanBenicio/invest-dashboard/issues/57) e [#58 — validação ponta a ponta](https://github.com/JonathanBenicio/invest-dashboard/issues/58); iniciativa [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53).
 - ADR: [0004 — revisão auditável de divergências entre snapshots](../adrs/0004-tesouro-reimportacao-snapshots.md), proposta.
 - Story: [US-IMPORT-002](../USER-STORIES.md#us-import-002--reimportação-auditável-de-snapshots-html), em andamento.
-- Baseline: branch `codex/tesouro-previa-e-cotacoes`, código de aceite no commit `26aa337`; PR #62 permanece em rascunho.
+- Baseline: branch `codex/tesouro-previa-e-cotacoes`, última implementação no commit `aa21a9c`; PR #62 permanece em rascunho.
 - Plano canônico: `docs/plan/tesouro-reimportacao-snapshots.md`.
 
 ## Objetivo, baseline e escopo
@@ -34,6 +34,8 @@
 | [x] Expor revisão na prévia e no contrato | Serviço de diff, API de revisão e UI atual | Usuário vê divergências e saldo anterior/proposto; aceite habilita confirmação apenas após revisão | API e tela implementadas; E2E direcionada passou (2 cenários) |
 | [x] Integrar validação à confirmação | Decisões de eventos e de snapshot | Confirmação bloqueia revisão ausente/obsoleta; aceite atualiza base na mesma transação e preserva registros anteriores | Integração PostgreSQL passou com bloqueio sem aceite, hash, troca de base e auditoria |
 | [x] Permitir posição sem movimentações | Validação do saldo-base e cobertura de posição | Snapshot com lotes válidos e zero movimentos pode ser confirmado, sem fabricar eventos | Teste de integração PostgreSQL passou no commit `7d7207a` |
+| [ ] Revisar posição não observada sem zerar saldo | Snapshot anterior e HTML sem linhas de posição interpretáveis | API retorna quantidade proposta indisponível, exibe divergência e mantém a confirmação bloqueada; base anterior não é desativada | Implementado no commit `aa21a9c`; builds passaram; validação manual pendente |
+| [ ] Exibir linhas da prévia em tabelas | Campos brutos por posição e movimentação | Tabelas preservam valores originais e destacam linhas que precisam de revisão; rolagem horizontal em telas estreitas | Implementado no commit `aa21a9c`; ESLint e build Vite passaram; validação manual pendente |
 | [ ] Validar regressão e concorrência | Migração, API, UI e PostgreSQL isolado | Testes de segundo snapshot, ambiguidade, ausência, manual sem par, rollback, replay, concorrência e isolamento | Pendente |
 
 ## Critérios de aceite
@@ -41,6 +43,7 @@
 - [x] Ao reimportar o mesmo título após uma base ativa, a prévia mostra o saldo anterior e o saldo proposto e lista possíveis linhas/eventos ausentes; evidência: testes direcionados de serviço/API com dois snapshots sintéticos, commit `3adef8c`.
 - [x] Correspondências naturais ambíguas ficam para escolha do usuário e preservam múltiplos eventos iguais; evidência: `ComparadorSnapshotTesouroTests.ApresentaCadaEventoAnteriorNaoObservadoSemApagarDuplicatas`, 21 testes direcionados passaram em 18/11/2026.
 - [x] Movimento manual sem par bloqueia a confirmação até o usuário revisar e aceitar explicitamente a nova base; transação e decisão ficam preservadas para auditoria. Evidência: integração PostgreSQL e E2E direcionada passaram em 18/11/2026.
+- [ ] Dada uma base ativa e um HTML sem posição interpretável para o título, quando comparar, então o sistema informa “não observada neste arquivo”, não propõe quantidade zero, mantém a base ativa e bloqueia a confirmação. Evidência: build passou; validação manual pendente.
 - [ ] Divergências confirmadas ficam ligadas ao hash exato do snapshot, autor e versão da carteira. Alterar lote/carteira invalida a revisão anterior.
 - [ ] A base anterior permanece ativa até confirmação serializável da nova base; falha/rollback não deixa estado parcial.
 - [ ] Ausência de posição/evento não apaga dado automaticamente. Um HTML por título não é usado para inferir encerramento de outros títulos da carteira.
@@ -49,7 +52,7 @@
 
 ## Validação
 
-O teste de reimportação alterado passou em 18/11/2026 com SDK .NET 10.0.404 em contêiner e PostgreSQL 15 isolado. Os dois cenários E2E de conciliação passaram com Node 26.10.0, Playwright 1.65.0, Chromium 1255 e Vite/MSW na porta 5174; ESLint direcionado passou. Build Docker das imagens API/frontend e health checks locais passaram. Não acompanhei CI por decisão do usuário; a validação manual está com o usuário.
+Os testes direcionados anteriores passaram em 18/11/2026. Para a alteração atual de posição não observada, o build completo .NET 10.0.404 e o build Vite passaram; não foram executados testes automatizados por orientação do usuário. A validação manual deve confirmar a divergência exibida e que a base anterior continua ativa.
 
 | Verificação | Comando/método e ambiente | Estado | Evidência/limitação |
 |---|---|---|---|
@@ -59,6 +62,9 @@ O teste de reimportação alterado passou em 18/11/2026 com SDK .NET 10.0.404 em
 | Diferentes taxas por aplicação e isolamento | testes de integração InMemory/PostgreSQL | passou | Duas linhas com 10,5% e 12% preservam taxas no lote; taxa global da posição Tesouro fica nula e não vaza entre duas carteiras. CDB continua usando taxa contratual. |
 | Unit tests direcionados | `dotnet test tests/InvestDashboard.UnitTests/InvestDashboard.UnitTests.csproj --filter 'FullyQualifiedName~ConfirmacaoTesouroCriacaoTests|FullyQualifiedName~ComparadorSnapshotTesouroTests|FullyQualifiedName~TesouroDiretoHtmlReaderTests'` em SDK .NET 10.0.404 | passou | 21 testes passaram; inclui criação, comparação multiconjunto, snapshot sem cartões, divergências e duplicatas |
 | Frontend | ESLint direcionado e `./node_modules/.bin/playwright test e2e/conciliacao-tesouro.spec.ts --config node_modules/.cache/codex-playwright.config.mjs --workers=1` | passou | Dois cenários passaram; o segundo verifica que o aceite libera o botão e envia hash/aceite. Config temporária usou Vite na porta 5174; Docker Compose e a porta 5173 não foram alterados. |
+| Build atual do backend | `dotnet build InvestDashboard.slnx` com SDK .NET 10.0.404 em contêiner | passou | Solução compilou sem warnings/erros; nenhum teste foi iniciado. |
+| Build atual do frontend | `./node_modules/.bin/vite build` | passou | Bundling passou; Vite reportou o aviso já existente de chunk maior que 500 kB. Nenhum E2E foi iniciado nesta alteração. |
+| ESLint dos componentes de prévia e conciliação | `./node_modules/.bin/eslint src/components/PreviaTesouroDireto.tsx src/components/ConciliacaoTesouro.tsx src/api/services/tesouro-direto.service.ts` | passou | Nenhum teste automatizado foi criado ou executado nesta alteração. |
 | Migration e concorrência da confirmação inicial | integração PostgreSQL da classe `ConfirmacaoTesouroControllerTests` | passou | Banco temporário aplicou a migration e o teste confirmou que duas solicitações paralelas geram no máximo uma confirmação efetiva |
 | Rollback e concorrência ao trocar snapshot posterior | não executados | não executado | Falta provocar falha durante a troca da base e disputar confirmações concorrentes do mesmo snapshot |
 | E2E de reimportação | `frontend/e2e/conciliacao-tesouro.spec.ts`, Playwright 1.65.0, Chromium 1255, Vite na porta 5174 | passou | Dois cenários passaram; a validação manual com a conta real do usuário ainda está pendente |
@@ -71,11 +77,12 @@ O teste de reimportação alterado passou em 18/11/2026 com SDK .NET 10.0.404 em
 | Um HTML representa um título, não a carteira inteira | Não é possível detectar automaticamente outros títulos ausentes | Não inferir remoção; planejar lote de vários arquivos se a carteira inteira precisar ser comparada | Limite atual da interface |
 | Movimento manual sem par pode ter o efeito substituído sem ciência | A nova base pode retirar o efeito da operação do saldo atual | Exigir aceite explícito da nova base, registrar os IDs dos manuais e manter a transação original | Integração PostgreSQL e E2E passaram |
 | Revisão pode ficar obsoleta após concorrência | Confirmação aceita dados que o usuário não revisou | Hash do diff + versão da carteira + transação serializável | Pendente |
-| Ausência integral de posição em HTML de um título | Não há saldo novo para aplicar nem escopo de carteira completa no arquivo | Manter base anterior e sinalizar fora do escopo daquele título; não inferir encerramento de outros títulos | Limite da fonte/contrato |
+| Ausência de posição no HTML pode parecer saldo zero | O usuário poderia interpretar ausência como encerramento | Mostrar quantidade indisponível e divergência `posicao_nao_observada`; bloquear troca da base. Encerramento exige decisão explícita futura | Implementado no diff atual; validação manual pendente |
+| Um HTML representa um título, não a carteira inteira | Não é possível detectar automaticamente outros títulos ausentes | Não inferir remoção de outros títulos a partir de um arquivo individual | Limite atual da fonte/contrato |
 
 ## Entrega e sincronização
 
-- Implementação/PR/commits: PR #62 contém upload, prévia, confirmação inicial, comparação de snapshots e revisão auditável nos commits `3adef8c`, `43d8c14` e `26aa337`.
+- Implementação/PR/commits: PR #62 contém upload, prévia tabular, confirmação inicial, comparação de snapshots, revisão auditável e sinalização de posição não observada nos commits `3adef8c`, `43d8c14`, `26aa337` e `aa21a9c`.
 - Relatório/evidências: resultado da criação inicial está registrado em [Issue #58](https://github.com/JonathanBenicio/invest-dashboard/issues/58).
-- Limitações restantes: validação manual do usuário, rollback de falha durante reimportação e ausência integral de posição; não se infere ausência de outros títulos a partir de um HTML por título.
+- Limitações restantes: validação manual do usuário, rollback de falha durante reimportação, concorrência no snapshot posterior e ação explícita para encerrar uma posição; ausência não desativa a base automaticamente.
 - Índices: ligar a Issues #55, #57, #58, Story US-IMPORT-002, ADR-0004, `docs/INDEX.md` e `conductor/tracks.md`.

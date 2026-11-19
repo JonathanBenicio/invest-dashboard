@@ -2,7 +2,7 @@
 
 - Data: 2026-11-18
 - Estado da decisão: proposta
-- Implementação: parcial no PR #62; comparação e auditoria nos commits `3adef8c`/`43d8c14`; aceite explícito de manual sem vínculo no commit `26aa337`, com integração PostgreSQL e E2E aprovadas em 18/11/2026
+- Implementação: parcial no PR #62; comparação e auditoria nos commits `3adef8c`/`43d8c14`; aceite explícito de manual sem vínculo no commit `26aa337`; sinalização de posição ausente e prévia tabular no commit `aa21a9c`
 - Validação: integração PostgreSQL em SDK .NET 10.0.404 e E2E Playwright 1.65.0 passaram em 18/11/2026; ver plano vinculado
 - Issue: [#55 — contrato e regras de conciliação](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57 — persistir e reconciliar posições](https://github.com/JonathanBenicio/invest-dashboard/issues/57)
 - Story: [US-IMPORT-002](../USER-STORIES.md#us-import-002--reimportação-auditável-de-snapshots-html)
@@ -25,6 +25,7 @@ O HTML é interpretado preliminarmente e não prova, por si só, cobertura compl
 - Manter a base anterior ativa até que a nova base, eventos, decisão e rebuild sejam gravados na mesma transação serializável. Em falha, rollback mantém o estado anterior.
 - Permitir snapshot com posição válida e zero movimentos, desde que os dados da posição sejam interpretáveis e divergências/manuais tenham revisão explícita. Não inventar movimentos para satisfazer o fluxo.
 - Um único HTML por título não permite concluir que outro título da carteira está ausente. Comparação de carteira inteira exigirá um lote explícito com múltiplos arquivos ou fonte com cobertura da carteira.
+- Quando o HTML posterior não apresentar posição interpretável, a comparação informa que ela não foi observada, mantém a quantidade proposta indisponível e bloqueia a troca da base. O dado ausente não vira posição zerada nem encerrada.
 
 ## Alternativas e trade-offs
 
@@ -47,9 +48,9 @@ O HTML é interpretado preliminarmente e não prova, por si só, cobertura compl
 
 ## Implementação
 
-- Estado e escopo implementado: diff de snapshots, hash, revisão persistida e aceite na confirmação; branch `codex/tesouro-previa-e-cotacoes`.
-- Referências/PR/commits: Issues #55/#57/#58; PR #62; commits `3adef8c`, `43d8c14` e `26aa337`.
-- Restante: validação manual do usuário; cobrir ausência integral e rollback de falha durante a reimportação. O teste atual inclui concorrência na confirmação inicial, mas não na troca da base posterior.
+- Estado e escopo implementado: diff de snapshots, hash, revisão persistida, aceite na confirmação e prévia tabular; branch `codex/tesouro-previa-e-cotacoes`.
+- Referências/PR/commits: Issues #55/#57/#58; PR #62; commits `3adef8c`, `43d8c14`, `26aa337` e `aa21a9c`.
+- Restante: validação manual do usuário; cobrir rollback de falha durante a reimportação e concorrência na troca da base posterior. Posição ausente é apenas sinalizada; encerramento explícito não é inferido.
 
 ## Validação e gaps
 
