@@ -7,6 +7,7 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
 interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
   params?: Record<string, string | number | boolean | undefined>
+  timeoutMs?: number
 }
 
 interface ApiProblem {
@@ -99,20 +100,21 @@ const request = async <T>(
   data?: unknown,
   options: RequestOptions = {},
 ): Promise<T> => {
-  const { params, ...fetchOptions } = options
+  const { params, timeoutMs, ...fetchOptions } = options
   const url = buildUrl(endpoint, params)
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT)
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? API_CONFIG.TIMEOUT)
+  const multipart = data instanceof FormData
 
   const send = (token: string | null) => fetch(url, {
     method,
     headers: {
-      ...getDefaultHeaders(),
+      ...(multipart ? { Accept: 'application/json' } : getDefaultHeaders()),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...fetchOptions.headers,
     },
     credentials: 'include',
-    body: data === undefined ? undefined : JSON.stringify(data),
+    body: data === undefined ? undefined : multipart ? data : JSON.stringify(data),
     ...fetchOptions,
     signal: controller.signal,
   })

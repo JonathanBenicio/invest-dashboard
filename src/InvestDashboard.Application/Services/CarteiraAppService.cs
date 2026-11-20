@@ -9,6 +9,7 @@ using InvestDashboard.Domain.Aggregates.Portfolio;
 using InvestDashboard.Domain.Aggregates.Trading;
 using InvestDashboard.Domain.Repository;
 using InvestDashboard.Application.DTOs.Common;
+using InvestDashboard.Application.Exceptions;
 using System.Security.Authentication;
 
 namespace InvestDashboard.Application.Services
@@ -17,6 +18,7 @@ namespace InvestDashboard.Application.Services
     {
         private readonly ICarteiraRepository _carteiraRepository;
         private readonly ITransacaoRepository _transacaoRepository;
+        private readonly IBasePosicaoTesouroRepository _basesTesouro;
         private readonly IPrecoHistoricoRepository _precoHistoricoRepository;
         private readonly IValuacaoPosicaoRepository _valuacaoPosicaoRepository;
         private readonly IUnitOfWork _unitOfWork;
@@ -30,6 +32,7 @@ namespace InvestDashboard.Application.Services
         public CarteiraAppService(
             ICarteiraRepository carteiraRepository,
             ITransacaoRepository transacaoRepository,
+            IBasePosicaoTesouroRepository basesTesouro,
             IPrecoHistoricoRepository precoHistoricoRepository,
             IValuacaoPosicaoRepository valuacaoPosicaoRepository,
             IUnitOfWork unitOfWork,
@@ -42,6 +45,7 @@ namespace InvestDashboard.Application.Services
         {
             _carteiraRepository = carteiraRepository;
             _transacaoRepository = transacaoRepository;
+            _basesTesouro = basesTesouro;
             _precoHistoricoRepository = precoHistoricoRepository;
             _valuacaoPosicaoRepository = valuacaoPosicaoRepository;
             _unitOfWork = unitOfWork;
@@ -203,10 +207,13 @@ namespace InvestDashboard.Application.Services
             if (asset is null || latestStatement is null)
                 return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, latestStatement?.DataObservadaUtc, null, maturityDate, "sem_base_observada", "Registre um valor de extrato antes de estimar.");
             var observedAt = latestStatement.DataObservadaUtc;
+            if (asset.Subtype == "TESOURO_DIRETO")
+                return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, observedAt, null, maturityDate, "sem_premissa", "A projeção do Tesouro depende das taxas de cada aplicação e ainda não está disponível.");
             if (!string.Equals(asset.Convention?.Trim(), "365 dias corridos", StringComparison.OrdinalIgnoreCase))
                 return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, observedAt, null, maturityDate, "sem_premissa", "Informe a taxa contratual e a convenção '365 dias corridos'.");
-            if (asset.InterestRate <= 0)
+            if (asset.InterestRate is not > 0)
                 return new ProjecaoRendaFixaDto(position.Id, position.Ticker, observedValue, observedAt, null, maturityDate, "sem_premissa", "Informe uma taxa contratual positiva.");
+            var contractRate = asset.InterestRate.Value;
 
             var observationDate = DateOnly.FromDateTime(observedAt);
             var maturityDay = DateOnly.FromDateTime(maturityDate);
@@ -219,7 +226,7 @@ namespace InvestDashboard.Application.Services
             int? rateValidity = null;
             string? rateValidityUnit = null;
             if (string.Equals(asset.Indexer, "PREFIXADO", StringComparison.OrdinalIgnoreCase))
-                annualRate = asset.InterestRate / 100m;
+                annualRate = contractRate / 100m;
             else
             {
                 if (!groupId.HasValue)
@@ -248,8 +255,8 @@ namespace InvestDashboard.Application.Services
 
                 var indexRate = ToAnnualRate(observedRate.CurrentValue, observedRate.Periodicity);
                 annualRate = string.Equals(asset.Indexer, "IPCA", StringComparison.OrdinalIgnoreCase)
-                    ? (1m + indexRate) * (1m + asset.InterestRate / 100m) - 1m
-                    : indexRate * asset.InterestRate / 100m;
+                    ? (1m + indexRate) * (1m + contractRate / 100m) - 1m
+                    : indexRate * contractRate / 100m;
             }
             var projected = observedValue * (decimal)Math.Pow((double)(1 + annualRate), days / 365d);
             return MapProjection(position, observedValue, observedAt,
@@ -415,6 +422,13 @@ namespace InvestDashboard.Application.Services
             if (start > end || end > today || end.DayNumber - start.DayNumber > 3650)
                 throw new ArgumentException("The requested history range is invalid or exceeds ten years.");
 
+            // O saldo de uma base não constitui série histórica de quantidades e preços.
+            // Até a reconstrução histórica suportar a base, indicar a lacuna em todos
+            // os pontos em vez de apresentar como completo um total só do ledger.
+            var bases = await _basesTesouro.GetAtivasAsync(portfolioId);
+            var baseTickers = bases.Select(baseTesouro =>
+                portfolio.Positions.FirstOrDefault(position => position.AtivoId == baseTesouro.AtivoId)?.Ticker
+                    ?? baseTesouro.AtivoId.ToString()).ToArray();
             var operations = await _transacaoRepository.GetByPortfolioIdAsync(portfolioId);
             var transactions = operations.Where(transaction => transaction.AtivoId.HasValue).ToList();
             var assetIds = transactions.Select(transaction => transaction.AtivoId!.Value).Distinct().ToArray();
@@ -434,6 +448,7 @@ namespace InvestDashboard.Application.Services
                 .Concat(transactions.Select(transaction => DateOnly.FromDateTime(transaction.TransactionDate)))
                 .Concat(positionValuations.Values.SelectMany(valuations => valuations)
                     .Select(valuation => DateOnly.FromDateTime(valuation.DataObservadaUtc)))
+                .Concat(bases.Count > 0 ? new[] { start, end }.Concat(bases.Select(item => item.DataReferencia)) : [])
                 .Where(date => date >= start && date <= end)
                 .Distinct()
                 .OrderBy(date => date)
@@ -453,7 +468,7 @@ namespace InvestDashboard.Application.Services
                             : transaction.Type == TipoTransacao.Sell ? -transaction.Quantity : 0));
 
                 decimal value = 0;
-                var missingTickers = new List<string>();
+                var missingTickers = new List<string>(baseTickers);
                 foreach (var (assetId, quantity) in quantities.Where(entry => entry.Value > 0))
                 {
                     var ticker = transactions.First(transaction => transaction.AtivoId == assetId).Ticker ?? assetId.ToString();
@@ -501,6 +516,8 @@ namespace InvestDashboard.Application.Services
             if (!await _carteiraRepository.CanManageAsync(result.Value.Portfolio.Id, userId)) return false;
 
             var (carteira, position) = result.Value;
+            if ((await _basesTesouro.GetAtivasAsync(carteira.Id)).Any(item => item.AtivoId == position.AtivoId))
+                throw new TransactionLedgerConflictException("Não é possível excluir posição vinculada a uma base ativa do Tesouro.");
             var investmentTransactions = await _transacaoRepository.GetByPortfolioIdAsync(carteira.Id);
             foreach (var transaction in investmentTransactions.Where(transaction => transaction.AtivoId == position.AtivoId))
                 _transacaoRepository.Delete(transaction);
@@ -844,7 +861,7 @@ namespace InvestDashboard.Application.Services
                 Status = pos.Quantity <= 0 ? "closed" : pos.MaturedAtUtc.HasValue ? "matured" : "open",
                 PurchaseDate = pos.PurchaseDateUtc,
                 Issuer = (pos.Ativo as RendaFixa)?.Issuer,
-                InterestRate = (pos.Ativo as RendaFixa)?.InterestRate,
+                InterestRate = pos.Ativo is RendaFixa { Subtype: not "TESOURO_DIRETO" } fixedIncome ? fixedIncome.InterestRate : null,
                 Indexer = (pos.Ativo as RendaFixa)?.Indexer,
                 MaturityDate = (pos.Ativo as RendaFixa)?.MaturityDate,
                 Liquidity = (pos.Ativo as RendaFixa)?.Liquidity,

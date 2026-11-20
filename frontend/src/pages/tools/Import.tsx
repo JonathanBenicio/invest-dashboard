@@ -14,6 +14,7 @@ import { ApiError } from "@/api/errors/api-error"
 import { queryKeys } from "@/api/query-keys"
 import { useToast } from "@/hooks/use-toast"
 import type { RegistrarTransacaoRequest } from "@/api/dtos/transacao.dto"
+import { PreviaTesouroDireto } from "@/components/PreviaTesouroDireto"
 
 type ImportedRow = {
   ticker: string
@@ -309,10 +310,14 @@ export default function Import() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Importar operações</h1>
-        <p className="text-muted-foreground">Leia um CSV, confira cada linha e envie as operações à carteira selecionada.</p>
+        <h1 className="text-2xl font-bold text-foreground">Importar investimentos</h1>
+        <p className="text-muted-foreground">Confira arquivos de operações ou do Tesouro Direto.</p>
       </div>
 
+      <Tabs defaultValue="csv">
+        <TabsList><TabsTrigger value="csv">Operações CSV</TabsTrigger><TabsTrigger value="tesouro">Tesouro Direto</TabsTrigger></TabsList>
+        <TabsContent value="tesouro"><PreviaTesouroDireto carteiras={portfolios} carregando={isLoadingPortfolios} erroCarteiras={isPortfolioError} tentarNovamente={() => void refetchPortfolios()} /></TabsContent>
+        <TabsContent value="csv" className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2"><FileSpreadsheet className="h-5 w-5" />Arquivo CSV</CardTitle>
@@ -409,6 +414,8 @@ export default function Import() {
         <CardHeader><CardTitle>Conexões com corretoras</CardTitle><CardDescription>Conexões diretas ainda não estão disponíveis.</CardDescription></CardHeader>
         <CardContent className="text-sm text-muted-foreground">Use o CSV para registrar operações. Conectores serão adicionados quando houver suporte de API com autenticação segura.</CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

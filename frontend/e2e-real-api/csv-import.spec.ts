@@ -20,7 +20,7 @@ test('CSV import creates persisted transactions through the real API', async ({ 
   const portfolio = (await portfolioResponse.json()).dados as { id: string }
 
   await page.goto('/importar')
-  await expect(page.getByRole('heading', { name: 'Importar operações' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Importar investimentos' })).toBeVisible()
   await page.getByRole('combobox', { name: 'Carteira de destino' }).click()
   await page.getByRole('option', { name: portfolioName }).click()
   await page.locator('input[type="file"]').setInputFiles({

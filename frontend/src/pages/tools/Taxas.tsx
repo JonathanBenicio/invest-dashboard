@@ -12,6 +12,8 @@ import { taxesService } from "@/api/services"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import type { TaxaEconomicaDto } from "@/api/dtos"
 import { groupService } from "@/api/services/group.service"
+import { IndicadoresBcb } from "@/components/IndicadoresBcb"
+import { CotacoesTesouro } from "@/components/CotacoesTesouro"
 
 export default function Taxas() {
   const { toast } = useToast()
@@ -125,18 +127,20 @@ export default function Taxas() {
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-foreground">Taxas e Indicadores</h1>
         <p className="text-muted-foreground">Carregando...</p>
+        <IndicadoresBcb /><CotacoesTesouro />
       </div>
     )
   }
 
   if (!selectedGroup) {
-    return <div className="space-y-4"><h1 className="text-2xl font-bold text-foreground">Taxas e Indicadores</h1><p className="text-muted-foreground">Crie um grupo ou aceite um convite antes de acessar indicadores.</p><Button onClick={() => window.location.assign('/usuarios')}>Abrir grupos e usuários</Button></div>
+    return <div className="space-y-4"><h1 className="text-2xl font-bold text-foreground">Taxas e Indicadores</h1><IndicadoresBcb /><CotacoesTesouro /><p className="text-muted-foreground">Crie um grupo ou aceite um convite para gerenciar taxas manuais.</p><Button onClick={() => window.location.assign('/usuarios')}>Abrir grupos e usuários</Button></div>
   }
 
   if (isError) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-bold text-foreground">Taxas e Indicadores</h1>
+        <IndicadoresBcb /><CotacoesTesouro />
         <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">
           Não foi possível carregar as taxas pela API.
           <Button className="ml-3" variant="outline" onClick={() => void refetch()}>Tentar novamente</Button>
@@ -235,6 +239,9 @@ export default function Taxas() {
         </Dialog>}
         </div>
       </div>
+
+      <IndicadoresBcb />
+      <CotacoesTesouro />
 
       {rates.length === 0 ? (
         <Card role="status">

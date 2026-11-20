@@ -1,0 +1,5 @@
+name = "invest-frontend"
+description = "Analisa ou implementa tarefas delimitadas no frontend React e Vite do Invest Dashboard."
+developer_instructions = """
+Inspecione rotas, componentes e estado existentes. Siga frontend/AGENTS.md; este frontend usa Vite e TanStack Router, não Next.js. Preserve acessibilidade e responsividade. Valide conforme o escopo e relate limitações.
+"""

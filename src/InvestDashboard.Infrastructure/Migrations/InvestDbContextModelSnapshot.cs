@@ -318,6 +318,59 @@ namespace InvestDashboard.Infrastructure.Migrations
                     b.ToTable("economic_rate_history", (string)null);
                 });
 
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.BasePosicaoTesouro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("boolean")
+                        .HasColumnName("active");
+
+                    b.Property<Guid>("AtivoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<Guid>("CarteiraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("portfolio_id");
+
+                    b.Property<decimal>("CustoTotal")
+                        .HasColumnType("numeric(18,8)")
+                        .HasColumnName("total_cost");
+
+                    b.Property<DateOnly>("DataReferencia")
+                        .HasColumnType("date")
+                        .HasColumnName("reference_date");
+
+                    b.Property<Guid>("LoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("batch_id");
+
+                    b.Property<decimal>("PrecoUnitario")
+                        .HasColumnType("numeric(18,8)")
+                        .HasColumnName("unit_price");
+
+                    b.Property<decimal>("Quantidade")
+                        .HasColumnType("numeric(18,8)")
+                        .HasColumnName("quantity");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtivoId");
+
+                    b.HasIndex("CarteiraId", "AtivoId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_treasury_position_base_active")
+                        .HasFilter("active = TRUE");
+
+                    b.HasIndex("LoteId", "CarteiraId");
+
+                    b.ToTable("treasury_position_bases", (string)null);
+                });
+
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.Carteira", b =>
                 {
                     b.Property<Guid>("Id")
@@ -463,6 +516,121 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasDatabaseName("idx_group_invitations_pending");
 
                     b.ToTable("portfolio_group_invitations", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.DecisaoConciliacaoTesouro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AtivoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<Guid>("AutorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<Guid>("CarteiraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("portfolio_id");
+
+                    b.Property<int>("CarteiraVersao")
+                        .HasColumnType("integer")
+                        .HasColumnName("portfolio_version");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Decisao")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("decision");
+
+                    b.Property<int>("IndiceEvento")
+                        .HasColumnType("integer")
+                        .HasColumnName("event_index");
+
+                    b.Property<Guid>("LoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("batch_id");
+
+                    b.Property<int>("Revisao")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<Guid?>("TransacaoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("transaction_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LoteId", "CarteiraId");
+
+                    b.HasIndex("LoteId", "IndiceEvento", "CriadoEmUtc")
+                        .HasDatabaseName("ix_treasury_reconciliation_decision_audit");
+
+                    b.HasIndex("LoteId", "IndiceEvento", "Revisao")
+                        .IsUnique()
+                        .HasDatabaseName("ux_treasury_reconciliation_decision_revision");
+
+                    b.ToTable("treasury_reconciliation_decisions", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.EventoOficialTesouro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AtivoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<Guid>("CarteiraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("portfolio_id");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("EventoJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("event_json");
+
+                    b.Property<int>("IndiceEvento")
+                        .HasColumnType("integer")
+                        .HasColumnName("event_index");
+
+                    b.Property<Guid>("LoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("batch_id");
+
+                    b.Property<Guid?>("TransacaoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("transaction_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtivoId");
+
+                    b.HasIndex("LoteId", "CarteiraId");
+
+                    b.HasIndex("LoteId", "IndiceEvento")
+                        .IsUnique()
+                        .HasDatabaseName("ux_treasury_official_event_batch_index");
+
+                    b.HasIndex("CarteiraId", "AtivoId", "LoteId")
+                        .HasDatabaseName("ix_treasury_official_event_portfolio_asset");
+
+                    b.ToTable("treasury_official_events", (string)null);
                 });
 
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", b =>
@@ -685,6 +853,66 @@ namespace InvestDashboard.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.LoteImportacaoTesouro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CarteiraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("portfolio_id");
+
+                    b.Property<DateTime?>("ConfirmadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("confirmed_at_utc");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateOnly>("DataReferencia")
+                        .HasColumnType("date")
+                        .HasColumnName("reference_date");
+
+                    b.Property<string>("Estado")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("state");
+
+                    b.Property<string>("Formato")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("format");
+
+                    b.Property<string>("HashConteudo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_hash");
+
+                    b.Property<string>("PreviaJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("preview_json");
+
+                    b.Property<Guid>("UsuarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CarteiraId", "HashConteudo", "DataReferencia")
+                        .IsUnique()
+                        .HasDatabaseName("ux_tesouro_import_batch_idempotency");
+
+                    b.ToTable("tesouro_import_batches", (string)null);
+                });
+
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.MembroGrupo", b =>
                 {
                     b.Property<Guid>("Id")
@@ -803,6 +1031,68 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasDatabaseName("idx_asset_positions_maturity_scan");
 
                     b.ToTable("asset_positions", (string)null);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.RevisaoSnapshotTesouro", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AtivoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("asset_id");
+
+                    b.Property<Guid>("AutorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("author_id");
+
+                    b.Property<Guid>("CarteiraId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("portfolio_id");
+
+                    b.Property<int>("CarteiraVersao")
+                        .HasColumnType("integer")
+                        .HasColumnName("portfolio_version");
+
+                    b.Property<DateTime>("CriadoEmUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Decisao")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("decision");
+
+                    b.Property<string>("DivergenciasJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("divergences_json");
+
+                    b.Property<string>("HashComparacao")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("comparison_hash");
+
+                    b.Property<Guid>("LoteId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("batch_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LoteId", "CarteiraId");
+
+                    b.HasIndex("LoteId", "HashComparacao")
+                        .IsUnique()
+                        .HasDatabaseName("ux_treasury_snapshot_review_hash");
+
+                    b.HasIndex("CarteiraId", "LoteId", "CriadoEmUtc")
+                        .HasDatabaseName("ix_treasury_snapshot_review_audit");
+
+                    b.ToTable("treasury_snapshot_reviews", (string)null);
                 });
 
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.TitularCarteira", b =>
@@ -1046,7 +1336,7 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("indexer");
 
-                    b.Property<decimal>("InterestRate")
+                    b.Property<decimal?>("InterestRate")
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("interest_rate");
 
@@ -1096,6 +1386,28 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.BasePosicaoTesouro", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.MarketData.Ativo", null)
+                        .WithMany()
+                        .HasForeignKey("AtivoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.Carteira", null)
+                        .WithMany()
+                        .HasForeignKey("CarteiraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.LoteImportacaoTesouro", null)
+                        .WithMany()
+                        .HasForeignKey("LoteId", "CarteiraId")
+                        .HasPrincipalKey("Id", "CarteiraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.Carteira", b =>
                 {
                     b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", null)
@@ -1127,12 +1439,47 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.DecisaoConciliacaoTesouro", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.LoteImportacaoTesouro", null)
+                        .WithMany()
+                        .HasForeignKey("LoteId", "CarteiraId")
+                        .HasPrincipalKey("Id", "CarteiraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.EventoOficialTesouro", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.MarketData.Ativo", null)
+                        .WithMany()
+                        .HasForeignKey("AtivoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.LoteImportacaoTesouro", null)
+                        .WithMany()
+                        .HasForeignKey("LoteId", "CarteiraId")
+                        .HasPrincipalKey("Id", "CarteiraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.InstituicaoFinanceira", b =>
                 {
                     b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.GrupoCarteiras", null)
                         .WithMany()
                         .HasForeignKey("GrupoId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.LoteImportacaoTesouro", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.Carteira", null)
+                        .WithMany()
+                        .HasForeignKey("CarteiraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.MembroGrupo", b =>
@@ -1159,6 +1506,16 @@ namespace InvestDashboard.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Ativo");
+                });
+
+            modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.RevisaoSnapshotTesouro", b =>
+                {
+                    b.HasOne("InvestDashboard.Domain.Aggregates.Portfolio.LoteImportacaoTesouro", null)
+                        .WithMany()
+                        .HasForeignKey("LoteId", "CarteiraId")
+                        .HasPrincipalKey("Id", "CarteiraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("InvestDashboard.Domain.Aggregates.Portfolio.TitularCarteira", b =>

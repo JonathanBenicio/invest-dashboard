@@ -51,7 +51,7 @@ export interface PosicaoInvestimentoDto {
   percentualGanho: number
   moeda: string
   emissor?: string
-  taxaJuros?: number
+  taxaJuros?: number | null
   indexador?: string
   dataVencimento?: string
   liquidez?: string

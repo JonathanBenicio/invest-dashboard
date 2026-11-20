@@ -125,6 +125,16 @@ public class PosicaoInvestimento : Entity<Guid>
         CurrentPrice = currentPrice;
     }
 
+    public void AplicarBaseTesouro(decimal quantidade, decimal custoTotal, decimal precoUnitario)
+    {
+        if (TipoAtivo != TipoAtivo.RendaFixa || quantidade <= 0 || custoTotal <= 0 || precoUnitario < 0)
+            throw new InvalidOperationException("Base de posição do Tesouro inválida.");
+        Quantity = quantidade;
+        TotalCost = custoTotal;
+        AverageCost = custoTotal / quantidade;
+        CurrentPrice = precoUnitario;
+    }
+
     public void UpdateMarketAsset(Ativo asset)
     {
         if (asset.Id != AtivoId)

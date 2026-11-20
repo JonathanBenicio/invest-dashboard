@@ -36,6 +36,9 @@ builder.Services.AddScoped<IAtivoRepository, AtivoRepository>();
 builder.Services.AddScoped<IPrecoHistoricoRepository, PrecoHistoricoRepository>();
 builder.Services.AddScoped<IValuacaoPosicaoRepository, ValuacaoPosicaoRepository>();
 builder.Services.AddScoped<ITransacaoRepository, TransacaoRepository>();
+builder.Services.AddScoped<IBasePosicaoTesouroRepository, BasePosicaoTesouroRepository>();
+builder.Services.AddScoped<IEventoOficialTesouroRepository, EventoOficialTesouroRepository>();
+builder.Services.AddScoped<IRepositorioLoteImportacaoTesouro, RepositorioLoteImportacaoTesouro>();
 builder.Services.AddScoped<ICarteiraRepository, CarteiraRepository>();
 builder.Services.AddScoped<ITitularCarteiraRepository, TitularCarteiraRepository>();
 builder.Services.AddScoped<IInstituicaoFinanceiraRepository, InstituicaoFinanceiraRepository>();
@@ -52,8 +55,13 @@ builder.Services.AddScoped<TitularesAppService>();
 builder.Services.AddHttpClient<IInvitationEmailSender, SupabaseInvitationEmailSender>(client => client.Timeout = TimeSpan.FromSeconds(15))
     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<IEstimativaImpostoAppService, EstimativaImpostoAppService>();
+builder.Services.AddScoped<ILeitorPreviaTesouro, LeitorPreviaTesouro>();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<TesouroTransparenteCkanProvider>();
+builder.Services.AddSingleton<ITesouroTransparenteConsulta, TesouroTransparenteConsulta>();
 builder.Services.AddHttpClient<IBenchmarkCdiProvider, BcbCdiBenchmarkProvider>(client =>
+    client.Timeout = TimeSpan.FromSeconds(15));
+builder.Services.AddHttpClient<IIndicadoresBcbProvider, BcbIndicadoresProvider>(client =>
     client.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddScoped<IAuthProvider, SupabaseAuthProvider>();
 builder.Services.AddHttpClient<IMarketDataProvider, BrapiMarketDataClient>(client =>
