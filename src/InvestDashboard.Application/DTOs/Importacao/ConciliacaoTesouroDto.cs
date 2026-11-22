@@ -38,4 +38,5 @@ public sealed record ConciliacaoTesouroDto(
     [property: JsonPropertyName("criarPosicao")] bool CriarPosicao = false,
     [property: JsonPropertyName("comparacaoSnapshot")] ComparacaoSnapshotTesouroDto? ComparacaoSnapshot = null,
     [property: JsonPropertyName("posicaoPropostaDisponivel")] bool PosicaoPropostaDisponivel = false,
-    [property: JsonPropertyName("motivosCriacaoPosicao")] IReadOnlyList<string>? MotivosCriacaoPosicao = null);
+    [property: JsonPropertyName("motivosCriacaoPosicao")] IReadOnlyList<string>? MotivosCriacaoPosicao = null,
+    [property: JsonPropertyName("importacaoInicialSemRevisao")] bool ImportacaoInicialSemRevisao = false);

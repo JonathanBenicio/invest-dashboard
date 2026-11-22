@@ -5,6 +5,9 @@ using InvestDashboard.Application.Interfaces;
 using InvestDashboard.Application.Services;
 using InvestDashboard.Domain.Aggregates.MarketData;
 using InvestDashboard.Domain.Repository;
+using InvestDashboard.Domain.Aggregates.Portfolio;
+using InvestDashboard.Infrastructure.Persistence.EFCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,7 +17,8 @@ namespace InvestDashboard.WebAPI.Controllers;
 [ApiController]
 [Route("api/v1/portfolios/{carteiraId:guid}/tesouro-direto/lotes/{loteId:guid}/conciliacao")]
 public sealed class ConciliacaoTesouroController(ICarteiraRepository carteiras, IUsuarioAtualService usuario,
-    IRepositorioLoteImportacaoTesouro lotes, ITransacaoRepository transacoes, IBasePosicaoTesouroRepository bases) : ControllerBase
+    IRepositorioLoteImportacaoTesouro lotes, ITransacaoRepository transacoes, IBasePosicaoTesouroRepository bases,
+    InvestDbContext db) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<RespostaApi<ConciliacaoTesouroDto>>> Preparar(
@@ -49,7 +53,9 @@ public sealed class ConciliacaoTesouroController(ICarteiraRepository carteiras, 
                 PodeCriarPosicao = podeCriar,
                 CriarPosicao = true,
                 PosicaoPropostaDisponivel = posicaoInicialDisponivel,
-                MotivosCriacaoPosicao = motivosCriacao
+                MotivosCriacaoPosicao = motivosCriacao,
+                ImportacaoInicialSemRevisao = podeCriar && lote.DataReferencia <= LotesTesouroController.DataCivil(DateTime.UtcNow) &&
+                    await ImportacaoInicialTesouro.CarteiraDisponivelAsync(db, carteiraId, loteId, cancellationToken)
             }));
         }
         var ativo = carteira.Positions.SingleOrDefault(p => p.AtivoId == ativoId)?.Ativo as RendaFixa;
@@ -78,4 +84,16 @@ public sealed class ConciliacaoTesouroController(ICarteiraRepository carteiras, 
             PosicaoPropostaDisponivel = posicaoPropostaDisponivel
         }));
     }
+}
+
+internal static class ImportacaoInicialTesouro
+{
+    internal static Task<bool> CarteiraDisponivelAsync(InvestDbContext db, Guid carteiraId, Guid loteId, CancellationToken ct) =>
+        db.Portfolios.AnyAsync(c => c.Id == carteiraId &&
+            !db.AssetPositions.Any(p => p.CarteiraId == c.Id) &&
+            !db.Transactions.Any(t => t.CarteiraId == c.Id) &&
+            !db.Set<BasePosicaoTesouro>().Any(b => b.CarteiraId == c.Id) &&
+            !db.Set<EventoOficialTesouro>().Any(e => e.CarteiraId == c.Id) &&
+            !db.Set<LoteImportacaoTesouro>().Any(l => l.CarteiraId == c.Id && l.Estado == "Confirmado") &&
+            !db.Set<DecisaoConciliacaoTesouro>().Any(d => d.CarteiraId == c.Id && d.LoteId == loteId), ct);
 }

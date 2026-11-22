@@ -33,10 +33,11 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
   const apto = resultado?.podeConfirmar === true
   const posicaoPropostaDisponivel = resultado?.posicaoPropostaDisponivel === true
   const criarPosicao = selecionado === NOVA_POSICAO && resultado?.criarPosicao === true && resultado.ativoId === null
+  const importacaoDireta = criarPosicao && resultado?.importacaoInicialSemRevisao === true
   const ativoSelecionado = criarPosicao ? resultado?.podeCriarPosicao === true : !!resultado?.ativoId && resultado.ativoId === selecionado
   const acaoSemPosicaoProposta = resultado?.dataBaseAtiva ? 'A base anterior será preservada.' : 'Nenhuma base será criada.'
   const podeConfirmar = apto && ativoSelecionado &&
-    revisoesValidas && vinculosUnicos && (todosLancamentosVinculados || aceiteSnapshotVigente) &&
+    (importacaoDireta || (revisoesValidas && vinculosUnicos && (todosLancamentosVinculados || aceiteSnapshotVigente))) &&
     (!resultado?.comparacaoSnapshot?.requerAceite || aceitarDivergencias) && !ocupado && !confirmando
 
   async function confirmar() {
@@ -48,7 +49,8 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
         ativoId: criarPosicao ? null : resultado.ativoId,
         criarPosicao,
         carteiraVersao: resultado.carteiraVersao,
-        revisoes: uniaoRevisoes.flatMap(revisao => revisao ? [{ indiceEvento: revisao.indiceEvento, revisao: revisao.revisao }] : []),
+        ...(importacaoDireta && { importacaoInicialSemRevisao: true, hashPrevia: lote.hashPrevia }),
+        revisoes: importacaoDireta ? [] : uniaoRevisoes.flatMap(revisao => revisao ? [{ indiceEvento: revisao.indiceEvento, revisao: revisao.revisao }] : []),
         hashDivergencias: resultado.comparacaoSnapshot?.hash,
         aceitarDivergencias,
       })
@@ -75,6 +77,7 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
       const resposta = await tesouroDiretoService.conciliacao(carteiraId, loteId, ativoId)
       setRevisoes({})
       setAceitarDivergencias(false)
+      if (resposta.dados.importacaoInicialSemRevisao === true) setSelecionado(NOVA_POSICAO)
       setResultado(resposta.dados)
       setConsulta(atual => atual + 1)
     } catch {
@@ -86,13 +89,13 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
   }
 
   return <section className="space-y-3 rounded-md border p-3 text-sm">
-    <h3 className="font-semibold">Revisão da conciliação</h3>
-    <p>Compare os eventos do HTML com lançamentos existentes ou prepare uma nova posição.</p>
+    <h3 className="font-semibold">{importacaoDireta ? 'Primeira posição da carteira' : 'Revisão da conciliação'}</h3>
+    {!resultado && <p>Compare os eventos do HTML com lançamentos existentes ou prepare uma nova posição.</p>}
     {!resultado && <Button type="button" variant="outline" disabled={ocupado} onClick={() => void analisar(null)}>Revisar conciliação</Button>}
     {ocupado && <p role="status">Consultando movimentações...</p>}
     {erro && <p role="alert" className="text-destructive">{erro}</p>}
     {resultado && <>
-      {resultado.ativos.length === 0 && !resultado.podeCriarPosicao ? <div role="status" className="space-y-2 rounded-md border p-3">
+      {!importacaoDireta && (resultado.ativos.length === 0 && !resultado.podeCriarPosicao ? <div role="status" className="space-y-2 rounded-md border p-3">
         <h4 className="font-medium">Não há uma posição de renda fixa nesta carteira, e esta prévia ainda não pode criar uma nova.</h4>
         {resultado.motivosCriacaoPosicao?.length ? <ul className="list-disc space-y-1 pl-5">{resultado.motivosCriacaoPosicao.map((motivo, indice) => <li key={`${indice}-${motivo}`}>{motivo}</li>)}</ul> : <p>Revise o título, vencimento, linhas de posição e movimentações na tabela da prévia.</p>}
         <p><strong>Como seguir:</strong> confira a coluna Leitura e corrija os campos indicados no portal. Depois, envie uma nova prévia. Se o título já existir, selecione a carteira que contém essa posição.</p>
@@ -108,46 +111,51 @@ export function ConciliacaoTesouro({ lote, onConfirmado }: { lote: LoteTesouro; 
           <p>Se o título já estiver na carteira, selecione a posição existente. Para uma posição nova, corrija os campos marcados na tabela e envie outra prévia.</p>
         </div> : null}
         <Button type="button" variant="outline" disabled={!selecionado || ocupado || confirmando} onClick={() => void analisar(selecionado === NOVA_POSICAO ? null : selecionado)}>Comparar movimentações</Button>
-      </div>}
+      </div>)}
       {selecionado && (resultado.ativoId === selecionado || criarPosicao) && <>
-        <p>Compare os dados antes de decidir. As sugestões não confirmam que os registros sejam a mesma operação.</p>
-        {resultado.comparacaoSnapshot && <div className="space-y-2 rounded-md border p-3">
-          <h4 className="font-medium">Comparação com o saldo anterior</h4>
-          <p>Quantidade da base anterior: {resultado.comparacaoSnapshot.dataBaseAnterior ? resultado.comparacaoSnapshot.quantidadeAnterior.toLocaleString('pt-BR') : 'sem base de extrato'} · Proposta: {posicaoPropostaDisponivel && resultado.comparacaoSnapshot.quantidadeProposta != null ? resultado.comparacaoSnapshot.quantidadeProposta.toLocaleString('pt-BR') : lote.previa.posicoes.length === 0 ? 'posição não observada neste arquivo' : 'posição não interpretável'}</p>
-          <ul className="list-disc space-y-1 pl-5">{resultado.comparacaoSnapshot.divergencias.map((item, indice) => <li key={`${item.tipo}-${item.chave}-${indice}`}>{item.descricao}{item.tipo === 'movimento_manual_na_janela' ? ' · confira esta operação nas movimentações abaixo' : item.anterior ? ` · ${item.anterior}` : ''}{item.atual && item.tipo !== 'movimento_manual_na_janela' ? ` · ${item.atual}` : ''}</li>)}</ul>
-          {resultado.comparacaoSnapshot.requerAceite && posicaoPropostaDisponivel && <label className="flex items-start gap-2"><input type="checkbox" checked={aceitarDivergencias} onChange={event => setAceitarDivergencias(event.target.checked)} /><span>Revisei as divergências e aceito o saldo proposto como base. Movimentos manuais anteriores sem vínculo não serão reaplicados ao saldo, mas seus registros serão mantidos na auditoria.</span></label>}
-        </div>}
-        {!posicaoPropostaDisponivel && <p role="status">O HTML não contém uma posição interpretável para este título. Isso não equivale a saldo zero nem comprova encerramento; a confirmação ficará bloqueada. {acaoSemPosicaoProposta}</p>}
-        {resultado.eventos.length === 0 ? posicaoPropostaDisponivel ? <p role="status">Este snapshot não contém movimentações. A confirmação atualizará apenas o saldo da posição na data de referência.</p> : <p role="status">Este snapshot não contém movimentações e não apresenta posição interpretável.</p> : <ul className="space-y-3">{resultado.eventos.map(evento => {
-          const movimento = evento.dadosInterpretados
-          const candidatos = resultado.transacoes.filter(transacao => evento.candidatos.includes(transacao.id))
-          const tipoEvento = movimento?.natureza === 'Compra' && movimento.tipo === 'Crédito' ? 'Buy' : movimento?.natureza === 'Venda' && movimento.tipo === 'Débito' ? 'Sell' : null
-          const motivosSemVinculo = [
-            !tipoEvento ? 'natureza ou tipo não reconhecido para compra ou venda' : null,
-            !movimento?.data ? 'data não interpretada' : movimento.data > resultado.dataReferencia ? 'data posterior à referência do extrato' : null,
-            movimento?.quantidade == null || movimento.quantidade <= 0 ? 'quantidade não interpretada ou inválida' : null,
-            movimento?.preco == null || movimento.preco <= 0 ? 'preço não interpretado ou inválido' : null,
-          ].filter((motivo): motivo is string => motivo !== null)
-          return <li key={evento.indice} className="rounded-md border p-2">
-            <p className="font-medium">Movimentação do extrato {evento.indice + 1}{movimento?.natureza ? ` · ${movimento.natureza}` : ''}{movimento?.data ? ` · ${movimento.data.split('-').reverse().join('/')}` : ''}</p>
-            {candidatos.length === 0 ? <p>Nenhuma correspondência sugerida.</p> : <ul className="mt-1 space-y-1">{candidatos.map(item => <li key={item.id}>
-              {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : ''}
-            </li>)}</ul>}
-            <RevisaoEventoTesouro key={`${consulta}-${evento.indice}`} carteiraId={carteiraId} loteId={loteId} hashPrevia={lote.hashPrevia} ativoId={criarPosicao ? null : resultado.ativoId} carteiraVersao={resultado.carteiraVersao}
-              indiceEvento={evento.indice} tipoEvento={motivosSemVinculo.length === 0 ? tipoEvento : null} motivosSemVinculo={motivosSemVinculo}
-              candidatos={evento.candidatos} transacoes={resultado.transacoes} bloqueado={ocupado || confirmando}
-              onRevisao={revisao => setRevisoes(atuais => ({ ...atuais, [evento.indice]: revisao }))} />
-          </li>
-        })}</ul>}
-        <h4 className="font-medium">Movimentações existentes na carteira</h4>
-        {resultado.transacoes.length === 0 ? <p>Nenhuma movimentação encontrada para esta posição.</p> : <ul className="space-y-1">{resultado.transacoes.map(item => <li key={item.id}>
-          {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : resultado.eventos.some(evento => evento.candidatos.includes(item.id)) ? ' · sugerida para comparação' : ' · sem correspondência sugerida'}
-        </li>)}</ul>}
-        {!apto && posicaoPropostaDisponivel && <p>O extrato ou a posição escolhida não atende aos critérios para confirmar. Confira o título, o vencimento, a data de referência e os campos não interpretados.</p>}
-        {apto && !revisoesValidas && <p>Carregue ou salve uma revisão vigente para cada movimentação. Os vínculos precisam corresponder à data, ao tipo, à quantidade e ao preço.</p>}
-        {apto && revisoesValidas && !todosLancamentosVinculados && !aceitarDivergencias && <p>Vincule os lançamentos manuais que o saldo do extrato vai substituir ou revise e aceite explicitamente as divergências do snapshot.</p>}
-        {!vinculosUnicos && <p role="alert">O mesmo lançamento manual aparece em mais de uma revisão. Corrija os vínculos antes de confirmar.</p>}
-        {criarPosicao && <p role="status">A posição será criada com o título, vencimento, indexador e taxa reconhecidos no HTML, além do saldo na data do extrato.</p>}
+        {importacaoDireta ? <p role="status">
+          Como a carteira está vazia, não é necessária uma revisão individual de cada movimento. Ao confirmar, a posição será criada com o saldo do extrato.
+          Movimentações do HTML para registrar como oficiais: {resultado.eventos.length}. Elas ficarão vinculadas ao lote e à nova posição; o ledger não receberá compras/vendas duplicadas.
+        </p> : <>
+          <p>Compare os dados antes de decidir. As sugestões não confirmam que os registros sejam a mesma operação.</p>
+          {resultado.comparacaoSnapshot && <div className="space-y-2 rounded-md border p-3">
+            <h4 className="font-medium">Comparação com o saldo anterior</h4>
+            <p>Quantidade da base anterior: {resultado.comparacaoSnapshot.dataBaseAnterior ? resultado.comparacaoSnapshot.quantidadeAnterior.toLocaleString('pt-BR') : 'sem base de extrato'} · Proposta: {posicaoPropostaDisponivel && resultado.comparacaoSnapshot.quantidadeProposta != null ? resultado.comparacaoSnapshot.quantidadeProposta.toLocaleString('pt-BR') : lote.previa.posicoes.length === 0 ? 'posição não observada neste arquivo' : 'posição não interpretável'}</p>
+            <ul className="list-disc space-y-1 pl-5">{resultado.comparacaoSnapshot.divergencias.map((item, indice) => <li key={`${item.tipo}-${item.chave}-${indice}`}>{item.descricao}{item.tipo === 'movimento_manual_na_janela' ? ' · confira esta operação nas movimentações abaixo' : item.anterior ? ` · ${item.anterior}` : ''}{item.atual && item.tipo !== 'movimento_manual_na_janela' ? ` · ${item.atual}` : ''}</li>)}</ul>
+            {resultado.comparacaoSnapshot.requerAceite && posicaoPropostaDisponivel && <label className="flex items-start gap-2"><input type="checkbox" checked={aceitarDivergencias} onChange={event => setAceitarDivergencias(event.target.checked)} /><span>Revisei as divergências e aceito o saldo proposto como base. Movimentos manuais anteriores sem vínculo não serão reaplicados ao saldo, mas seus registros serão mantidos na auditoria.</span></label>}
+          </div>}
+          {!posicaoPropostaDisponivel && <p role="status">O HTML não contém uma posição interpretável para este título. Isso não equivale a saldo zero nem comprova encerramento; a confirmação ficará bloqueada. {acaoSemPosicaoProposta}</p>}
+          {resultado.eventos.length === 0 ? posicaoPropostaDisponivel ? <p role="status">Este snapshot não contém movimentações. A confirmação atualizará apenas o saldo da posição na data de referência.</p> : <p role="status">Este snapshot não contém movimentações e não apresenta posição interpretável.</p> : <ul className="space-y-3">{resultado.eventos.map(evento => {
+            const movimento = evento.dadosInterpretados
+            const candidatos = resultado.transacoes.filter(transacao => evento.candidatos.includes(transacao.id))
+            const tipoEvento = movimento?.natureza === 'Compra' && movimento.tipo === 'Crédito' ? 'Buy' : movimento?.natureza === 'Venda' && movimento.tipo === 'Débito' ? 'Sell' : null
+            const motivosSemVinculo = [
+              !tipoEvento ? 'natureza ou tipo não reconhecido para compra ou venda' : null,
+              !movimento?.data ? 'data não interpretada' : movimento.data > resultado.dataReferencia ? 'data posterior à referência do extrato' : null,
+              movimento?.quantidade == null || movimento.quantidade <= 0 ? 'quantidade não interpretada ou inválida' : null,
+              movimento?.preco == null || movimento.preco <= 0 ? 'preço não interpretado ou inválido' : null,
+            ].filter((motivo): motivo is string => motivo !== null)
+            return <li key={evento.indice} className="rounded-md border p-2">
+              <p className="font-medium">Movimentação do extrato {evento.indice + 1}{movimento?.natureza ? ` · ${movimento.natureza}` : ''}{movimento?.data ? ` · ${movimento.data.split('-').reverse().join('/')}` : ''}</p>
+              {candidatos.length === 0 ? <p>Nenhuma correspondência sugerida.</p> : <ul className="mt-1 space-y-1">{candidatos.map(item => <li key={item.id}>
+                {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : ''}
+              </li>)}</ul>}
+              <RevisaoEventoTesouro key={`${consulta}-${evento.indice}`} carteiraId={carteiraId} loteId={loteId} hashPrevia={lote.hashPrevia} ativoId={criarPosicao ? null : resultado.ativoId} carteiraVersao={resultado.carteiraVersao}
+                indiceEvento={evento.indice} tipoEvento={motivosSemVinculo.length === 0 ? tipoEvento : null} motivosSemVinculo={motivosSemVinculo}
+                candidatos={evento.candidatos} transacoes={resultado.transacoes} bloqueado={ocupado || confirmando}
+                onRevisao={revisao => setRevisoes(atuais => ({ ...atuais, [evento.indice]: revisao }))} />
+            </li>
+          })}</ul>}
+          <h4 className="font-medium">Movimentações existentes na carteira</h4>
+          {resultado.transacoes.length === 0 ? <p>Nenhuma movimentação encontrada para esta posição.</p> : <ul className="space-y-1">{resultado.transacoes.map(item => <li key={item.id}>
+            {item.tipo === 'Buy' ? 'Compra' : item.tipo === 'Sell' ? 'Venda' : item.tipo} · {data(item.data)} · quantidade {item.quantidade.toLocaleString('pt-BR')} · preço {item.preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}{item.posteriorBase ? ' · posterior à data de referência' : resultado.eventos.some(evento => evento.candidatos.includes(item.id)) ? ' · sugerida para comparação' : ' · sem correspondência sugerida'}
+          </li>)}</ul>}
+          {!apto && posicaoPropostaDisponivel && <p>O extrato ou a posição escolhida não atende aos critérios para confirmar. Confira o título, o vencimento, a data de referência e os campos não interpretados.</p>}
+          {apto && !revisoesValidas && <p>Carregue ou salve uma revisão vigente para cada movimentação. Os vínculos precisam corresponder à data, ao tipo, à quantidade e ao preço.</p>}
+          {apto && revisoesValidas && !todosLancamentosVinculados && !aceitarDivergencias && <p>Vincule os lançamentos manuais que o saldo do extrato vai substituir ou revise e aceite explicitamente as divergências do snapshot.</p>}
+          {!vinculosUnicos && <p role="alert">O mesmo lançamento manual aparece em mais de uma revisão. Corrija os vínculos antes de confirmar.</p>}
+          {criarPosicao && <p role="status">A posição será criada com o título, vencimento, indexador e taxa reconhecidos no HTML, além do saldo na data do extrato.</p>}
+        </>}
         <AlertDialog>
           <AlertDialogTrigger asChild><Button type="button" disabled={!podeConfirmar}>Confirmar importação</Button></AlertDialogTrigger>
           <AlertDialogContent>

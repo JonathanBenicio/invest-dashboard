@@ -106,6 +106,7 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
       requerRevisao: camposNaoInterpretados.length > 0 || !posicao.dadosInterpretados,
     }
   }) ?? [], [previa])
+  const extratoConfirmado = lote?.estado === 'Confirmado'
   const linhasMovimentacao = useMemo<LinhaPreviaTabela[]>(() => previa?.movimentacoes.map((movimentacao, indice) => {
     const camposNaoInterpretados = movimentacao.dadosInterpretados?.camposNaoInterpretados ?? []
     const camposNaoAplicaveis = movimentacao.dadosInterpretados?.camposNaoAplicaveis ?? []
@@ -117,11 +118,14 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
     return {
       id: `movimento-${indice}`,
       numero: String(indice + 1),
-      campos: Object.fromEntries(movimentacao.campos.map(campo => [campo.rotulo, campo.valor])),
+      campos: {
+        ...Object.fromEntries(movimentacao.campos.map(campo => [campo.rotulo, campo.valor])),
+        ...(extratoConfirmado && { Origem: 'Oficial · Tesouro Direto' }),
+      },
       leitura: leitura.length ? leitura.join(' · ') : movimentacao.dadosInterpretados ? 'Interpretada' : 'Não interpretada',
       requerRevisao: camposEssenciaisNaoInterpretados.length > 0 || !movimentacao.dadosInterpretados,
     }
-  }) ?? [], [previa])
+  }) ?? [], [previa, extratoConfirmado])
 
   async function analisar() {
     if (!carteira || !arquivo || !dataReferencia) return

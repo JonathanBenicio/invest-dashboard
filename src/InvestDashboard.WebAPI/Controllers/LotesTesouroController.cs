@@ -52,6 +52,7 @@ public sealed class LotesTesouroController(
         var registros = await eventos.ListarAsync(carteiraId, loteId, depoisDoIndice, limite, cancellationToken);
         return Ok(new RespostaApi<object>(registros.Select(evento => new
         {
+            Origem = "extrato_oficial_tesouro",
             evento.IndiceEvento,
             evento.AtivoId,
             evento.TransacaoId,
@@ -89,6 +90,10 @@ public sealed class LotesTesouroController(
             pedido.Revisoes.Count > 10_000 || pedido.Revisoes.Any(r => r is null || r.IndiceEvento < 0 || r.Revisao < 1) ||
             pedido.Revisoes.Select(r => r.IndiceEvento).Distinct().Count() != pedido.Revisoes.Count)
             return BadRequest();
+        var importacaoInicial = pedido.ImportacaoInicialSemRevisao;
+        if (importacaoInicial && (!pedido.CriarPosicao || pedido.Revisoes.Count != 0 ||
+                pedido.HashPrevia is not { Length: 64 } || pedido.HashPrevia.Any(c => !Uri.IsHexDigit(c))))
+            return BadRequest();
         if (!db.Database.IsNpgsql()) return StatusCode(503);
 
         try
@@ -99,6 +104,9 @@ public sealed class LotesTesouroController(
             var lote = await lotes.BuscarPorIdAsync(carteiraId, autor, loteId, ct);
             if (lote is null) return NotFound();
 
+            var loteExibido = Mapear(lote);
+            if (importacaoInicial && !string.Equals(pedido.HashPrevia, loteExibido.HashPrevia, StringComparison.Ordinal))
+                return Conflito("A prévia mudou. Reabra o lote antes de confirmar.");
             var bases = db.Set<BasePosicaoTesouro>();
             var vigentes = await db.Set<DecisaoConciliacaoTesouro>().Where(x => x.LoteId == loteId && x.CarteiraId == carteiraId)
                 .GroupBy(x => x.IndiceEvento).Select(g => g.OrderByDescending(x => x.Revisao).First()).ToListAsync(ct);
@@ -112,9 +120,12 @@ public sealed class LotesTesouroController(
             if (lote.Estado != "Pendente" || carteira.Version != pedido.CarteiraVersao)
                 return Conflito("A carteira ou o lote mudou após a revisão.");
 
-            var previa = Mapear(lote).Previa;
+            if (importacaoInicial && !await ImportacaoInicialTesouro.CarteiraDisponivelAsync(db, carteiraId, loteId, ct))
+                return Conflito("A carteira já possui histórico ou o lote possui revisões. Reabra a conciliação.");
+
+            var previa = loteExibido.Previa;
             if (lote.DataReferencia > DataCivil(DateTime.UtcNow) ||
-                previa.Movimentacoes.Count != vigentes.Count ||
+                (!importacaoInicial && previa.Movimentacoes.Count != vigentes.Count) ||
                 !ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out var saldoCalculado))
                 return Conflito("O extrato contém lacunas, posições inválidas, movimentações sem revisão ou data futura.");
 
@@ -166,26 +177,27 @@ public sealed class LotesTesouroController(
             var vinculadas = new HashSet<Guid>();
             var oficiais = new List<EventoOficialTesouro>();
             var agora = DateTime.UtcNow;
-            foreach (var decisao in vigentes)
+            var decisoesPorIndice = vigentes.ToDictionary(x => x.IndiceEvento);
+            for (var indice = 0; indice < previa.Movimentacoes.Count; indice++)
             {
-                if (decisao.IndiceEvento < 0 || decisao.IndiceEvento >= previa.Movimentacoes.Count)
-                    return Conflito("Uma revisão não corresponde a uma movimentação do extrato.");
-                var evento = previa.Movimentacoes[decisao.IndiceEvento];
+                if (!decisoesPorIndice.TryGetValue(indice, out var decisao) && !importacaoInicial)
+                    return Conflito("Uma movimentação do extrato está sem revisão.");
+                var evento = previa.Movimentacoes[indice];
                 var m = evento.DadosInterpretados;
                 var tipo = ConfirmacaoTesouro.TipoNegociacao(m);
                 if (m?.Data is not DateOnly data || !ConfirmacaoTesouro.EventoCompleto(m, lote.DataReferencia))
                     return Conflito("Uma movimentação contém dados incompletos ou uma natureza não reconhecida.");
-                if (decisao.Decisao == "vincular")
+                if (decisao?.Decisao == "vincular")
                 {
                     if (decisao.TransacaoId is not Guid manualId || !vinculadas.Add(manualId) ||
                         !manuais.TryGetValue(manualId, out var manual) || manual.Type != tipo ||
                         manual.TransactionDate.Kind != DateTimeKind.Utc || DataCivil(manual.TransactionDate) != data || manual.Quantity != m.Quantidade || manual.UnitPrice != m.Preco)
                         return Conflito("Uma movimentação vinculada diverge do lançamento manual atual.");
                 }
-                else if (decisao.Decisao != "sem_vinculo" || decisao.TransacaoId.HasValue)
+                else if (decisao is not null && (decisao.Decisao != "sem_vinculo" || decisao.TransacaoId.HasValue))
                     return Conflito("Uma revisão contém uma decisão inválida.");
                 oficiais.Add(new EventoOficialTesouro(Guid.NewGuid(), loteId, carteiraId, ativoId!.Value,
-                    decisao.IndiceEvento, JsonSerializer.Serialize(evento), decisao.TransacaoId, agora));
+                    indice, JsonSerializer.Serialize(evento), decisao?.TransacaoId, agora));
             }
 
             if (manuais.Values.Any(x => DataCivil(x.TransactionDate) <= lote.DataReferencia &&
@@ -239,7 +251,7 @@ public sealed class LotesTesouroController(
     private ConflictObjectResult Conflito(string mensagem) =>
         Conflict(new RespostaApi<LoteTesouroResposta>(null!, false, mensagem));
 
-    private static DateOnly DataCivil(DateTime data) =>
+    internal static DateOnly DataCivil(DateTime data) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(data, FusoBrasil));
 
     private const int MaximoArquivo = 10 * 1024 * 1024;
