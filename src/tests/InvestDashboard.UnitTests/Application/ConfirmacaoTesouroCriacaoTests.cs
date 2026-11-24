@@ -41,6 +41,24 @@ public sealed class ConfirmacaoTesouroCriacaoTests
         saldo.CustoTotal.Should().Be(21m);
     }
 
+    [Fact]
+    public void EventoDeCompraCompletoPermiteTaxaAnualNaoInformada()
+    {
+        var evento = new DadosMovimentoTesouroDto(new DateOnly(2024, 3, 2), "Compra", "Crédito",
+            1m, 20m, null, 20m, [], [], ["taxaAnual"]);
+
+        ConfirmacaoTesouro.EventoCompleto(evento, new DateOnly(2024, 3, 3)).Should().BeTrue();
+    }
+
+    [Fact]
+    public void EventoComOutroCampoNaoInformadoContinuaIncompleto()
+    {
+        var evento = new DadosMovimentoTesouroDto(new DateOnly(2024, 3, 2), "Compra", "Crédito",
+            1m, 20m, null, 20m, [], [], ["preco"]);
+
+        ConfirmacaoTesouro.EventoCompleto(evento, new DateOnly(2024, 3, 3)).Should().BeFalse();
+    }
+
     [Theory]
     [InlineData("Tesouro Prefixado 2035", "10% a 12%")]
     [InlineData("Título desconhecido", "10%")]

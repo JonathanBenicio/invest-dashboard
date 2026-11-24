@@ -52,7 +52,7 @@ function TabelaPreviaTesouro({ caption, cabecalhoNumero, linhas }: {
       header: cabecalhoNumero,
       cell: ({ getValue }) => <span className="whitespace-nowrap">{getValue<string>()}</span>,
     },
-    ...campos.map(campo => ({
+    ...campos.map((campo): ColumnDef<LinhaPreviaTabela> => ({
       id: campo,
       accessorFn: (linha: LinhaPreviaTabela) => linha.campos[campo] ?? '',
       header: rotuloCampo(campo),
@@ -66,16 +66,16 @@ function TabelaPreviaTesouro({ caption, cabecalhoNumero, linhas }: {
   ], [cabecalhoNumero, campos])
   const tabela = useReactTable({ data: linhas, columns: colunas, getCoreRowModel: getCoreRowModel() })
 
-  return <div className="rounded-md border">
+  return <div className="min-w-0 max-w-full overflow-hidden rounded-md border">
     <Table className="min-w-max text-sm" aria-label={caption}>
       <TableCaption className="sr-only">{caption}</TableCaption>
       <TableHeader>{tabela.getHeaderGroups().map(grupo => <TableRow key={grupo.id}>
-        {grupo.headers.map(cabecalho => <TableHead key={cabecalho.id} scope="col">
+        {grupo.headers.map(cabecalho => <TableHead key={cabecalho.id} scope="col" className="whitespace-nowrap bg-muted/50 px-3">
           {cabecalho.isPlaceholder ? null : flexRender(cabecalho.column.columnDef.header, cabecalho.getContext())}
         </TableHead>)}
       </TableRow>)}</TableHeader>
       <TableBody>{tabela.getRowModel().rows.map(linha => <TableRow key={linha.original.id}>
-        {linha.getVisibleCells().map(celula => <TableCell key={celula.id}>
+        {linha.getVisibleCells().map(celula => <TableCell key={celula.id} className="px-3 py-3">
           {flexRender(celula.column.columnDef.cell, celula.getContext())}
         </TableCell>)}
       </TableRow>)}</TableBody>
@@ -108,12 +108,21 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
   }) ?? [], [previa])
   const extratoConfirmado = lote?.estado === 'Confirmado'
   const linhasMovimentacao = useMemo<LinhaPreviaTabela[]>(() => previa?.movimentacoes.map((movimentacao, indice) => {
-    const camposNaoInterpretados = movimentacao.dadosInterpretados?.camposNaoInterpretados ?? []
-    const camposNaoAplicaveis = movimentacao.dadosInterpretados?.camposNaoAplicaveis ?? []
+    const dados = movimentacao.dadosInterpretados
+    const camposNaoInterpretados = dados?.camposNaoInterpretados ?? []
+    const camposNaoAplicaveis = dados?.camposNaoAplicaveis ?? []
+    const camposNaoInformados = dados?.camposNaoInformados ?? []
+    let significadoValor: string | null = null
+    if (dados?.valor != null && dados.tipo === 'Débito') {
+      if (dados.natureza === 'Venda') significadoValor = 'Valor bruto do resgate'
+      if (dados.natureza === 'Taxas') significadoValor = 'Cobrança de taxa'
+    }
     const camposEssenciaisNaoInterpretados = camposNaoInterpretados
     const leitura = [
+      significadoValor,
       camposEssenciaisNaoInterpretados.length ? `Revisar: ${camposEssenciaisNaoInterpretados.map(rotuloCampo).join(', ')}` : null,
       camposNaoAplicaveis.length ? `Não aplicável: ${camposNaoAplicaveis.map(rotuloCampo).join(', ')}` : null,
+      camposNaoInformados.length ? `Não informado: ${camposNaoInformados.map(rotuloCampo).join(', ')}` : null,
     ].filter((estado): estado is string => estado !== null)
     return {
       id: `movimento-${indice}`,
@@ -158,7 +167,7 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
     }
   }
 
-  return <div className="space-y-4">
+  return <div className="min-w-0 space-y-4">
     <Card>
       <CardHeader>
         <CardTitle>Extrato do Tesouro Direto</CardTitle>
@@ -214,7 +223,7 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
         <CardTitle>{lote.estado === 'Confirmado' ? 'Extrato confirmado' : 'Prévia do extrato'}</CardTitle>
         <CardDescription>Os valores abaixo vêm do arquivo enviado.{lote.estado !== 'Confirmado' && ' Esta etapa não registra operações nem altera a carteira.'}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="min-w-0 space-y-5">
         <p className="text-sm">Data de referência informada: {lote.dataReferencia.split('-').reverse().join('/')}</p>
         <p className="text-xs text-muted-foreground">Nos movimentos, “Taxa (% a.a.)” é a taxa do título/operação; não é uma cobrança em reais. Os custos aparecem em “Taxa devida” (B3 e instituição), em R$. IR/IOF previstos e valor líquido são os valores do extrato para a data de referência deste lote e podem mudar até um resgate ou evento de custódia. <a className="underline underline-offset-2" href="https://www.tesourodireto.com.br/b/impostos-e-taxas-no-tesouro-direto" target="_blank" rel="noreferrer">Entenda impostos e taxas</a>.</p>
         {previa.titulo && <p className="font-medium">{previa.titulo}{previa.vencimento ? ` · vencimento ${previa.vencimento.split('-').reverse().join('/')}` : ''}</p>}
@@ -234,12 +243,14 @@ export function PreviaTesouroDireto({ carteiras, carregando, erroCarteiras, tent
           <p>{previa.linhasNaoInterpretadas.length} linhas não foram interpretadas e precisam de revisão no arquivo original.</p>
           <p>Linhas: {previa.linhasNaoInterpretadas.join(', ')}.</p>
         </div>}
-        <section className="space-y-3"><h3 className="font-semibold">Posições identificadas ({previa.posicoes.length})</h3>
+        <section className="min-w-0 space-y-3"><h3 className="font-semibold">Posições identificadas ({previa.posicoes.length})</h3>
+          {previa.posicoes.length > 0 && <p className="text-xs text-muted-foreground">Deslize a tabela horizontalmente para ver todas as colunas.</p>}
           {previa.posicoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma posição identificada neste arquivo.</p> :
             <TabelaPreviaTesouro caption="Posições identificadas no extrato" cabecalhoNumero="Linha" linhas={linhasPosicao} />
           }
         </section>
-        <section className="space-y-3"><h3 className="font-semibold">Movimentações identificadas ({previa.movimentacoes.length})</h3>
+        <section className="min-w-0 space-y-3"><h3 className="font-semibold">Movimentações identificadas ({previa.movimentacoes.length})</h3>
+          {previa.movimentacoes.length > 0 && <p className="text-xs text-muted-foreground">Deslize a tabela horizontalmente para ver todas as colunas.</p>}
           {previa.movimentacoes.length === 0 ? <p className="text-sm text-muted-foreground">Nenhuma movimentação identificada neste arquivo.</p> :
             <TabelaPreviaTesouro caption="Movimentações identificadas no extrato" cabecalhoNumero="Nº" linhas={linhasMovimentacao} />
           }

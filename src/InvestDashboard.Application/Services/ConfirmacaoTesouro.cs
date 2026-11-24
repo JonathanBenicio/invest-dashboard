@@ -165,6 +165,7 @@ public static class ConfirmacaoTesouro
             return false;
 
         if (m.CamposNaoInterpretados.Count > 0) return false;
+        if (m.CamposNaoInformados?.Any(c => c != "taxaAnual" || m.Natureza != "Compra") == true) return false;
 
         return (m.Natureza == "Taxas" && m.Tipo is "Crédito" or "Débito") ||
             (TipoNegociacao(m) is not null && m.Quantidade is > 0 && m.Preco is > 0);

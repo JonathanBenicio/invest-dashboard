@@ -52,11 +52,17 @@ public sealed class LeitorPreviaTesouro : ILeitorPreviaTesouro
         var tipo = Reconhecer(campos[2].Valor, "Crédito", "Débito");
         if (tipo is null) falhas.Add("tipo");
         var naoAplicaveis = new List<string>();
+        var naoInformados = new List<string>();
         decimal? LerNumero(int indice, string nome, bool moeda = false, bool percentual = false, bool positivo = false)
         {
-            // Traços em campos opcionais do cartão não são erros nem valores zero.
-            var campoNaoAplicavel = natureza == "Taxas" || ((natureza is "Compra" or "Venda") && nome == "taxaAnual");
-            if (campoNaoAplicavel && campos[indice].Valor.Trim() is "-" or "--" or "—" or "–")
+            // A taxa anual da compra pode estar ausente: preserve a ausência sem inferir que seja não aplicável.
+            if (natureza == "Compra" && nome == "taxaAnual" && campos[indice].Valor.Trim() is "-" or "--" or "—" or "–")
+            {
+                naoInformados.Add(nome);
+                return null;
+            }
+            // Traços nas vendas e nos cartões de taxas são conhecidos como não aplicáveis.
+            if ((natureza is "Taxas" or "Venda") && campos[indice].Valor.Trim() is "-" or "--" or "—" or "–")
             {
                 naoAplicaveis.Add(nome);
                 return null;
@@ -67,7 +73,7 @@ public sealed class LeitorPreviaTesouro : ILeitorPreviaTesouro
         var preco = LerNumero(4, "preco", moeda: true, positivo: true);
         var taxa = LerNumero(5, "taxaAnual", percentual: true);
         var valor = Numero(campos[6].Valor, "valor", falhas, moeda: true);
-        return new DadosMovimentoTesouroDto(data, natureza, tipo, quantidade, preco, taxa, valor, falhas, naoAplicaveis);
+        return new DadosMovimentoTesouroDto(data, natureza, tipo, quantidade, preco, taxa, valor, falhas, naoAplicaveis, naoInformados);
     }
 
     private static string? Reconhecer(string valor, params string[] opcoes) =>

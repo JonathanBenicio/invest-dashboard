@@ -139,11 +139,31 @@ public sealed class LeitorPreviaTesouroTests
     }
 
     [Fact]
-    public void TracoEmCompraContinuaSendoCampoNaoInterpretado()
+    public void TracoEmCompraSinalizaTaxaComoNaoInformadaSemTratarComoNaoAplicavel()
     {
         var dados = Ler(Html("02/03/2024", "Compra", "Crédito", "-", "-", "-", "1"))
             .Movimentacoes.Should().ContainSingle().Subject.DadosInterpretados!;
-        dados.CamposNaoInterpretados.Should().Equal("quantidade", "preco", "taxaAnual");
+        dados.CamposNaoInterpretados.Should().Equal("quantidade", "preco");
         dados.CamposNaoAplicaveis.Should().BeEmpty();
+        dados.CamposNaoInformados.Should().Equal("taxaAnual");
+    }
+
+    [Fact]
+    public void TaxaAnualMalformadaEmCompraContinuaExigindoRevisao()
+    {
+        var dados = Ler(Html("02/03/2024", "Compra", "Crédito", "1", "1", "desconhecida", "1"))
+            .Movimentacoes.Should().ContainSingle().Subject.DadosInterpretados!;
+        dados.CamposNaoInterpretados.Should().Equal("taxaAnual");
+        dados.CamposNaoInformados.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void TracoEmVendaContinuaNaoAplicavel()
+    {
+        var dados = Ler(Html("02/03/2024", "Venda", "Débito", "1", "1", "-", "1"))
+            .Movimentacoes.Should().ContainSingle().Subject.DadosInterpretados!;
+        dados.CamposNaoInterpretados.Should().BeEmpty();
+        dados.CamposNaoAplicaveis.Should().Equal("taxaAnual");
+        dados.CamposNaoInformados.Should().BeEmpty();
     }
 }

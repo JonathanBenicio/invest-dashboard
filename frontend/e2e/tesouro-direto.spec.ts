@@ -10,6 +10,7 @@ async function login(page: Page) {
 }
 
 test('apresenta prévia de arquivo privado sem confirmar movimentações', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
   await page.addInitScript(() => {
     const original = window.fetch.bind(window)
     window.fetch = async (input, init) => {
@@ -20,8 +21,12 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
       const previa = {
         carteiraId: 'portfolio-1', formato: 'html', layout: 'portal', titulo: 'Título sintético', vencimento: '2035-01-01',
         posicoes: [{ numeroLinha: 1, camposBrutos: { valor_liquido: 'valor não reconhecido' }, dadosInterpretados: { camposNaoInterpretados: ['valorLiquido'] } }], movimentacoes: [{
-          campos: [{ rotulo: 'Tipo:', valor: 'Compra' }, { rotulo: 'Preço:', valor: '1.23' }],
-          dadosInterpretados: { data: null, natureza: 'Compra', tipo: 'Crédito', quantidade: 1, preco: null, taxaAnual: 10, valor: 1, camposNaoInterpretados: ['data', 'preco'] },
+          campos: [
+            { rotulo: 'Tipo:', valor: 'Compra' }, { rotulo: 'Preço:', valor: '1.23' },
+            { rotulo: 'Taxa (% a.a.):', valor: '-' }, { rotulo: 'Data da aplicação:', valor: '02/03/2024' },
+            { rotulo: 'Valor bruto:', valor: '1.234,56' }, { rotulo: 'Taxa da instituição devida (R$):', valor: '0,00' },
+          ],
+          dadosInterpretados: { data: null, natureza: 'Compra', tipo: 'Crédito', quantidade: 1, preco: null, taxaAnual: null, valor: 1, camposNaoInterpretados: ['data', 'preco'], camposNaoInformados: ['taxaAnual'] },
         }],
         linhasNaoInterpretadas: [7, 12], avisos: ['Revise os dados.'], exigeRevisao: true, coberturaCompleta: false, podeConfirmar: false,
       }
@@ -29,7 +34,11 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
     }
   })
   await login(page)
+  await page.getByRole('button', { name: 'Toggle Sidebar' }).click()
+  const overflowMobileMenu = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+  expect(overflowMobileMenu, 'menu móvel aberto não deve expandir a página').toBe(false)
   await page.getByRole('link', { name: /Importar opera/ }).click()
+  await page.keyboard.press('Escape')
   await page.getByRole('tab', { name: 'Tesouro Direto' }).click()
   await page.getByLabel('Carteira de destino').click()
   await page.getByRole('option', { name: 'Carteira Principal' }).click()
@@ -40,7 +49,8 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
   await expect(page.getByText('Data de referência informada: 14/11/2026')).toBeVisible()
   await expect(page.getByText('Título sintético')).toBeVisible()
   await expect(page.getByText('Compra', { exact: true })).toBeVisible()
-  await expect(page.getByText('Revisar: data, preço', { exact: true })).toBeVisible()
+  const linhaMovimentacao = page.getByRole('row', { name: /Revisar: data, preço.*Não informado: taxa do título/ })
+  await expect(linhaMovimentacao).toBeVisible()
   await expect(page.getByText('1.23', { exact: true })).toBeVisible()
   await expect(page.getByText('Revisar: valor líquido', { exact: true })).toBeVisible()
   await expect(page.getByText('valor não reconhecido', { exact: true })).toBeVisible()
@@ -49,6 +59,21 @@ test('apresenta prévia de arquivo privado sem confirmar movimentações', async
   await expect(page.getByText(/não registra operações nem altera a carteira/)).toBeVisible()
   await expect(page.getByText('Linhas: 7, 12.')).toBeVisible()
   await expect(page.getByRole('button', { name: /confirmar/i })).toHaveCount(0)
+  for (const width of [360, 767, 768, 1280, 1366, 1920]) {
+    await page.setViewportSize({ width, height: 800 })
+    const dimensions = await page.evaluate(() => ({ viewport: window.innerWidth, document: document.documentElement.scrollWidth }))
+    expect(dimensions.document, `documento não deve estourar a viewport de ${width}px`).toBeLessThanOrEqual(dimensions.viewport)
+    const scroll = await page.locator('table[aria-label="Movimentações identificadas no extrato"]').evaluate(table => ({
+      clientWidth: table.parentElement?.clientWidth ?? 0,
+      scrollWidth: table.parentElement?.scrollWidth ?? 0,
+    }))
+    if (width < 768) expect(scroll.scrollWidth).toBeGreaterThan(scroll.clientWidth)
+  }
+  for (const estado of ['expandido', 'recolhido']) {
+    await page.getByRole('button', { name: 'Toggle Sidebar' }).click()
+    const overflowMenuDesktop = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+    expect(overflowMenuDesktop, `menu desktop ${estado} não deve expandir a página`).toBe(false)
+  }
   await page.getByLabel('Arquivo do extrato').setInputFiles({ name: 'outro-extrato.html', mimeType: 'text/html', buffer: Buffer.from('<html>outro</html>') })
   await expect(page.getByText('Título sintético')).toHaveCount(0)
 })

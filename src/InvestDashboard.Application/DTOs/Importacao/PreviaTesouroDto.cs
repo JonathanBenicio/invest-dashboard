@@ -20,7 +20,8 @@ public sealed record DadosMovimentoTesouroDto(
     [property: JsonPropertyName("taxaAnual")] decimal? TaxaAnual,
     [property: JsonPropertyName("valor")] decimal? Valor,
     [property: JsonPropertyName("camposNaoInterpretados")] IReadOnlyList<string> CamposNaoInterpretados,
-    [property: JsonPropertyName("camposNaoAplicaveis")] IReadOnlyList<string>? CamposNaoAplicaveis = null);
+    [property: JsonPropertyName("camposNaoAplicaveis")] IReadOnlyList<string>? CamposNaoAplicaveis = null,
+    [property: JsonPropertyName("camposNaoInformados")] IReadOnlyList<string>? CamposNaoInformados = null);
 
 public sealed record PosicaoPreviaTesouroDto(
     [property: JsonPropertyName("numeroLinha")] int NumeroLinha,

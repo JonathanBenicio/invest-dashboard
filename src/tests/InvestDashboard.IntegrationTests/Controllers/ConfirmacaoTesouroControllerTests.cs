@@ -41,12 +41,12 @@ public sealed class ConfirmacaoTesouroControllerTests
               <table><tbody><tr class="saldo-table-vencimento"><th><strong>VENCIMENTO: 01/01/2035</strong></th></tr></tbody></table>
               <div class="td-posicao-detalhada__info">
                 <p class="td-posicao-detalhada__info__valor">Data: <span class="td-posicao-detalhada__info__data">02/03/2024</span></p>
-                <p class="td-posicao-detalhada__info__valor">Natureza: <span class="td-posicao-detalhada__info__data">Taxas</span></p>
-                <p class="td-posicao-detalhada__info__valor">Tipo: <span class="td-posicao-detalhada__info__data">Débito</span></p>
-                <p class="td-posicao-detalhada__info__valor">Quantidade: <span class="td-posicao-detalhada__info__data">-</span></p>
-                <p class="td-posicao-detalhada__info__valor">Preço (R$): <span class="td-posicao-detalhada__info__data">-</span></p>
+                <p class="td-posicao-detalhada__info__valor">Natureza: <span class="td-posicao-detalhada__info__data">Compra</span></p>
+                <p class="td-posicao-detalhada__info__valor">Tipo: <span class="td-posicao-detalhada__info__data">Crédito</span></p>
+                <p class="td-posicao-detalhada__info__valor">Quantidade: <span class="td-posicao-detalhada__info__data">1,00</span></p>
+                <p class="td-posicao-detalhada__info__valor">Preço (R$): <span class="td-posicao-detalhada__info__data">22,00</span></p>
                 <p class="td-posicao-detalhada__info__valor">Taxa (% a.a.): <span class="td-posicao-detalhada__info__data">-</span></p>
-                <p class="td-posicao-detalhada__info__valor">Valor (R$): <span class="td-posicao-detalhada__info__data">1,00</span></p>
+                <p class="td-posicao-detalhada__info__valor">Valor (R$): <span class="td-posicao-detalhada__info__data">22,00</span></p>
               </div>
               <table><tbody>
                 <tr class="saldo-table-data-names"><td></td><td>DATA DA APLICAÇÃO</td><td>QUANTIDADE DE TÍTULOS</td><td>PREÇO DO TÍTULO NA APLICAÇÃO</td><td>VALOR INVESTIDO</td><td>RENTABILIDADE CONTRATADA</td></tr>
@@ -64,9 +64,16 @@ public sealed class ConfirmacaoTesouroControllerTests
             $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes?dataReferencia=2024-03-03", multipart);
         upload.StatusCode.Should().Be(HttpStatusCode.Created, await upload.Content.ReadAsStringAsync());
         using var loteJson = JsonDocument.Parse(await upload.Content.ReadAsStringAsync());
-        var loteId = loteJson.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
-        var hashPrevia = loteJson.RootElement.GetProperty("dados").GetProperty("hashPrevia").GetString()
+        var dadosLote = loteJson.RootElement.GetProperty("dados");
+        var loteId = dadosLote.GetProperty("id").GetGuid();
+        var hashPrevia = dadosLote.GetProperty("hashPrevia").GetString()
             ?? throw new InvalidOperationException("A resposta não incluiu o hash da prévia.");
+        var movimentoPrevia = dadosLote.GetProperty("previa").GetProperty("movimentacoes")[0];
+        movimentoPrevia.GetProperty("campos").EnumerateArray()
+            .Single(x => x.GetProperty("rotulo").GetString()!.StartsWith("Taxa", StringComparison.Ordinal))
+            .GetProperty("valor").GetString().Should().Be("-");
+        movimentoPrevia.GetProperty("dadosInterpretados").GetProperty("camposNaoInformados")
+            .EnumerateArray().Select(x => x.GetString()).Should().Contain("taxaAnual");
         var loteRota = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{loteId}";
 
         using var conciliacao = await client.PostAsJsonAsync($"{loteRota}/conciliacao", new { ativoId = (Guid?)null });
@@ -74,28 +81,17 @@ public sealed class ConfirmacaoTesouroControllerTests
         using var conciliacaoJson = JsonDocument.Parse(await conciliacao.Content.ReadAsStringAsync());
         var dadosConciliacao = conciliacaoJson.RootElement.GetProperty("dados");
         dadosConciliacao.GetProperty("podeCriarPosicao").GetBoolean().Should().BeTrue();
+        dadosConciliacao.GetProperty("importacaoInicialSemRevisao").GetBoolean().Should().BeTrue();
         var carteiraVersao = dadosConciliacao.GetProperty("carteiraVersao").GetInt32();
-
-        using var revisao = await client.PostAsJsonAsync($"{loteRota}/revisoes", new
-        {
-            indiceEvento = 0,
-            decisao = "sem_vinculo",
-            ativoId = (Guid?)null,
-            transacaoId = (Guid?)null,
-            carteiraVersao,
-            revisaoAnterior = 0,
-            hashPrevia
-        });
-        revisao.StatusCode.Should().Be(HttpStatusCode.OK, await revisao.Content.ReadAsStringAsync());
-        using var revisaoJson = JsonDocument.Parse(await revisao.Content.ReadAsStringAsync());
-        var revisaoNumero = revisaoJson.RootElement.GetProperty("dados").GetProperty("revisao").GetInt32();
 
         using var confirmacao = await client.PostAsJsonAsync($"{loteRota}/confirmacao", new
         {
             ativoId = (Guid?)null,
             criarPosicao = true,
             carteiraVersao,
-            revisoes = new[] { new { indiceEvento = 0, revisao = revisaoNumero } }
+            importacaoInicialSemRevisao = true,
+            hashPrevia,
+            revisoes = Array.Empty<object>()
         });
         confirmacao.StatusCode.Should().Be(HttpStatusCode.OK, await confirmacao.Content.ReadAsStringAsync());
         using var resultado = JsonDocument.Parse(await confirmacao.Content.ReadAsStringAsync());
@@ -114,6 +110,7 @@ public sealed class ConfirmacaoTesouroControllerTests
         baseCriada.PrecoUnitario.Should().Be(22m);
         var carteira = await persistido.Portfolios.Include(x => x.Positions).SingleAsync(x => x.Id == carteiraId);
         carteira.Positions.Should().ContainSingle().Which.CurrentValue.Should().Be(44m);
+        (await persistido.Transactions.Where(x => x.CarteiraId == carteiraId).ToListAsync()).Should().BeEmpty();
         var lotePersistido = await persistido.Set<LoteImportacaoTesouro>().SingleAsync(x => x.Id == loteId);
         var previaPersistida = JsonSerializer.Deserialize<PreviaTesouroDto>(lotePersistido.PreviaJson)!;
         previaPersistida.Posicoes.Select(x => x.DadosInterpretados!.RentabilidadeContratada).Should().Equal("10,50%", "12,00%");

@@ -25,6 +25,7 @@ export interface PreviaTesouro {
       valor: number | null
       camposNaoInterpretados: string[]
       camposNaoAplicaveis?: string[] | null
+      camposNaoInformados?: string[] | null
     } | null
   }[]
   linhasNaoInterpretadas: number[]

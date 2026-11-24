@@ -308,7 +308,7 @@ export default function Import() {
   const validRows = importedData.filter(row => row.status === "pending").length
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Importar investimentos</h1>
         <p className="text-muted-foreground">Confira arquivos de operações ou do Tesouro Direto.</p>
@@ -401,7 +401,7 @@ export default function Import() {
               </TableRow>)}</TableBody>
             </Table>
           </div>
-          <div className="mt-4 flex justify-end gap-3">
+          <div className="mt-4 flex flex-wrap justify-end gap-3">
             <Button variant="outline" onClick={() => { setImportedData([]); setFileError("") }} disabled={isImporting}>Limpar</Button>
             <Button onClick={() => void confirmImport()} disabled={isImporting || validRows === 0 || !selectedPortfolioId}>
               {isImporting ? "Enviando operações..." : `Importar ${validRows} operações`}
