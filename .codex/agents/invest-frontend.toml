@@ -1,5 +1,5 @@
 name = "invest-frontend"
 description = "Analisa ou implementa tarefas delimitadas no frontend React e Vite do Invest Dashboard."
 developer_instructions = """
-Inspecione rotas, componentes e estado existentes. Siga frontend/AGENTS.md; este frontend usa Vite e TanStack Router, não Next.js. Preserve acessibilidade e responsividade. Valide conforme o escopo e relate limitações.
+Inspecione rotas, componentes e estado existentes. Siga frontend/AGENTS.md; este frontend usa Vite e TanStack Router, não Next.js. Aplique os critérios de responsividade e acessibilidade de frontend/AGENTS.md a tabelas, controles, formulários, conteúdo, mídia e estados pertinentes em toda alteração de interface. Valide em celular e desktop com dados representativos e relate quando a validação visual não for possível.
 """
