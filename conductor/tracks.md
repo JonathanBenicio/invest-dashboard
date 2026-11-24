@@ -3,11 +3,11 @@
 Índice de iniciativas acompanhadas. O conteúdo do plano permanece em `docs/plan/`; esta lista registra somente identificação, estado documental conhecido e rastreabilidade. Estado de implementação/validação só deve avançar com evidência atual. O inventário inicial abaixo contém planos históricos existentes e não afirma que estejam ativos ou aprovados.
 
 ## Iniciativas
-| [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53) | Importação e conciliação do Tesouro Direto | em andamento | [tesouro-direto-importacao-e-dados-mercado-refinamento.md](../docs/plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md); [reimportação auditável](../docs/plan/tesouro-reimportacao-snapshots.md) | PR #62 cobre criação, revisão de posição não observada sem zerar saldo e prévia tabular. Validação manual, rollback e concorrência seguem pendentes. XLSX adiado; avaliação pública tratada na Issue #64. |
 
 
 | Identificador | Iniciativa (conforme arquivo) | Estado conhecido | Plano canônico | Observações |
 |---|---|---|---|---|
+| [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53) | Importação e conciliação do Tesouro Direto | em andamento | [Refinamento da importação](../docs/plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md); [reimportação](../docs/plan/tesouro-reimportacao-snapshots.md); [validação inicial](../docs/plan/tesouro-teste-integracao-importacao-inicial.md); [Extrato detalhado](../docs/plan/tesouro-extrato-detalhado.md) | PR #62. Validação autenticada, rollback e concorrência pendentes. Encerramento por venda integral, referência do HTML e Extrato detalhado planejados. Tratamento de divergência da instituição ainda em decisão. |
 | A definir | Gestão de carteira | Documento existente; estado atual pendente de confirmação | [carteira.md](../docs/plan/carteira.md) | Plano preexistente; revisar requisitos e implementação antes de reativar. |
 | A definir | Chat IA | Documento existente; estado atual pendente de confirmação | [chat-ia.md](../docs/plan/chat-ia.md) | Plano preexistente; não inferir adoção ou execução. |
 | A definir | Plano de implementação da plataforma | Documento existente; estado atual pendente de confirmação | [plan.md](../docs/plan/plan.md) | Documento amplo/histórico; verificar premissas contra o código antes de usar. |
