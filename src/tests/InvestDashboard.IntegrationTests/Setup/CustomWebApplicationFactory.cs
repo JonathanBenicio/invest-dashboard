@@ -3,6 +3,7 @@ using System.Linq;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Configuration;
@@ -25,18 +26,20 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbName = $"InvestTestDb_{Guid.NewGuid()}";
     private readonly string? _postgresConnectionString;
+    private readonly IInterceptor? _postgresInterceptor;
 
     public CustomWebApplicationFactory()
     {
     }
 
-    private CustomWebApplicationFactory(string postgresConnectionString)
+    private CustomWebApplicationFactory(string postgresConnectionString, IInterceptor? postgresInterceptor)
     {
         _postgresConnectionString = postgresConnectionString;
+        _postgresInterceptor = postgresInterceptor;
     }
 
-    public static CustomWebApplicationFactory CreatePostgres(string postgresConnectionString) =>
-        new(postgresConnectionString);
+    public static CustomWebApplicationFactory CreatePostgres(string postgresConnectionString, IInterceptor? postgresInterceptor = null) =>
+        new(postgresConnectionString, postgresInterceptor);
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -73,6 +76,10 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
                 services.RemoveAll(typeof(InvestDbContext));
                 services.AddDbContext<InvestDbContext>(options => options.UseInMemoryDatabase(_dbName));
+            }
+            else if (_postgresInterceptor is not null)
+            {
+                services.AddDbContext<InvestDbContext>(options => options.AddInterceptors(_postgresInterceptor));
             }
 
             // Replace IAuthProvider with FakeAuthProvider

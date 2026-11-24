@@ -182,6 +182,180 @@ public sealed class ConfirmacaoTesouroControllerTests
     }
 
     [RequiresPostgresFact]
+    public async Task FalhaAoInserirNovaBase_RestauraBaseAnteriorELotePendente()
+    {
+        var setup = await CriarBaseAtivaParaReimportacaoAsync();
+        await using var database = setup.Database;
+        using var factory = setup.Factory;
+        using var client = Autenticar(factory);
+        var rota = $"/api/v1/portfolios/{setup.CarteiraId}/tesouro-direto/lotes/{setup.LoteNovoId}";
+        var (carteiraVersao, hashPrevia, hashDivergencias) = await PrepararConfirmacaoAsync(client, rota, setup.AtivoId);
+
+        await using (var scopeTrigger = factory.Services.CreateAsyncScope())
+        {
+            var db = scopeTrigger.ServiceProvider.GetRequiredService<InvestDbContext>();
+            await db.Database.ExecuteSqlRawAsync("""
+                CREATE FUNCTION fail_treasury_position_base_insert() RETURNS trigger LANGUAGE plpgsql AS $$
+                BEGIN
+                    RAISE EXCEPTION 'Falha injetada pelo teste de rollback' USING ERRCODE = 'P0001';
+                END;
+                $$;
+                CREATE TRIGGER fail_treasury_position_base_insert
+                BEFORE INSERT ON treasury_position_bases
+                FOR EACH ROW EXECUTE FUNCTION fail_treasury_position_base_insert();
+                """);
+        }
+
+        using var resposta = await client.PostAsJsonAsync($"{rota}/confirmacao", new
+        {
+            ativoId = setup.AtivoId,
+            carteiraVersao,
+            revisoes = Array.Empty<object>(),
+            hashDivergencias,
+            aceitarDivergencias = true
+        });
+        resposta.StatusCode.Should().Be(HttpStatusCode.InternalServerError, await resposta.Content.ReadAsStringAsync());
+
+        using var scopeVerificacao = factory.Services.CreateScope();
+        var persistido = scopeVerificacao.ServiceProvider.GetRequiredService<InvestDbContext>();
+        var baseAnterior = await persistido.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == setup.LoteBaseId);
+        baseAnterior.Ativa.Should().BeTrue();
+        (await persistido.Set<BasePosicaoTesouro>().AnyAsync(x => x.LoteId == setup.LoteNovoId)).Should().BeFalse();
+        (await persistido.Set<LoteImportacaoTesouro>().SingleAsync(x => x.Id == setup.LoteNovoId)).Estado.Should().Be("Pendente");
+        (await persistido.Set<EventoOficialTesouro>().AnyAsync(x => x.LoteId == setup.LoteNovoId)).Should().BeFalse();
+        (await persistido.Set<RevisaoSnapshotTesouro>().AnyAsync(x => x.LoteId == setup.LoteNovoId)).Should().BeFalse();
+    }
+
+    [RequiresPostgresFact]
+    public async Task ConfirmacoesConcorrentes_DuasRequisiçõesNaoCriamBasesAtivasDuplicadas()
+    {
+        var barreira = new TesouroSnapshotConfirmationReadBarrier();
+        var setup = await CriarBaseAtivaParaReimportacaoAsync(barreira);
+        await using var database = setup.Database;
+        using var factory = setup.Factory;
+        using var client = Autenticar(factory);
+        var rota = $"/api/v1/portfolios/{setup.CarteiraId}/tesouro-direto/lotes/{setup.LoteNovoId}";
+        var (carteiraVersao, hashPrevia, hashDivergencias) = await PrepararConfirmacaoAsync(client, rota, setup.AtivoId);
+        var pedido = new
+        {
+            ativoId = setup.AtivoId,
+            carteiraVersao,
+            revisoes = Array.Empty<object>(),
+            hashDivergencias,
+            aceitarDivergencias = true
+        };
+
+        barreira.Armar(2);
+        var primeira = client.PostAsJsonAsync($"{rota}/confirmacao", pedido);
+        var segunda = client.PostAsJsonAsync($"{rota}/confirmacao", pedido);
+        HttpResponseMessage[] respostas;
+        try
+        {
+            await barreira.EsperarParticipantesAsync(CancellationToken.None);
+        }
+        finally
+        {
+            barreira.Liberar();
+        }
+        respostas = await Task.WhenAll(primeira, segunda);
+        try
+        {
+            respostas.Select(x => x.StatusCode).Should().Contain(HttpStatusCode.OK);
+            respostas.Select(x => x.StatusCode).Should().OnlyContain(x =>
+                x == HttpStatusCode.OK || x == HttpStatusCode.Conflict,
+                string.Join(" | ", await Task.WhenAll(respostas.Select(x => x.Content.ReadAsStringAsync()))));
+        }
+        finally
+        {
+            foreach (var resposta in respostas) resposta.Dispose();
+        }
+
+        using var scopeVerificacao = factory.Services.CreateScope();
+        var persistido = scopeVerificacao.ServiceProvider.GetRequiredService<InvestDbContext>();
+        (await persistido.Set<BasePosicaoTesouro>().CountAsync(x => x.CarteiraId == setup.CarteiraId && x.AtivoId == setup.AtivoId && x.Ativa))
+            .Should().Be(1);
+        (await persistido.Set<BasePosicaoTesouro>().CountAsync(x => x.LoteId == setup.LoteNovoId)).Should().Be(1);
+        (await persistido.Set<LoteImportacaoTesouro>().SingleAsync(x => x.Id == setup.LoteNovoId)).Estado.Should().Be("Confirmado");
+    }
+
+    private sealed record SetupBaseTesouro(IsolatedPostgresDatabase Database, CustomWebApplicationFactory Factory,
+        Guid CarteiraId, Guid AtivoId, Guid LoteBaseId, Guid LoteNovoId);
+
+    private static HttpClient Autenticar(CustomWebApplicationFactory factory)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
+            FakeAuthProvider.GenerateJwt(FakeAuthProvider.TestEmail));
+        return client;
+    }
+
+    private static async Task<SetupBaseTesouro> CriarBaseAtivaParaReimportacaoAsync(
+        TesouroSnapshotConfirmationReadBarrier? barreira = null)
+    {
+        var database = await IsolatedPostgresDatabase.CreateAsync(Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!);
+        var factory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString, barreira);
+        try
+        {
+            var carteiraId = Guid.NewGuid();
+            var ativoId = Guid.NewGuid();
+            var loteBaseId = Guid.NewGuid();
+            var loteNovoId = Guid.NewGuid();
+            var usuario = FakeAuthProvider.TestUserId;
+            var dataAplicacao = new DateOnly(2024, 3, 1);
+            var dataBase = new DateOnly(2024, 3, 2);
+            const string titulo = "Tesouro Prefixado 2035";
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+            var carteira = new Carteira(carteiraId, usuario.ToString(), "Carteira sintética");
+            var ativo = new RendaFixa(ativoId, "TESOURO_TESTE", titulo, 22m, DateTime.UtcNow, "PREFIXADO", null,
+                new DateTime(2035, 1, 1, 0, 0, 0, DateTimeKind.Utc), "Tesouro Nacional", "TESOURO_DIRETO");
+            var compra = new Transacao(Guid.NewGuid(), usuario.ToString(), carteiraId, ativoId, ativo.Ticker,
+                TipoTransacao.Buy, 1m, 20m, 0m, new DateTime(2024, 3, 1, 12, 0, 0, DateTimeKind.Utc));
+            carteira.ProcessTransaction(compra, 22m, TipoAtivo.RendaFixa);
+            var linhaBase = new DadosPosicaoTesouroDto(dataAplicacao, 1m, 20m, 20m, "10%", null, null, 22m,
+                1, null, null, null, null, null, 22m, []);
+            var previaBase = new PreviaTesouroDto(carteiraId, "html", "portal_tesouro_html", titulo, "2035-01-01", null,
+                [new(1, new Dictionary<string, string>(), linhaBase)], [], [], [], true, false, false);
+            var loteBase = new LoteImportacaoTesouro(loteBaseId, carteiraId, usuario, dataBase,
+                new string('a', 64), "html", JsonSerializer.Serialize(previaBase), DateTime.UtcNow);
+            loteBase.MarcarConfirmado(DateTime.UtcNow);
+            var baseAtiva = new BasePosicaoTesouro(Guid.NewGuid(), loteBaseId, carteiraId, ativoId, dataBase, 1m, 20m, 22m);
+            baseAtiva.Ativar();
+            var linhaNova = new DadosPosicaoTesouroDto(dataAplicacao, 1m, 20m, 20m, "10%", null, null, 22m,
+                1, null, null, null, null, null, 22m, []);
+            var previaNova = new PreviaTesouroDto(carteiraId, "html", "portal_tesouro_html", titulo, "2035-01-01", null,
+                [new(1, new Dictionary<string, string>(), linhaNova)], [], [], [], true, false, false);
+            var loteNovo = new LoteImportacaoTesouro(loteNovoId, carteiraId, usuario, new DateOnly(2024, 3, 3),
+                new string('b', 64), "html", JsonSerializer.Serialize(previaNova), DateTime.UtcNow);
+            db.AddRange(carteira, ativo, compra, loteBase, baseAtiva, loteNovo);
+            await db.SaveChangesAsync();
+            return new SetupBaseTesouro(database, factory, carteiraId, ativoId, loteBaseId, loteNovoId);
+        }
+        catch
+        {
+            factory.Dispose();
+            await database.DisposeAsync();
+            throw;
+        }
+    }
+
+    private static async Task<(int CarteiraVersao, string HashPrevia, string? HashDivergencias)> PrepararConfirmacaoAsync(
+        HttpClient client, string rota, Guid ativoId)
+    {
+        using var lote = await client.GetAsync(rota);
+        lote.StatusCode.Should().Be(HttpStatusCode.OK, await lote.Content.ReadAsStringAsync());
+        using var loteJson = JsonDocument.Parse(await lote.Content.ReadAsStringAsync());
+        var hashPrevia = loteJson.RootElement.GetProperty("dados").GetProperty("hashPrevia").GetString()
+            ?? throw new InvalidOperationException("A resposta não incluiu o hash da prévia.");
+        using var consulta = await client.PostAsJsonAsync($"{rota}/conciliacao", new { ativoId });
+        consulta.StatusCode.Should().Be(HttpStatusCode.OK, await consulta.Content.ReadAsStringAsync());
+        using var consultaJson = JsonDocument.Parse(await consulta.Content.ReadAsStringAsync());
+        var dados = consultaJson.RootElement.GetProperty("dados");
+        return (dados.GetProperty("carteiraVersao").GetInt32(), hashPrevia,
+            dados.GetProperty("comparacaoSnapshot").GetProperty("hash").GetString());
+    }
+
+    [RequiresPostgresFact]
     public async Task Confirmacao_RevalidaRevisoesEPreservaMovimentacaoPosteriorSemDuplicarEventos()
     {
         var connection = Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!;
