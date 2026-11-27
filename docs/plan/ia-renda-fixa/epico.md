@@ -46,4 +46,4 @@ Ver [baseline](../../validation/ia-renda-fixa-baseline-2026-11-27.md) e [QA-01](
 
 ## Riscos, gaps e entrega
 
-Registrar modelos homologados no IA-01 e regras oficiais aplicáveis no RF-02. A Page de UX já recebeu as propostas e a escolha visual. A sincronização documental mais recente via conector Pages aguarda acesso de edição. Habilitar provedores, grupos e anexos separadamente. Atualizar Issue, Markdown, Pages, índice, histórias e track ao disponibilizar cada resultado.
+Registrar modelos homologados no IA-01 e regras oficiais aplicáveis no RF-02. O [handoff de UX-01 no repositório](ux/auditoria.md) é a referência para a experiência híbrida, com as propostas, a escolha, os wireframes e a validação do protótipo. Habilitar provedores, grupos e anexos separadamente. Atualizar Issue, Markdown, Pages, índice, histórias e track ao disponibilizar cada resultado.

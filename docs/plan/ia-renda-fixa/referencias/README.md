@@ -10,6 +10,10 @@ Estas cinco exportações preservam o histórico das ideias e dos planos prepara
 | [Assistente de investimentos dentro do dashboard com Ollama e OpenRouter](assistente-ollama-openrouter.md) | Plano anterior do chat, persistência, ferramentas e uso dos provedores. |
 | [Renda fixa com classificação, alertas e projeções avaliadas com ML.NET](renda-fixa-mlnet.md) | Plano anterior de evolução determinística e avaliação de modelos. |
 
+## Entrega de UX-01
+
+O [handoff de UX-01](../ux/auditoria.md) reúne as propostas visuais, a escolha da experiência híbrida e a validação. O [protótipo versionado](../ux/prototipo/README.md) inclui código, instruções e capturas.
+
 ## Decisões consolidadas
 
 - O assistente roda dentro do Invest Dashboard com Ollama e OpenRouter. Custom GPT, Actions e MCP ficaram nas referências de desenho. O roteamento vigente usa prioridade e fallback configurados pelo administrador. [Provedores](../02-provedores-ia.md) · [Política de provedores](../03-politica-provedores.md) · [Conversas e streaming](../06-conversas-streaming.md)

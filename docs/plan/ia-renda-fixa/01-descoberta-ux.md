@@ -3,7 +3,7 @@
 - Estado: concluído. Entrega no [PR documental #87](https://github.com/JonathanBenicio/invest-dashboard/pull/87).
 - Épico: [mapa e dependências](epico.md)
 - Issue: [#73](https://github.com/JonathanBenicio/invest-dashboard/issues/73)
-- Page: [abrir plano](https://chatgpt.com/space/page_b038aaf4f0f08191aca942c831958301)
+- Page de referência histórica: [abrir registro](https://chatgpt.com/space/page_b038aaf4f0f08191aca942c831958301)
 - Baseline: 27/11/2026 · `codex/tesouro-previa-e-cotacoes` · `d683cfe` · `.codex-attachments/` preexistente.
 - Dependências: EP-00
 - Agentes: invest-frontend, invest-test
@@ -26,4 +26,4 @@ Levantamento e desenho dos fluxos conforme o [épico](epico.md). O recorte e o r
 
 ## Validação, riscos e entrega
 
-Consultar [auditoria e handoff](ux/auditoria.md). O usuário escolheu a experiência híbrida em 27/11/2026. O protótipo e o handoff foram validados localmente. As propostas, a escolha e o resumo do handoff já foram registrados na Page. O código e as evidências finais estão no PR. A releitura da Page nesta rodada ficou indisponível por falta de acesso do conector.
+O usuário escolheu a experiência híbrida em 27/11/2026. O [handoff canônico](ux/auditoria.md) reúne a auditoria, as três propostas, a escolha, os wireframes e as evidências de validação. O [protótipo versionado](ux/prototipo/README.md) inclui instruções de execução e capturas.
