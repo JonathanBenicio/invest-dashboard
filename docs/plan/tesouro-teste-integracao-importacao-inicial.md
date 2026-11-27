@@ -67,9 +67,10 @@ Fluxo guiado aprovado para esta tela: etapa 1 exige HTML e carteira para iniciar
 | Verificação | Ambiente e resultado |
 |---|---|
 | Integração HTTP Tesouro, Extrato e consolidação | 49 testes passaram, 0 falhas/ignorados, .NET 10.0.404 em Docker com PostgreSQL 15 descartável; cobre criação direta, data/instituição, rollback, concorrência, extrato de leitor compartilhado, encerramento, filtro consolidado e carteiras sem grupo |
-| Integrações consolidadas pós-fixture | 5/5 `InvestimentosConsolidadosTests`: quatro usam InMemory e um usa PostgreSQL descartável. Inclui datas diferentes entre bases Tesouro em PostgreSQL e duas carteiras sem grupo mantendo linhas individuais em InMemory |
+| Integrações consolidadas pós-fixture | 7/7 `InvestimentosConsolidadosTests`: seis usam InMemory e um usa PostgreSQL descartável. Inclui datas diferentes entre bases Tesouro em PostgreSQL e carteiras sem grupo, vencimentos distintos e compras em anos diferentes em InMemory |
 | Unitários Tesouro | 105 passaram, 0 falhas/ignorados |
 | Playwright focal | 11/11 passaram com MSW e dados sintéticos em Chromium; seletores e viewport cobrem calendário, fluxo guiado, instituição divergente, exclusão de prévias, Extrato e agrupamento. O cenário de carteira sem grupo foi repetido isoladamente após a última alteração e passou 1/1 |
+| Playwright com API real isolada | 1/1 `e2e-real-api/tesouro-import.spec.ts`; API .NET Testing, PostgreSQL descartável e sessão sintética. Confirma importação, venda integral e extrato sem transações duplicadas |
 | Frontend lint, tipos e build | Lint 0 erros e 10 avisos preexistentes de Fast Refresh; typecheck passou com Bun/lockfile; build Vite passou com avisos de Browserslist, SignalR e chunk acima de 500 kB |
 | Build API | Docker/.NET 10 passou. A compilação também foi exercitada pelas integrações |
 
@@ -86,7 +87,7 @@ Os testes usaram dados sintéticos, carteiras criadas em banco descartável ou i
 
 ## Entrega e sincronização
 
-- Implementação: backend e frontend alterados localmente, sem commit.
+- Implementação: backend e frontend registrados na branch do PR #62.
 - PR relacionado: #62; issue de validação: #68.
-- Evidências e limitações: integração e testes unitários backend reportados como aprovados; E2E responsivo (5 testes), ESLint, typecheck e build frontend passaram. Não houve importação na carteira real nem validação contra a API de produção. Esta atualização do plano permanece local até o commit/push autorizado.
-- Índices e rastreamento: índice documental, track da iniciativa, issue #68 e PR #62 relacionados; publicação desta versão do plano pendente.
+- Evidências e limitações: integrações, unitários, E2E, ESLint, typecheck e builds da rodada final estão registrados acima. Essa rodada usou dados sintéticos; a sessão autenticada pessoal não foi conferida.
+- Índices e rastreamento: índice documental, track da iniciativa, Issue #68 e PR #62 relacionados.

@@ -38,7 +38,7 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 
 ## Planos existentes
 
-- [Investimentos consolidados por grupo](plan/investimentos-consolidados-por-grupo.md) — integração PostgreSQL e Playwright focados aprovados; conferência autenticada e publicação no PR #62 pendentes.
+- [Investimentos consolidados por grupo](plan/investimentos-consolidados-por-grupo.md) — integração focal e Playwright aprovados; conferência autenticada pendente.
 
 - [Plano de implementação da plataforma](plan/plan.md) (preexistente; confirmar premissas antes de reutilizar)
 - [Importação de extrato do Tesouro Direto](plan/tesouro-direto-extrato-plano.md) — iniciativa #53, em refinamento.

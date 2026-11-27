@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './e2e',
   testMatch: [
     'tesouro-direto.spec.ts',
+    'referencia-publica-tesouro.spec.ts',
     'conciliacao-tesouro.spec.ts',
     'extrato-oficial-tesouro.spec.ts',
     'investimentos-consolidados.spec.ts',

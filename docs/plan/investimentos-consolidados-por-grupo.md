@@ -1,7 +1,7 @@
 # Plano — investimentos consolidados por grupo
 
-- Estado: implementação e validações focadas concluídas no checkout; publicação no PR e conferência autenticada pendentes.
-- Issue: [#70 — consolidar investimentos por grupo, titular e carteira](https://github.com/JonathanBenicio/invest-dashboard/issues/70). Atualizar com link do plano publicado após push.
+- Estado: implementação e validações focadas concluídas; conferência autenticada pendente.
+- Issue: [#70 — consolidar investimentos por grupo, titular e carteira](https://github.com/JonathanBenicio/invest-dashboard/issues/70).
 - ADR: [0005 — consulta consolidada de investimentos](../adrs/0005-consulta-consolidada-investimentos.md).
 - Story: [US-PORT-003 — consolidar investimentos por grupo](../USER-STORIES.md#us-port-003--consolidar-investimentos-por-grupo).
 - Baseline: branch `codex/tesouro-previa-e-cotacoes`, commit `d7fe081`, com alterações locais preexistentes de Tesouro e carteiras.
@@ -75,4 +75,4 @@ Exemplo sintético: o Grupo Família tem Tesouro Prefixado 2032 em duas carteira
 
 ## Entrega e sincronização
 
-Plano, história e ADR registrados e indexados no repositório. A Issue #70 acompanha a entrega. Código e documentação permanecem no checkout até a publicação na branch do PR #62. Após o push, atualizar a Issue #70 com o link publicado do plano e confirmar que o PR contém o diff consolidado.
+Plano, história e ADR registrados e indexados no repositório. A Issue #70 acompanha a entrega, relacionada ao PR #62 na branch existente. A conferência autenticada permanece pendente.

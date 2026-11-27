@@ -51,7 +51,7 @@ Sem migração de dados prevista para a primeira versão. A implementação deve
 
 ## Implementação
 
-A consulta usa grupo e ID canônico do ativo, aplica autorização antes da soma e mantém as operações individuais. Lista e detalhe usam os valores persistidos. O histórico público do Tesouro aparece separadamente e não altera a posição. O código será publicado no PR #62, na branch existente.
+A consulta usa grupo e ID canônico do ativo, aplica autorização antes da soma e mantém as operações individuais. Lista e detalhe usam os valores persistidos. O histórico público do Tesouro aparece separadamente e não altera a posição. A entrega usa a branch do PR #62.
 
 ## Validação e gaps
 
