@@ -11,6 +11,7 @@ import { usePortfolio, usePortfolios } from "@/hooks/use-portfolios"
 import { portfolioService } from "@/api/services/portfolio.service"
 import { taxesService } from "@/api/services/taxes.service"
 import { benchmarkService } from "@/api/services/benchmark.service"
+import { CotacoesTesouro } from "@/components/CotacoesTesouro"
 import { formatCurrency } from "@/lib/utils"
 import {
   Cell,
@@ -287,6 +288,7 @@ export default function Analysis() {
           </Tabs>
         </>
       )}
+      <CotacoesTesouro />
     </div>
   )
 }

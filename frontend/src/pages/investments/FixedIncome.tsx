@@ -1,24 +1,27 @@
 import { useState, useMemo, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { Plus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatCurrency, localDateInputToISOString, toLocalDateInputValue } from "@/lib/utils"
 import { useToast } from "@/hooks/use-toast"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
-import { useFixedIncomeInvestments } from "@/hooks/use-investments"
-import { usePortfolios } from "@/hooks/use-portfolios"
+import { useAllAccessiblePortfolios } from "@/hooks/use-portfolios"
 import { FixedIncomeTable } from "@/components/investments/FixedIncomeTable"
 import { investmentService } from "@/api/services/investment.service"
 import { portfolioService } from "@/api/services/portfolio.service"
 import { groupService } from "@/api/services/group.service"
+import { InvestmentScopeFilters } from "@/components/investments/InvestmentScopeFilters"
+import { InvestmentSituationFilter, type InvestmentSituationFilterValue } from "@/components/investments/InvestmentSituationFilter"
+import { fixedIncomeRoute } from "@/router"
 import type { RendaFixaDto, InvestimentoFiltros, TipoRendaFixa, CriarRendaFixaRequest } from "@/api/dtos"
+import type { PosicaoInvestimentoConsolidadoDto } from "@/api/dtos/investment.dto"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 
 export default function FixedIncome() {
@@ -26,18 +29,26 @@ export default function FixedIncome() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedAsset, setSelectedAsset] = useState<RendaFixaDto | null>(null)
-  const [groupFilterId, setGroupFilterId] = useState("")
+  const scope = useSearch({ from: fixedIncomeRoute.id })
+  const groupFilterId = scope.groupId ?? ''
+  const holderFilterId = scope.holderId ?? ''
+  const portfolioFilterId = scope.portfolioId ?? ''
+  const situationFilter: InvestmentSituationFilterValue = scope.situacao ?? 'balance'
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { toast } = useToast()
-  const { data: portfolioResponse, isError: isPortfolioError, refetch: refetchPortfolios } = usePortfolios({ pagina: 1, itensPorPagina: 100 })
+  const { data: portfolioResponse, isError: isPortfolioError, refetch: refetchPortfolios } = useAllAccessiblePortfolios()
   const { data: groupsResponse } = useQuery({ queryKey: ['portfolio-groups'], queryFn: groupService.list })
   const groups = groupsResponse?.dados ?? []
   const selectedGroup = groups.find(group => group.id === groupFilterId)
   const groupNames = Object.fromEntries(groups.map(group => [group.id, group.nome]))
   const portfolios = portfolioResponse?.dados ?? []
-  const selectablePortfolios = groupFilterId
-    ? portfolios.filter(portfolio => portfolio.grupoId === groupFilterId)
-    : portfolios
+  const selectablePortfolios = portfolios.filter(portfolio =>
+    (!groupFilterId || portfolio.grupoId === groupFilterId) &&
+    (!holderFilterId || portfolio.titularId === holderFilterId))
+  const setScope = (next: { groupId?: string; holderId?: string; portfolioId?: string }) => {
+    void navigate({ to: '/renda-fixa', search: { ...scope, ...next } })
+  }
   const idempotencyKey = useRef(crypto.randomUUID())
 
   // Table State
@@ -55,6 +66,9 @@ export default function FixedIncome() {
       pagina: pagination.pageIndex + 1,
       itensPorPagina: pagination.pageSize,
       grupoId: groupFilterId || undefined,
+      titularId: holderFilterId || undefined,
+      carteiraId: portfolioFilterId || undefined,
+      situacao: situationFilter === 'balance' ? undefined : situationFilter,
       busca: globalFilter || undefined,
       ordenarPor: sorting[0]?.id,
       ordem: sorting[0]?.desc ? 'desc' : 'asc',
@@ -72,16 +86,20 @@ export default function FixedIncome() {
     }
 
     return apiFilters
-  }, [pagination, sorting, columnFilters, globalFilter, groupFilterId])
+  }, [pagination, sorting, columnFilters, globalFilter, groupFilterId, holderFilterId, portfolioFilterId, situationFilter])
 
-  const { data: investmentsData, isLoading, isError, refetch } = useFixedIncomeInvestments(filters)
+  const { data: investmentsData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['investments', 'consolidated', 'fixed-income', filters],
+    queryFn: () => investmentService.getConsolidated({ ...filters, tipo: 'fixed_income' }),
+  })
   const projectionQuery = useQuery({
     queryKey: ['fixed-income-projection', groupFilterId],
     queryFn: () => portfolioService.getFixedIncomeProjection(groupFilterId || undefined),
+    enabled: !!groupFilterId && !holderFilterId && !portfolioFilterId,
   })
   const projection = projectionQuery.data?.dados
 
-  const assets = (investmentsData?.dados || []) as RendaFixaDto[]
+  const assets = (investmentsData?.dados || []) as PosicaoInvestimentoConsolidadoDto[]
   const pageCount = investmentsData?.paginacao?.totalPaginas || 0
 
   const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvestido, 0)
@@ -193,28 +211,39 @@ export default function FixedIncome() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
           <h1 className="text-2xl font-bold text-foreground">Renda Fixa</h1>
           <p className="text-muted-foreground">Acompanhe contratos e informe avaliações do extrato.</p>
+          </div>
+          <Button disabled={selectablePortfolios.length === 0} onClick={() => setIsDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />Adicionar contrato
+          </Button>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Label htmlFor="fixed-income-group">Grupo</Label>
-          <select id="fixed-income-group" className="h-10 rounded-md border bg-background px-3" value={groupFilterId} onChange={event => {
-            setGroupFilterId(event.target.value)
+        <InvestmentScopeFilters
+          groups={groups}
+          portfolios={portfolios}
+          groupId={groupFilterId}
+          holderId={holderFilterId}
+          portfolioId={portfolioFilterId}
+          onGroupChange={groupId => { setPagination(current => ({ ...current, pageIndex: 0 })); setScope({ groupId: groupId || undefined, holderId: undefined, portfolioId: undefined }) }}
+          onHolderChange={holderId => { setPagination(current => ({ ...current, pageIndex: 0 })); setScope({ holderId: holderId || undefined, portfolioId: undefined }) }}
+          onPortfolioChange={portfolioId => { setPagination(current => ({ ...current, pageIndex: 0 })); setScope({ portfolioId: portfolioId || undefined }) }}
+        />
+        <InvestmentSituationFilter
+          value={situationFilter}
+          onChange={value => {
             setPagination(current => ({ ...current, pageIndex: 0 }))
-          }}>
-            <option value="">Todos os grupos</option>
-            {groups.map(group => <option key={group.id} value={group.id}>{group.nome}</option>)}
-          </select>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button disabled={selectablePortfolios.length === 0}>
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar contrato
-            </Button>
-          </DialogTrigger>
+            void navigate({ to: '/renda-fixa', search: { ...scope, situacao: value === 'balance' ? undefined : value } })
+          }}
+        />
+      </div>
+      {selectedGroup && <p className="text-sm text-muted-foreground">
+        {portfolioFilterId ? `Carteira selecionada · ${selectablePortfolios.find(portfolio => portfolio.id === portfolioFilterId)?.nome ?? ''}`
+          : `${selectedGroup.nome} · ${holderFilterId ? selectablePortfolios[0]?.titular ?? 'titular selecionado' : 'todas as carteiras acessíveis'}`}
+      </p>}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Adicionar Ativo de Renda Fixa</DialogTitle>
@@ -314,7 +343,6 @@ export default function FixedIncome() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
 
       {isPortfolioError && <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">Não foi possível carregar carteiras para registrar um contrato. <Button variant="outline" size="sm" onClick={() => void refetchPortfolios()}>Tentar novamente</Button></div>}
       {isError && <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">Não foi possível carregar as posições de renda fixa. <Button variant="outline" size="sm" onClick={() => void refetch()}>Tentar novamente</Button></div>}
@@ -370,6 +398,8 @@ export default function FixedIncome() {
             <FixedIncomeTable
                 data={assets}
                 groupNames={groupNames}
+            selectedHolderId={holderFilterId || undefined}
+                selectedSituation={situationFilter === 'balance' ? undefined : situationFilter}
                 pageCount={pageCount}
                 pagination={pagination}
                 setPagination={setPagination}

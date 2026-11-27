@@ -6,4 +6,5 @@ namespace InvestDashboard.Domain.Repository;
 public interface IEventoOficialTesouroRepository
 {
     Task<IReadOnlyList<EventoOficialTesouro>> ListarAsync(Guid carteiraId, Guid loteId, int depoisDoIndice, int limite, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<EventoOficialTesouro>> ListarPorAtivoAsync(Guid carteiraId, Guid loteId, Guid ativoId, int depoisDoIndice, int limite, CancellationToken cancellationToken = default);
 }

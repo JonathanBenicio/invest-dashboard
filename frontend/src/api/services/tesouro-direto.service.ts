@@ -8,6 +8,9 @@ export interface PreviaTesouro {
   titulo: string | null
   vencimento: string | null
   vencimentoOriginal: string | null
+  mesReferencia?: number | null
+  anoReferencia?: number | null
+  instituicaoHtml?: string | null
   posicoes: {
     numeroLinha: number
     camposBrutos: Record<string, string>
@@ -71,15 +74,22 @@ export interface ConciliacaoTesouro {
   dataReferencia: string
   dataBaseAtiva?: string | null
   ativoId: string | null
-  ativos: { ativoId: string; ticker: string }[]
+  ativos: { ativoId: string; ticker: string; nome: string; vencimento: string | null }[]
   eventos: { indice: number; dadosInterpretados: PreviaTesouro['movimentacoes'][number]['dadosInterpretados']; candidatos: string[] }[]
   transacoes: { id: string; tipo: string; data: string; quantidade: number; preco: number; posteriorBase: boolean }[]
   podeConfirmar: boolean
   posicaoPropostaDisponivel: boolean
   podeCriarPosicao: boolean
   importacaoInicialSemRevisao?: boolean
+  criacaoPosicaoSemRevisao?: boolean
   criarPosicao: boolean
   motivosCriacaoPosicao?: string[] | null
+  encerramentoPosicao?: {
+    podeEncerrar: boolean
+    quantidadeAnterior: number | null
+    quantidadeReconciliada: number | null
+    motivo: string | null
+  } | null
   comparacaoSnapshot?: {
     hash: string
     dataBaseAnterior: string | null
@@ -100,6 +110,36 @@ export interface RevisaoTesouro {
   carteiraVersao: number
   criadoEmUtc: string
   divergencias?: string[]
+}
+
+export interface ExtratoOficialTesouro {
+  baseAtiva: {
+    loteId: string
+    dataReferencia: string
+    confirmadoEmUtc: string
+    quantidade: number
+  } | null
+  eventos: {
+    indiceEvento: number
+    transacaoId: string | null
+    origem: 'extrato_oficial_tesouro'
+    dados: PreviaTesouro['movimentacoes'][number] | null
+  }[]
+  proximoIndice: number | null
+  resumoUltimaImportacao: {
+    loteAnteriorId: string | null
+    dataReferenciaAnterior: string | null
+    dataReferenciaAtual: string
+    quantidadeAnterior: number | null
+    quantidadeAtual: number
+    variacaoQuantidade: number | null
+    divergencias: {
+      tipo: string
+      descricao: string
+      anterior: string | null
+      atual: string | null
+    }[]
+  } | null
 }
 
 export interface RegistrarRevisaoTesouro {
@@ -129,6 +169,14 @@ export interface CotacaoTesouroPublico {
 }
 
 export const tesouroDiretoService = {
+  excluirPrevia: (carteiraId: string, loteId: string) => api.delete<void>(
+    `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}`,
+  ),
+  extratoOficial: (carteiraId: string, ativoId: string, depoisDoIndice: number, loteId?: string) =>
+    api.get<RespostaApi<ExtratoOficialTesouro>>(
+      `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/posicoes/${encodeURIComponent(ativoId)}/extrato`,
+      { params: { depoisDoIndice, loteId } },
+    ),
   previa: (carteiraId: string, arquivo: File) => {
     const dados = new FormData()
     dados.append('arquivo', arquivo)
@@ -152,7 +200,7 @@ export const tesouroDiretoService = {
   ),
   confirmar: (carteiraId: string, loteId: string, pedido: {
     ativoId: string | null; criarPosicao: boolean; carteiraVersao: number; revisoes: { indiceEvento: number; revisao: number }[]
-    importacaoInicialSemRevisao?: boolean; hashPrevia?: string
+    importacaoInicialSemRevisao?: boolean; criacaoPosicaoSemRevisao?: boolean; hashPrevia?: string
     hashDivergencias?: string | null; aceitarDivergencias?: boolean
   }) => api.post<RespostaApi<LoteTesouro>>(
     `/portfolios/${encodeURIComponent(carteiraId)}/tesouro-direto/lotes/${encodeURIComponent(loteId)}/confirmacao`, pedido,

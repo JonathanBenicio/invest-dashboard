@@ -61,4 +61,8 @@ public sealed record PreviaTesouroDto(
     [property: JsonPropertyName("avisos")] IReadOnlyList<string> Avisos,
     [property: JsonPropertyName("exigeRevisao")] bool ExigeRevisao,
     [property: JsonPropertyName("coberturaCompleta")] bool CoberturaCompleta,
-    [property: JsonPropertyName("podeConfirmar")] bool PodeConfirmar);
+    [property: JsonPropertyName("podeConfirmar")] bool PodeConfirmar,
+    [property: JsonPropertyName("mesReferencia")] int? MesReferencia = null,
+    [property: JsonPropertyName("anoReferencia")] int? AnoReferencia = null,
+    [property: JsonPropertyName("instituicaoHtml")] string? InstituicaoHtml = null,
+    [property: JsonPropertyName("secaoPosicoesReconhecida")] bool SecaoPosicoesReconhecida = false);

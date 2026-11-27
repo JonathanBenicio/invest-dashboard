@@ -182,6 +182,132 @@ public sealed class ConfirmacaoTesouroControllerTests
     }
 
     [RequiresPostgresFact]
+    public async Task ReimportarUmTituloPreservaOutroTituloDaMesmaCarteira()
+    {
+        var connection = Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!;
+        await using var database = await IsolatedPostgresDatabase.CreateAsync(connection);
+        using var factory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString);
+        using var client = Autenticar(factory);
+
+        var carteiraId = Guid.NewGuid();
+        var ativoAlvoId = Guid.NewGuid();
+        var outroAtivoId = Guid.NewGuid();
+        var loteAlvoAnteriorId = Guid.NewGuid();
+        var loteOutroAnteriorId = Guid.NewGuid();
+        var loteNovoId = Guid.NewGuid();
+        var usuarioId = FakeAuthProvider.TestUserId;
+        var dataAplicacao = new DateOnly(2024, 3, 1);
+        var dataBase = new DateOnly(2024, 3, 2);
+        var dataNova = new DateOnly(2024, 3, 3);
+        var instante = new DateTime(2024, 3, 3, 12, 0, 0, DateTimeKind.Utc);
+
+        var tituloAlvo = new RendaFixa(ativoAlvoId, "TD2035", "Tesouro Prefixado 2035", 22m,
+            instante, "PREFIXADO", 10m, new DateTime(2035, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            "Tesouro Nacional", "TESOURO_DIRETO");
+        var outroTitulo = new RendaFixa(outroAtivoId, "TD2040", "Tesouro Prefixado 2040", 31m,
+            instante, "PREFIXADO", 11m, new DateTime(2040, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            "Tesouro Nacional", "TESOURO_DIRETO");
+        var carteira = new Carteira(carteiraId, usuarioId.ToString(), "Carteira com dois títulos Tesouro");
+        var compraAlvo = new Transacao(Guid.NewGuid(), usuarioId.ToString(), carteiraId, ativoAlvoId,
+            tituloAlvo.Ticker, TipoTransacao.Buy, 1m, 20m, 0m, new DateTime(2024, 3, 1, 12, 0, 0, DateTimeKind.Utc));
+        var compraOutro = new Transacao(Guid.NewGuid(), usuarioId.ToString(), carteiraId, outroAtivoId,
+            outroTitulo.Ticker, TipoTransacao.Buy, 2m, 30m, 0m, new DateTime(2024, 3, 1, 13, 0, 0, DateTimeKind.Utc));
+        carteira.ProcessTransaction(compraAlvo, tituloAlvo.CurrentPrice, TipoAtivo.RendaFixa);
+        carteira.ProcessTransaction(compraOutro, outroTitulo.CurrentPrice, TipoAtivo.RendaFixa);
+
+        var posicaoAlvoHtml = new DadosPosicaoTesouroDto(dataAplicacao, 1m, 20m, 20m,
+            "10,00%", null, null, 22m, 1, null, null, null, null, null, 22m, []);
+        var posicaoOutroHtml = new DadosPosicaoTesouroDto(dataAplicacao, 2m, 30m, 60m,
+            "11,00%", null, null, 31m, 1, null, null, null, null, null, 62m, []);
+        var previaAlvoAnterior = CriarPreviaTesouro(carteiraId, "Tesouro Prefixado 2035", "2035-01-01", posicaoAlvoHtml);
+        var previaOutroAnterior = CriarPreviaTesouro(carteiraId, "Tesouro Prefixado 2040", "2040-01-01", posicaoOutroHtml);
+        var loteAlvoAnterior = CriarLoteTesouro(loteAlvoAnteriorId, carteiraId, usuarioId,
+            dataBase, "a", previaAlvoAnterior, instante);
+        var loteOutroAnterior = CriarLoteTesouro(loteOutroAnteriorId, carteiraId, usuarioId,
+            dataBase, "b", previaOutroAnterior, instante);
+        var baseAlvoAnterior = new BasePosicaoTesouro(Guid.NewGuid(), loteAlvoAnteriorId, carteiraId,
+            ativoAlvoId, dataBase, 1m, 20m, 22m);
+        var baseOutroAnterior = new BasePosicaoTesouro(Guid.NewGuid(), loteOutroAnteriorId, carteiraId,
+            outroAtivoId, dataBase, 2m, 60m, 31m);
+        baseAlvoAnterior.Ativar();
+        baseOutroAnterior.Ativar();
+
+        // O novo HTML cobre apenas o título Prefixado 2035. Não contém movimentações.
+        var previaNova = CriarPreviaTesouro(carteiraId, "Tesouro Prefixado 2035", "2035-01-01", posicaoAlvoHtml);
+        var loteNovo = CriarLoteTesouro(loteNovoId, carteiraId, usuarioId,
+            dataNova, "c", previaNova, instante.AddHours(1), confirmado: false);
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+            db.AddRange(carteira, tituloAlvo, outroTitulo, compraAlvo, compraOutro,
+                loteAlvoAnterior, loteOutroAnterior, baseAlvoAnterior, baseOutroAnterior, loteNovo);
+            await db.SaveChangesAsync();
+        }
+
+        var rota = $"/api/v1/portfolios/{carteiraId}/tesouro-direto/lotes/{loteNovoId}";
+        using var conciliacao = await client.PostAsJsonAsync($"{rota}/conciliacao", new { ativoId = ativoAlvoId });
+        conciliacao.StatusCode.Should().Be(HttpStatusCode.OK, await conciliacao.Content.ReadAsStringAsync());
+        using var conciliacaoJson = JsonDocument.Parse(await conciliacao.Content.ReadAsStringAsync());
+        var dadosConciliacao = conciliacaoJson.RootElement.GetProperty("dados");
+        dadosConciliacao.GetProperty("podeConfirmar").GetBoolean().Should().BeTrue();
+        var carteiraVersao = dadosConciliacao.GetProperty("carteiraVersao").GetInt32();
+        var hashDivergencias = dadosConciliacao.GetProperty("comparacaoSnapshot").GetProperty("hash").GetString();
+
+        using var confirmacao = await client.PostAsJsonAsync($"{rota}/confirmacao", new
+        {
+            ativoId = ativoAlvoId,
+            carteiraVersao,
+            revisoes = Array.Empty<object>(),
+            hashDivergencias,
+            aceitarDivergencias = true
+        });
+        confirmacao.StatusCode.Should().Be(HttpStatusCode.OK, await confirmacao.Content.ReadAsStringAsync());
+
+        using var verificacao = factory.Services.CreateScope();
+        var persistido = verificacao.ServiceProvider.GetRequiredService<InvestDbContext>();
+        var basesAtivas = await persistido.Set<BasePosicaoTesouro>()
+            .Where(baseAtiva => baseAtiva.CarteiraId == carteiraId && baseAtiva.Ativa)
+            .ToDictionaryAsync(baseAtiva => baseAtiva.AtivoId);
+        basesAtivas.Should().ContainKey(ativoAlvoId).And.ContainKey(outroAtivoId);
+        basesAtivas[ativoAlvoId].LoteId.Should().Be(loteNovoId);
+        basesAtivas[outroAtivoId].LoteId.Should().Be(loteOutroAnteriorId);
+        basesAtivas[outroAtivoId].DataReferencia.Should().Be(dataBase);
+        basesAtivas[outroAtivoId].Quantidade.Should().Be(2m);
+        basesAtivas[outroAtivoId].CustoTotal.Should().Be(60m);
+
+        var posicoes = await persistido.AssetPositions.Where(posicao => posicao.CarteiraId == carteiraId)
+            .ToDictionaryAsync(posicao => posicao.AtivoId);
+        posicoes.Should().ContainKey(ativoAlvoId).And.ContainKey(outroAtivoId);
+        posicoes[ativoAlvoId].Quantity.Should().Be(1m);
+        posicoes[outroAtivoId].Quantity.Should().Be(2m);
+        posicoes[outroAtivoId].TotalCost.Should().Be(60m);
+        posicoes[outroAtivoId].CurrentPrice.Should().Be(31m);
+        (await persistido.Set<LoteImportacaoTesouro>().SingleAsync(lote => lote.Id == loteOutroAnteriorId))
+            .Estado.Should().Be("Confirmado");
+        (await persistido.Set<LoteImportacaoTesouro>().SingleAsync(lote => lote.Id == loteNovoId))
+            .Estado.Should().Be("Confirmado");
+    }
+
+    private static PreviaTesouroDto CriarPreviaTesouro(Guid carteiraId, string titulo, string vencimento,
+        DadosPosicaoTesouroDto posicao)
+    {
+        return new PreviaTesouroDto(carteiraId, "html", "portal_tesouro_html", titulo, vencimento, null,
+            [new(1, new Dictionary<string, string>(), posicao)], [], [], [], true, false, false,
+            SecaoPosicoesReconhecida: true);
+    }
+
+    private static LoteImportacaoTesouro CriarLoteTesouro(Guid loteId, Guid carteiraId, Guid usuarioId,
+        DateOnly dataReferencia, string caractereHash, PreviaTesouroDto previa, DateTime criadoEmUtc,
+        bool confirmado = true)
+    {
+        var lote = new LoteImportacaoTesouro(loteId, carteiraId, usuarioId, dataReferencia,
+            new string(caractereHash[0], 64), "html", JsonSerializer.Serialize(previa), criadoEmUtc);
+        if (confirmado) lote.MarcarConfirmado(criadoEmUtc.AddMinutes(1));
+        return lote;
+    }
+
+    [RequiresPostgresFact]
     public async Task FalhaAoInserirNovaBase_RestauraBaseAnteriorELotePendente()
     {
         var setup = await CriarBaseAtivaParaReimportacaoAsync();
@@ -278,8 +404,148 @@ public sealed class ConfirmacaoTesouroControllerTests
         (await persistido.Set<LoteImportacaoTesouro>().SingleAsync(x => x.Id == setup.LoteNovoId)).Estado.Should().Be("Confirmado");
     }
 
+    [RequiresPostgresFact]
+    public async Task Confirmacao_VendaIntegralEncerraPosicaoEPermiteConsultarDetalhes()
+    {
+        var setup = await CriarBaseAtivaParaVendaIntegralAsync(secaoPosicoesReconhecida: true);
+        await using var database = setup.Database;
+        using var factory = setup.Factory;
+        using var client = Autenticar(factory);
+        var rota = $"/api/v1/portfolios/{setup.CarteiraId}/tesouro-direto/lotes/{setup.LoteNovoId}";
+
+        var consulta = await ConsultarEncerramentoAsync(client, rota, setup.AtivoId);
+        consulta.PodeEncerrar.Should().BeTrue();
+        consulta.PodeConfirmar.Should().BeTrue();
+        consulta.PosicaoPropostaDisponivel.Should().BeTrue();
+        consulta.QuantidadeProposta.Should().Be(0m);
+        consulta.TiposDivergencia.Should().Contain("posicao_encerrada_por_venda");
+        await RegistrarRevisoesAsync(client, rota, setup, consulta, vincularVendaManual: false);
+        consulta = await ConsultarEncerramentoAsync(client, rota, setup.AtivoId);
+
+        using var confirmacao = await ConfirmarEncerramentoAsync(client, rota, setup, consulta);
+        confirmacao.StatusCode.Should().Be(HttpStatusCode.OK, await confirmacao.Content.ReadAsStringAsync());
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+            var baseAnterior = await db.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == setup.LoteBaseId);
+            var baseFechada = await db.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == setup.LoteNovoId);
+            baseAnterior.Ativa.Should().BeFalse();
+            baseFechada.Ativa.Should().BeTrue();
+            baseFechada.Quantidade.Should().Be(0m);
+            baseFechada.CustoTotal.Should().Be(0m);
+            (await db.Set<LoteImportacaoTesouro>().SingleAsync(x => x.Id == setup.LoteNovoId)).Estado.Should().Be("Confirmado");
+            (await db.Set<EventoOficialTesouro>().CountAsync(x => x.LoteId == setup.LoteNovoId)).Should().Be(2);
+            (await db.Set<RevisaoSnapshotTesouro>().SingleAsync(x => x.LoteId == setup.LoteNovoId))
+                .DivergenciasJson.Should().Contain("posicao_encerrada_por_venda");
+            var posicao = await db.AssetPositions.SingleAsync(x => x.AtivoId == setup.AtivoId && x.CarteiraId == setup.CarteiraId);
+            posicao.Quantity.Should().Be(0m);
+            (await db.Transactions.Select(x => x.Id).ToArrayAsync()).Should().Equal(setup.CompraInicialId);
+        }
+
+        using var detalhes = await client.GetAsync($"/api/v1/investments/{setup.PosicaoId}");
+        detalhes.StatusCode.Should().Be(HttpStatusCode.OK, await detalhes.Content.ReadAsStringAsync());
+        using var detalhesJson = JsonDocument.Parse(await detalhes.Content.ReadAsStringAsync());
+        detalhesJson.RootElement.GetProperty("dados").GetProperty("situacao").GetString().Should().Be("closed");
+        detalhesJson.RootElement.GetProperty("dados").GetProperty("quantidade").GetDecimal().Should().Be(0m);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Confirmacao_VendaIntegralPreservaCompraManualPosteriorAReferencia()
+    {
+        var setup = await CriarBaseAtivaParaVendaIntegralAsync(secaoPosicoesReconhecida: true,
+            incluirCompraPosterior: true);
+        await using var database = setup.Database;
+        using var factory = setup.Factory;
+        using var client = Autenticar(factory);
+        var rota = $"/api/v1/portfolios/{setup.CarteiraId}/tesouro-direto/lotes/{setup.LoteNovoId}";
+        var consulta = await ConsultarEncerramentoAsync(client, rota, setup.AtivoId);
+        consulta.PodeEncerrar.Should().BeTrue();
+        await RegistrarRevisoesAsync(client, rota, setup, consulta, vincularVendaManual: false);
+        consulta = await ConsultarEncerramentoAsync(client, rota, setup.AtivoId);
+
+        using var confirmacao = await ConfirmarEncerramentoAsync(client, rota, setup, consulta);
+        confirmacao.StatusCode.Should().Be(HttpStatusCode.OK, await confirmacao.Content.ReadAsStringAsync());
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+            var saldo = await db.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == setup.LoteNovoId);
+            saldo.Quantidade.Should().Be(0m);
+            var transacaoPosterior = await db.Transactions.SingleAsync(x => x.Id == setup.CompraPosteriorId);
+            transacaoPosterior.Quantity.Should().Be(0.5m);
+            (await db.Portfolios.Include(x => x.Positions).SingleAsync(x => x.Id == setup.CarteiraId))
+                .Positions.Single(x => x.AtivoId == setup.AtivoId).Quantity.Should().Be(0.5m);
+        }
+
+        using var detalhes = await client.GetAsync($"/api/v1/investments/{setup.PosicaoId}");
+        detalhes.StatusCode.Should().Be(HttpStatusCode.OK, await detalhes.Content.ReadAsStringAsync());
+        using var detalhesJson = JsonDocument.Parse(await detalhes.Content.ReadAsStringAsync());
+        detalhesJson.RootElement.GetProperty("dados").GetProperty("situacao").GetString().Should().Be("open");
+        detalhesJson.RootElement.GetProperty("dados").GetProperty("quantidade").GetDecimal().Should().Be(0.5m);
+    }
+
+    [RequiresPostgresFact]
+    public async Task Confirmacao_NaoEncerraQuandoSecaoDePosicoesHtmlEstaIncompleta()
+    {
+        var setup = await CriarBaseAtivaParaVendaIntegralAsync(secaoPosicoesReconhecida: false);
+        await using var database = setup.Database;
+        using var factory = setup.Factory;
+        using var client = Autenticar(factory);
+        var rota = $"/api/v1/portfolios/{setup.CarteiraId}/tesouro-direto/lotes/{setup.LoteNovoId}";
+
+        var consulta = await ConsultarEncerramentoAsync(client, rota, setup.AtivoId);
+        consulta.PodeEncerrar.Should().BeFalse();
+        consulta.PodeConfirmar.Should().BeFalse();
+        consulta.PosicaoPropostaDisponivel.Should().BeFalse();
+        consulta.Motivo.Should().Contain("seção de posições");
+        await RegistrarRevisoesAsync(client, rota, setup, consulta, vincularVendaManual: false);
+        consulta = await ConsultarEncerramentoAsync(client, rota, setup.AtivoId);
+
+        using var confirmacao = await ConfirmarEncerramentoAsync(client, rota, setup, consulta);
+        confirmacao.StatusCode.Should().Be(HttpStatusCode.Conflict, await confirmacao.Content.ReadAsStringAsync());
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+        (await db.Set<BasePosicaoTesouro>().SingleAsync(x => x.LoteId == setup.LoteBaseId)).Ativa.Should().BeTrue();
+        (await db.Set<BasePosicaoTesouro>().AnyAsync(x => x.LoteId == setup.LoteNovoId)).Should().BeFalse();
+        (await db.Set<LoteImportacaoTesouro>().SingleAsync(x => x.Id == setup.LoteNovoId)).Estado.Should().Be("Pendente");
+    }
+
+    [RequiresPostgresFact]
+    public async Task Confirmacao_ExigeVinculoDeVendaManualAntesDeEncerrar()
+    {
+        var setup = await CriarBaseAtivaParaVendaIntegralAsync(secaoPosicoesReconhecida: true,
+            incluirVendaManual: true);
+        await using var database = setup.Database;
+        using var factory = setup.Factory;
+        using var client = Autenticar(factory);
+        var rota = $"/api/v1/portfolios/{setup.CarteiraId}/tesouro-direto/lotes/{setup.LoteNovoId}";
+
+        var consulta = await ConsultarEncerramentoAsync(client, rota, setup.AtivoId);
+        consulta.PodeEncerrar.Should().BeFalse();
+        consulta.Motivo.Should().Contain("manuais sem vínculo");
+        await RegistrarRevisoesAsync(client, rota, setup, consulta, vincularVendaManual: true);
+        consulta = await ConsultarEncerramentoAsync(client, rota, setup.AtivoId);
+        consulta.PodeEncerrar.Should().BeTrue();
+
+        using var confirmacao = await ConfirmarEncerramentoAsync(client, rota, setup, consulta);
+        confirmacao.StatusCode.Should().Be(HttpStatusCode.OK, await confirmacao.Content.ReadAsStringAsync());
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+        var eventoVenda = await db.Set<EventoOficialTesouro>().SingleAsync(x => x.LoteId == setup.LoteNovoId && x.IndiceEvento == 1);
+        eventoVenda.TransacaoId.Should().Be(setup.VendaManualId);
+        (await db.AssetPositions.SingleAsync(x => x.AtivoId == setup.AtivoId && x.CarteiraId == setup.CarteiraId))
+            .Quantity.Should().Be(0m);
+    }
+
     private sealed record SetupBaseTesouro(IsolatedPostgresDatabase Database, CustomWebApplicationFactory Factory,
         Guid CarteiraId, Guid AtivoId, Guid LoteBaseId, Guid LoteNovoId);
+    private sealed record SetupVendaTesouro(IsolatedPostgresDatabase Database, CustomWebApplicationFactory Factory,
+        Guid CarteiraId, Guid AtivoId, Guid LoteBaseId, Guid LoteNovoId, Guid PosicaoId,
+        Guid CompraInicialId, Guid? VendaManualId, Guid? CompraPosteriorId);
+    private sealed record ConsultaEncerramento(int CarteiraVersao, string HashPrevia, string HashComparacao,
+        bool PodeEncerrar, bool PodeConfirmar, bool PosicaoPropostaDisponivel, decimal? QuantidadeProposta,
+        string Motivo, IReadOnlyList<string> TiposDivergencia);
 
     private static HttpClient Autenticar(CustomWebApplicationFactory factory)
     {
@@ -338,6 +604,148 @@ public sealed class ConfirmacaoTesouroControllerTests
             throw;
         }
     }
+
+    private static async Task<SetupVendaTesouro> CriarBaseAtivaParaVendaIntegralAsync(
+        bool secaoPosicoesReconhecida, bool incluirVendaManual = false, bool incluirCompraPosterior = false)
+    {
+        var database = await IsolatedPostgresDatabase.CreateAsync(Environment.GetEnvironmentVariable("INVEST_TEST_POSTGRES_CONNECTION")!);
+        var factory = CustomWebApplicationFactory.CreatePostgres(database.ConnectionString);
+        try
+        {
+            var carteiraId = Guid.NewGuid();
+            var ativoId = Guid.NewGuid();
+            var loteBaseId = Guid.NewGuid();
+            var loteNovoId = Guid.NewGuid();
+            var usuario = FakeAuthProvider.TestUserId;
+            var dataAplicacao = new DateOnly(2024, 3, 1);
+            var dataBase = new DateOnly(2024, 3, 2);
+            var dataReferencia = new DateOnly(2024, 3, 3);
+            const string titulo = "Tesouro Prefixado 2035";
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<InvestDbContext>();
+            var carteira = new Carteira(carteiraId, usuario.ToString(), "Carteira de venda integral");
+            var ativo = new RendaFixa(ativoId, "TESOURO_VENDA", titulo, 22m, DateTime.UtcNow, "PREFIXADO", null,
+                new DateTime(2035, 1, 1, 0, 0, 0, DateTimeKind.Utc), "Tesouro Nacional", "TESOURO_DIRETO");
+            var compraInicialId = Guid.NewGuid();
+            var compraInicial = new Transacao(compraInicialId, usuario.ToString(), carteiraId, ativoId, ativo.Ticker,
+                TipoTransacao.Buy, 1m, 20m, 0m, new DateTime(2024, 3, 1, 12, 0, 0, DateTimeKind.Utc));
+            carteira.ProcessTransaction(compraInicial, 22m, TipoAtivo.RendaFixa);
+            var posicaoId = carteira.Positions.Single(x => x.AtivoId == ativoId).Id;
+
+            Transacao? transacaoVendaManual = null;
+            if (incluirVendaManual)
+            {
+                transacaoVendaManual = new Transacao(Guid.NewGuid(), usuario.ToString(), carteiraId, ativoId, ativo.Ticker,
+                    TipoTransacao.Sell, 1m, 22m, 0m, new DateTime(2024, 3, 3, 12, 0, 0, DateTimeKind.Utc));
+                carteira.ProcessTransaction(transacaoVendaManual, 22m, TipoAtivo.RendaFixa);
+            }
+
+            Transacao? transacaoCompraPosterior = null;
+            if (incluirCompraPosterior)
+            {
+                transacaoCompraPosterior = new Transacao(Guid.NewGuid(), usuario.ToString(), carteiraId, ativoId, ativo.Ticker,
+                    TipoTransacao.Buy, 0.5m, 30m, 0m, new DateTime(2024, 3, 4, 12, 0, 0, DateTimeKind.Utc));
+                carteira.ProcessTransaction(transacaoCompraPosterior, 30m, TipoAtivo.RendaFixa);
+            }
+
+            var posicao = new DadosPosicaoTesouroDto(dataAplicacao, 1m, 20m, 20m, "10,50%", null, null,
+                22m, 1, null, null, null, null, null, 22m, []);
+            var movimentoCompra = new DadosMovimentoTesouroDto(dataAplicacao, "Compra", "Crédito", 1m, 20m,
+                10.5m, 20m, []);
+            var previaBase = new PreviaTesouroDto(carteiraId, "html", "portal_tesouro_html", titulo,
+                "2035-01-01", null, [new(1, new Dictionary<string, string>(), posicao)],
+                [new([], movimentoCompra)], [], [], true, false, false, SecaoPosicoesReconhecida: true);
+            var loteBase = new LoteImportacaoTesouro(loteBaseId, carteiraId, usuario, dataBase,
+                new string('c', 64), "html", JsonSerializer.Serialize(previaBase), DateTime.UtcNow);
+            loteBase.MarcarConfirmado(DateTime.UtcNow);
+            var baseAtiva = new BasePosicaoTesouro(Guid.NewGuid(), loteBaseId, carteiraId, ativoId,
+                dataBase, 1m, 20m, 22m);
+            baseAtiva.Ativar();
+
+            var dadosVenda = new DadosMovimentoTesouroDto(dataReferencia, "Venda", "Débito", 1m, 22m,
+                null, 22m, [], ["taxaAnual"]);
+            var previaNova = new PreviaTesouroDto(carteiraId, "html", "portal_tesouro_html", titulo,
+                "2035-01-01", null, [], [new([], movimentoCompra), new([], dadosVenda)], [], [], true, false,
+                false, SecaoPosicoesReconhecida: secaoPosicoesReconhecida);
+            var loteNovo = new LoteImportacaoTesouro(loteNovoId, carteiraId, usuario, dataReferencia,
+                new string('d', 64), "html", JsonSerializer.Serialize(previaNova), DateTime.UtcNow);
+            db.AddRange(carteira, ativo, compraInicial, loteBase, baseAtiva, loteNovo);
+            if (transacaoVendaManual is not null) db.Add(transacaoVendaManual);
+            if (transacaoCompraPosterior is not null) db.Add(transacaoCompraPosterior);
+            await db.SaveChangesAsync();
+            return new SetupVendaTesouro(database, factory, carteiraId, ativoId, loteBaseId, loteNovoId,
+                posicaoId, compraInicialId, transacaoVendaManual?.Id, transacaoCompraPosterior?.Id);
+        }
+        catch
+        {
+            factory.Dispose();
+            await database.DisposeAsync();
+            throw;
+        }
+    }
+
+    private static async Task<ConsultaEncerramento> ConsultarEncerramentoAsync(HttpClient client, string rota,
+        Guid ativoId)
+    {
+        using var lote = await client.GetAsync(rota);
+        lote.StatusCode.Should().Be(HttpStatusCode.OK, await lote.Content.ReadAsStringAsync());
+        using var loteJson = JsonDocument.Parse(await lote.Content.ReadAsStringAsync());
+        var hashPrevia = loteJson.RootElement.GetProperty("dados").GetProperty("hashPrevia").GetString()!;
+
+        using var resposta = await client.PostAsJsonAsync($"{rota}/conciliacao", new { ativoId });
+        resposta.StatusCode.Should().Be(HttpStatusCode.OK, await resposta.Content.ReadAsStringAsync());
+        using var json = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
+        var dados = json.RootElement.GetProperty("dados");
+        var encerramento = dados.GetProperty("encerramentoPosicao");
+        var comparacao = dados.GetProperty("comparacaoSnapshot");
+        var tipos = comparacao.GetProperty("divergencias").EnumerateArray()
+            .Select(item => item.GetProperty("tipo").GetString()!).ToArray();
+        var quantidadeProposta = comparacao.GetProperty("quantidadeProposta");
+        return new ConsultaEncerramento(dados.GetProperty("carteiraVersao").GetInt32(), hashPrevia,
+            comparacao.GetProperty("hash").GetString()!, encerramento.GetProperty("podeEncerrar").GetBoolean(),
+            dados.GetProperty("podeConfirmar").GetBoolean(), dados.GetProperty("posicaoPropostaDisponivel").GetBoolean(),
+            quantidadeProposta.ValueKind == JsonValueKind.Null ? null : quantidadeProposta.GetDecimal(),
+            encerramento.GetProperty("motivo").GetString()!, tipos);
+    }
+
+    private static async Task RegistrarRevisoesAsync(HttpClient client, string rota, SetupVendaTesouro setup,
+        ConsultaEncerramento consulta, bool vincularVendaManual)
+    {
+        using var revisaoCompra = await client.PostAsJsonAsync($"{rota}/revisoes", new
+        {
+            indiceEvento = 0,
+            decisao = "sem_vinculo",
+            ativoId = setup.AtivoId,
+            carteiraVersao = consulta.CarteiraVersao,
+            revisaoAnterior = 0,
+            hashPrevia = consulta.HashPrevia
+        });
+        revisaoCompra.StatusCode.Should().Be(HttpStatusCode.OK, await revisaoCompra.Content.ReadAsStringAsync());
+
+        using var revisaoVenda = await client.PostAsJsonAsync($"{rota}/revisoes", new
+        {
+            indiceEvento = 1,
+            decisao = vincularVendaManual ? "vincular" : "sem_vinculo",
+            ativoId = setup.AtivoId,
+            transacaoId = vincularVendaManual ? setup.VendaManualId : null,
+            carteiraVersao = consulta.CarteiraVersao,
+            revisaoAnterior = 0,
+            hashPrevia = consulta.HashPrevia
+        });
+        revisaoVenda.StatusCode.Should().Be(HttpStatusCode.OK, await revisaoVenda.Content.ReadAsStringAsync());
+    }
+
+    private static Task<HttpResponseMessage> ConfirmarEncerramentoAsync(HttpClient client, string rota,
+        SetupVendaTesouro setup, ConsultaEncerramento consulta) =>
+        client.PostAsJsonAsync($"{rota}/confirmacao", new
+        {
+            ativoId = setup.AtivoId,
+            criarPosicao = false,
+            carteiraVersao = consulta.CarteiraVersao,
+            revisoes = new[] { new { indiceEvento = 0, revisao = 1 }, new { indiceEvento = 1, revisao = 1 } },
+            hashDivergencias = consulta.HashComparacao,
+            aceitarDivergencias = true
+        });
 
     private static async Task<(int CarteiraVersao, string HashPrevia, string? HashDivergencias)> PrepararConfirmacaoAsync(
         HttpClient client, string rota, Guid ativoId)

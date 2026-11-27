@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from "react"
-import { useNavigate } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 import { Plus, ArrowUpRight, ArrowDownRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,13 +12,16 @@ import { formatCurrency, localDateInputToISOString, toLocalDateInputValue } from
 import { useToast } from "@/hooks/use-toast"
 import { EditInvestmentDialog } from "@/components/dialogs/EditInvestmentDialog"
 import { DeleteConfirmDialog } from "@/components/dialogs/DeleteConfirmDialog"
-import { useVariableIncomeInvestments } from "@/hooks/use-variable-income"
-import { usePortfolios } from "@/hooks/use-portfolios"
-import { useMarketQuotes } from "@/hooks/use-market-quotes"
+import { useAllAccessiblePortfolios } from "@/hooks/use-portfolios"
 import { VariableIncomeTable } from "@/components/investments/VariableIncomeTable"
 import { StockSearch } from "@/components/investments/StockSearch"
 import { investmentService } from "@/api/services/investment.service"
+import { groupService } from "@/api/services/group.service"
+import { InvestmentScopeFilters } from "@/components/investments/InvestmentScopeFilters"
+import { InvestmentSituationFilter, type InvestmentSituationFilterValue } from "@/components/investments/InvestmentSituationFilter"
+import { variableIncomeRoute } from "@/router"
 import type { RendaVariavelDto, InvestimentoFiltros, TipoRendaVariavel, CriarRendaVariavelRequest, ResultadoBuscaMercadoDto } from "@/api/dtos"
+import type { PosicaoInvestimentoConsolidadoDto } from "@/api/dtos/investment.dto"
 import { PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -26,13 +30,27 @@ export default function VariableIncome() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [selectedAsset, setSelectedAsset] = useState<RendaVariavelDto | null>(null)
-  const [selectedQuote, setSelectedQuote] = useState<ResultadoBuscaMercadoDto | null>(null)
   const [ticker, setTicker] = useState("")
   const [name, setName] = useState("")
   const [sector, setSector] = useState("")
   const idempotencyKey = useRef(crypto.randomUUID())
-  const { data: portfolioResponse, isError: isPortfolioError, refetch: refetchPortfolios } = usePortfolios({ pagina: 1, itensPorPagina: 100 })
+  const scope = useSearch({ from: variableIncomeRoute.id })
+  const groupFilterId = scope.groupId ?? ''
+  const holderFilterId = scope.holderId ?? ''
+  const portfolioFilterId = scope.portfolioId ?? ''
+  const situationFilter: InvestmentSituationFilterValue = scope.situacao ?? 'balance'
+  const navigate = useNavigate()
+  const { data: portfolioResponse, isError: isPortfolioError, refetch: refetchPortfolios } = useAllAccessiblePortfolios()
   const portfolios = portfolioResponse?.dados ?? []
+  const { data: groupsResponse } = useQuery({ queryKey: ['portfolio-groups'], queryFn: groupService.list })
+  const groups = groupsResponse?.dados ?? []
+  const selectedGroup = groups.find(group => group.id === groupFilterId)
+  const selectablePortfolios = portfolios.filter(portfolio =>
+    (!groupFilterId || portfolio.grupoId === groupFilterId) &&
+    (!holderFilterId || portfolio.titularId === holderFilterId))
+  const setScope = (next: { groupId?: string; holderId?: string; portfolioId?: string }) => {
+    void navigate({ to: '/renda-variavel', search: { ...scope, ...next } })
+  }
   const { toast } = useToast()
 
   // Table State
@@ -49,6 +67,10 @@ export default function VariableIncome() {
     const apiFilters: InvestimentoFiltros = {
       pagina: pagination.pageIndex + 1,
       itensPorPagina: pagination.pageSize,
+      grupoId: groupFilterId || undefined,
+      titularId: holderFilterId || undefined,
+      carteiraId: portfolioFilterId || undefined,
+      situacao: situationFilter === 'balance' ? undefined : situationFilter,
       busca: globalFilter || undefined,
       ordenarPor: sorting[0]?.id,
       ordem: sorting[0]?.desc ? 'desc' : 'asc',
@@ -63,36 +85,18 @@ export default function VariableIncome() {
     if (typeof sectorFilter === 'string') apiFilters.setor = sectorFilter
 
     return apiFilters
-  }, [pagination, sorting, columnFilters, globalFilter])
+  }, [pagination, sorting, columnFilters, globalFilter, groupFilterId, holderFilterId, portfolioFilterId, situationFilter])
 
-  const { data: investmentsData, isLoading, isError, refetch } = useVariableIncomeInvestments(filters)
+  const { data: investmentsData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['investments', 'consolidated', 'variable-income', filters],
+    queryFn: () => investmentService.getConsolidated({ ...filters, tipo: 'variable_income' }),
+  })
 
-  // Extrair tickers para assinar via SignalR
-  const tickers = useMemo(() => {
-    return (investmentsData?.dados || []).map(asset => asset.ticker)
-  }, [investmentsData?.dados])
-
-  const { quotesBySymbol, unavailableSymbols, isLoading: isLoadingQuotes } = useMarketQuotes(tickers)
-
-  // Mapeia os ativos injetando os preços em tempo real
-  const assets = useMemo(() => {
-    const originalAssets = (investmentsData?.dados || []) as RendaVariavelDto[]
-    return originalAssets.map(asset => {
-      const quote = quotesBySymbol.get(asset.ticker.toUpperCase())
-      if (quote) {
-        return {
-          ...asset,
-          precoAtual: quote.preco,
-          origemPrecoAtual: quote.origem,
-          precoObservadoEmUtc: quote.observadoEmUtc,
-          valorAtual: asset.quantidade * quote.preco,
-          ganho: (asset.quantidade * quote.preco) - asset.totalInvestido,
-          percentualGanho: asset.totalInvestido > 0 ? (((asset.quantidade * quote.preco) - asset.totalInvestido) / asset.totalInvestido) * 100 : 0
-        }
-      }
-      return asset
-    })
-  }, [investmentsData?.dados, quotesBySymbol])
+  // Lista e detalhe usam o mesmo retrato de valores retornado pela API.
+  const assets = useMemo(
+    () => investmentsData?.dados ?? [],
+    [investmentsData?.dados],
+  )
   const pageCount = investmentsData?.paginacao?.totalPaginas || 0
 
   const totalInvested = assets.reduce((acc, asset) => acc + asset.totalInvestido, 0)
@@ -137,7 +141,6 @@ export default function VariableIncome() {
   }
 
   const handleStockSelect = (quote: ResultadoBuscaMercadoDto) => {
-    setSelectedQuote(quote)
     setTicker(quote.simbolo)
     setName(quote.nome)
     setSector(quote.setor ?? '')
@@ -226,7 +229,7 @@ export default function VariableIncome() {
                       <SelectValue placeholder="Selecione a carteira" />
                     </SelectTrigger>
                     <SelectContent>
-                      {portfolios.map((portfolio) => (
+                      {selectablePortfolios.map((portfolio) => (
                         <SelectItem key={portfolio.id} value={portfolio.id}>
                           {portfolio.nome}
                         </SelectItem>
@@ -322,6 +325,28 @@ export default function VariableIncome() {
         </Dialog>
       </div>
 
+      <InvestmentScopeFilters
+        groups={groups}
+        portfolios={portfolios}
+        groupId={groupFilterId}
+        holderId={holderFilterId}
+        portfolioId={portfolioFilterId}
+        onGroupChange={groupId => { setPagination(current => ({ ...current, pageIndex: 0 })); setScope({ groupId: groupId || undefined, holderId: undefined, portfolioId: undefined }) }}
+        onHolderChange={holderId => { setPagination(current => ({ ...current, pageIndex: 0 })); setScope({ holderId: holderId || undefined, portfolioId: undefined }) }}
+        onPortfolioChange={portfolioId => { setPagination(current => ({ ...current, pageIndex: 0 })); setScope({ portfolioId: portfolioId || undefined }) }}
+      />
+      <InvestmentSituationFilter
+        value={situationFilter}
+        onChange={value => {
+          setPagination(current => ({ ...current, pageIndex: 0 }))
+          void navigate({ to: '/renda-variavel', search: { ...scope, situacao: value === 'balance' ? undefined : value } })
+        }}
+      />
+      {selectedGroup && <p className="text-sm text-muted-foreground">
+        {portfolioFilterId ? `Carteira selecionada · ${selectablePortfolios.find(portfolio => portfolio.id === portfolioFilterId)?.nome ?? ''}`
+          : `${selectedGroup.nome} · ${holderFilterId ? selectablePortfolios[0]?.titular ?? 'titular selecionado' : 'todas as carteiras acessíveis'}`}
+      </p>}
+
       {isPortfolioError && <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">Não foi possível carregar carteiras para registrar uma operação. <Button variant="outline" size="sm" onClick={() => void refetchPortfolios()}>Tentar novamente</Button></div>}
       {isError && <div role="alert" className="rounded-md border border-destructive/40 p-4 text-sm text-destructive">Não foi possível carregar as posições de renda variável. <Button variant="outline" size="sm" onClick={() => void refetch()}>Tentar novamente</Button></div>}
       {!isLoading && !isError && assets.length === 0 && <p role="status" className="rounded-md border p-4 text-sm text-muted-foreground">Nenhuma posição de renda variável encontrada.</p>}
@@ -366,13 +391,10 @@ export default function VariableIncome() {
         <TabsContent value="assets">
           <Card>
             <CardContent className="pt-6">
-              {!isLoadingQuotes && unavailableSymbols.length > 0 && (
-                <p role="status" className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
-                  Cotação indisponível para {unavailableSymbols.join(", ")}. O último preço salvo foi mantido.
-                </p>
-              )}
               <VariableIncomeTable
                 data={assets}
+                selectedHolderId={holderFilterId || undefined}
+                selectedSituation={situationFilter === 'balance' ? undefined : situationFilter}
                 pageCount={pageCount}
                 pagination={pagination}
                 setPagination={setPagination}

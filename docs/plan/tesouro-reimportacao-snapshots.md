@@ -1,10 +1,10 @@
 # Plano — reimportação auditável de snapshots do Tesouro Direto
 
-- Estado: em andamento; comparação, auditoria, aceite explícito de movimentos sem vínculo e sinalização de posição não observada estão implementados no código local. Builds passaram. Validação manual, concorrência/rollback e implementação do encerramento por saldo reconciliado zero continuam pendentes.
+- Estado: implementação concluída e validações focadas aprovadas. A criação direta bloqueia vínculos manuais antigos com orientação de recuperação; a sessão autenticada manual do usuário ainda não foi conferida.
 - Issues: [#55 — contrato/regras de conciliação](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57 — persistência/reconciliação](https://github.com/JonathanBenicio/invest-dashboard/issues/57) e [#58 — validação ponta a ponta](https://github.com/JonathanBenicio/invest-dashboard/issues/58); iniciativa [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53).
-- ADR: [0004 — revisão auditável de divergências entre snapshots](../adrs/0004-tesouro-reimportacao-snapshots.md), proposta.
-- Story: [US-IMPORT-002](../USER-STORIES.md#us-import-002--reimportação-auditável-de-snapshots-html), em andamento.
-- Baseline: branch `codex/tesouro-previa-e-cotacoes`, última implementação no commit `aa21a9c`; PR #62 permanece em rascunho.
+- ADR: [0004 — revisão auditável de divergências entre snapshots](../adrs/0004-tesouro-reimportacao-snapshots.md), aceita.
+- Story: [US-IMPORT-002](../USER-STORIES.md#us-import-002--reimportação-auditável-de-snapshots-html), implementação e validações focadas concluídas.
+- Baseline desta etapa: branch `codex/tesouro-previa-e-cotacoes`, commit `d7fe081`, com alterações locais da prévia e de carteiras compartilhadas preservadas. PR [#62](https://github.com/JonathanBenicio/invest-dashboard/pull/62).
 - Plano canônico: `docs/plan/tesouro-reimportacao-snapshots.md`.
 
 ## Objetivo, baseline e escopo
@@ -17,10 +17,9 @@
 
 ## Regras de produto e limites conhecidos
 
-- **Instituição do extrato e da carteira:** extrair e preservar o nome declarado no cabeçalho do HTML, por exemplo “XP Investimentos CCTVM S/A”, em campo próprio, separado do valor da taxa. Na prévia, mostrar esse nome e a instituição cadastrada na carteira de destino, identificada pelo vínculo existente `InstituicaoFinanceiraId`. Propor correspondência por nome normalizado ou alias explícito do cadastro. Exibir correspondência, divergência ou ausência de informação. Em divergência, orientar a conferir a carteira selecionada. Nunca trocar o vínculo da carteira automaticamente.
-- **Decisão pendente:** definir se uma divergência confirmada entre as instituições bloqueia a confirmação ou exige aceite explícito. Nome que não puder ser associado com segurança deve aparecer como identificação inconclusiva.
+- **Instituição do extrato e da carteira, decisão aprovada:** extrair e preservar o nome do HTML separado da taxa. A prévia mostra o nome extraído e a instituição vinculada à carteira. Se a identificação for segura e divergir, bloquear a importação e solicitar outra carteira. A API revalida ao gravar a prévia e confirmar lotes pendentes. O cadastro da carteira não muda. Identificação ausente ou inconclusiva não é tratada como correspondência.
 
-- **Mês e ano declarados no HTML:** a amostra do portal traz “Posição em Novembro/2026”, sem dia no cabeçalho. Quando o leitor reconhecer um mês e ano únicos nesse campo, usar os dois para preencher a referência na prévia e pedir o dia ao usuário. Validar no servidor que a data informada pertence ao mês e ano do HTML. Sem cabeçalho reconhecível ou com valores conflitantes, manter o preenchimento manual e indicar que a referência veio do usuário. Datas de movimentação, vencimento e modificação do arquivo não substituem a referência do saldo. Para extratos do mesmo mês, a ordem ainda depende do dia declarado.
+- **Mês e ano declarados no HTML:** a amostra do portal traz “Posição em Novembro/2026”, sem dia no cabeçalho. Quando o leitor reconhecer um mês e ano únicos nesse campo, mostrar o calendário limitado ao primeiro e último dia do mês e pedir a data de referência do saldo. Validar no servidor que a data pertence ao mês e ano do HTML. Sem cabeçalho reconhecível ou com valores conflitantes, manter o calendário sem limite por mês e indicar que a referência foi informada pelo usuário. Datas de movimentação, vencimento e modificação do arquivo não substituem a referência do saldo. Para extratos do mesmo mês, a ordem ainda depende do dia declarado.
 - **Mensagens propostas:** se a referência divergir, exibir “O extrato informa posição em novembro de 2026. Escolha uma data desse mês e ano.” Se faltar o dia, exibir “O extrato informa o mês e o ano da posição. Informe o dia de referência do saldo.”
 
 - **Ordem dos extratos:** para a mesma carteira e título, somente um HTML com data de referência estritamente posterior à da base ativa pode substituí-la. A data de referência corresponde ao saldo do extrato. Data igual ou anterior deve bloquear a confirmação e preservar a base ativa. Revalide a ordem dentro da confirmação, inclusive se a base mudar depois da prévia.
@@ -44,32 +43,35 @@
 | [x] Expor revisão na prévia e no contrato | Serviço de diff, API de revisão e UI atual | Usuário vê divergências e saldo anterior/proposto; aceite habilita confirmação apenas após revisão | API e tela implementadas; E2E direcionada passou (2 cenários) |
 | [x] Integrar validação à confirmação | Decisões de eventos e de snapshot | Confirmação bloqueia revisão ausente/obsoleta; aceite atualiza base na mesma transação e preserva registros anteriores | Integração PostgreSQL passou com bloqueio sem aceite, hash, troca de base e auditoria |
 | [x] Permitir posição sem movimentações | Validação do saldo-base e cobertura de posição | Snapshot com lotes válidos e zero movimentos pode ser confirmado, sem fabricar eventos | Teste de integração PostgreSQL passou no commit `7d7207a` |
-| [ ] Revisar posição não observada sem zerar saldo | Snapshot anterior e HTML sem linhas de posição interpretáveis | API retorna quantidade proposta indisponível, exibe divergência e mantém a confirmação bloqueada; base anterior não é desativada | Implementado no commit `aa21a9c`; builds passaram; validação manual pendente |
-| [ ] Exibir linhas da prévia em tabelas | Campos brutos por posição e movimentação | Tabelas preservam valores originais e destacam linhas que precisam de revisão; rolagem horizontal em telas estreitas | Implementado no commit `aa21a9c`; ESLint e build Vite passaram; validação manual pendente |
-| [ ] Validar regressão e concorrência | Migração, API, UI e PostgreSQL isolado | Testes de segundo snapshot, ambiguidade, ausência, manual sem par, rollback, replay, concorrência e isolamento | Pendente |
+| [x] Validar rollback e concorrência antes das novas alterações | PostgreSQL isolado e testes em `d7fe081` | Falha na troca mantém a base anterior. Confirmações concorrentes não duplicam base ou eventos. Movimentos posteriores são preservados | 3 integrações passaram no baseline de 25/11/2026 (agente backend) |
+| [x] Reconhecer mês, ano e instituição antes de salvar a prévia | Estrutura dos dois HTMLs observados | Mês/ano lidos, calendário limitado ao mês e instituição mostrada | Os dois HTMLs originais foram importados em carteiras de teste compatíveis. Divergência sintética bloqueou na UI; integração HTTP correspondente foi adicionada, sem reexecução a pedido do usuário |
+| [x] Confirmar encerramento comprovado por venda integral | Base ativa, seção de posições reconhecida, eventos completos e revisados | Encerramento conserva extrato e histórico. Ausência sem venda preserva o saldo. Compra posterior é reaplicada pelo ledger | Testes focados de API/PostgreSQL e E2E sintético passaram. Não alegar que o filtro agregado completo passou |
+| [x] Revisar posição não observada sem zerar saldo | Snapshot anterior e HTML sem linhas de posição interpretáveis | API retorna quantidade proposta indisponível e mantém confirmação bloqueada | Teste de integração do caso passou no filtro Tesouro anterior; conferir novamente manualmente após as mudanças recentes |
+| [x] Exibir linhas da prévia em tabelas | Campos brutos por posição e movimentação | Preservar valores originais, marcar leitura e conter rolagem | Playwright validou a prévia em telas móveis e desktop; execução de referência em 24/11/2026 |
+| [x] Validar fluxo integrado após as alterações mais recentes | API, UI e PostgreSQL isolado | Cobrir criação direta, revisões antigas, exclusão, vínculo manual, rollback, replay e concorrência | Filtro final Tesouro/consolidação passou 49/49 em PostgreSQL descartável. Playwright focal passou 11/11, incluindo criação, exclusão, instituição divergente, calendário, conciliação e extrato. Sessão autenticada real não conferida |
 
 ## Critérios de aceite
 
-- [ ] A prévia distingue instituição do HTML, instituição da carteira e valor de taxa. Validar correspondência, divergência, nome inconclusivo, ausência de instituição no HTML e carteira sem instituição cadastrada. A importação não altera o cadastro da carteira.
+- [x] A prévia distingue instituição do HTML, instituição da carteira e valor de taxa. Divergência identificada bloqueia a gravação e pede outra carteira; a API aplica a mesma regra. A integração cobre XP versus Banco do Brasil e preserva o cadastro da carteira; testes não foram reexecutados nesta solicitação.
 
-- [ ] Com mês e ano reconhecidos no HTML, a prévia solicita o dia e o servidor recusa datas de outro mês ou ano. Quando o cabeçalho não puder ser interpretado, a prévia identifica a referência como informada pelo usuário.
+- [x] Com mês e ano reconhecidos no HTML, o calendário restringe datas ao mês e o servidor recusa outro mês/ano. O caso sem mês/ano reconhecido permite entrada manual. HTMLs originais e teste HTTP do parser/data passaram em validações anteriores.
 
-- [ ] Extratos com data de referência igual ou anterior são recusados sem alterar a base ativa. Uma confirmação concorrente que mude a base obriga a reavaliar a data e a conciliação antes de aceitar a outra.
+- [x] Extratos com data igual ou anterior são recusados, e a confirmação revalida a base dentro da transação. Testes PostgreSQL de rollback/concorrência passaram antes da alteração recente de criação direta.
 
 - [x] Ao reimportar o mesmo título após uma base ativa, a prévia mostra o saldo anterior e o saldo proposto e lista possíveis linhas/eventos ausentes; evidência: testes direcionados de serviço/API com dois snapshots sintéticos, commit `3adef8c`.
 - [x] Correspondências naturais ambíguas ficam para escolha do usuário e preservam múltiplos eventos iguais; evidência: `ComparadorSnapshotTesouroTests.ApresentaCadaEventoAnteriorNaoObservadoSemApagarDuplicatas`, 21 testes direcionados passaram em 18/11/2026.
 - [x] Movimento manual sem par bloqueia a confirmação até o usuário revisar e aceitar explicitamente a nova base; transação e decisão ficam preservadas para auditoria. Evidência: integração PostgreSQL e E2E direcionada passaram em 18/11/2026.
-- [ ] Dada uma base ativa e um HTML sem posição interpretável para o título, quando comparar, então o sistema informa “não observada neste arquivo”, não propõe quantidade zero, mantém a base ativa e bloqueia a confirmação. Evidência: build passou; validação manual pendente.
-- [ ] Divergências confirmadas ficam ligadas ao hash exato do snapshot, autor e versão da carteira. Alterar lote/carteira invalida a revisão anterior.
-- [ ] A base anterior permanece ativa até confirmação serializável da nova base; falha/rollback não deixa estado parcial.
-- [ ] Ausência de posição/evento não apaga dado automaticamente. Um HTML por título não é usado para inferir encerramento de outros títulos da carteira.
-- [ ] A confirmação com venda integral comprovada encerra a posição e preserva a trilha de auditoria. Testar também ausência sem venda, venda parcial, compra posterior, ambiguidade, saldo negativo e repetição da confirmação.
+- [x] Dada uma base ativa e uma seção de posições ausente/inválida, o sistema informa que a posição não foi observada, preserva a base e bloqueia a confirmação. Caso coberto por integração PostgreSQL anterior.
+- [x] Revisões de snapshot ficam vinculadas a hash, autor, lote e versão; alteração de conteúdo invalida o aceite. Testes PostgreSQL e E2E direcionados anteriores passaram.
+- [x] A base anterior permanece ativa até confirmação serializável; falhas durante a transação preservam atomicidade. Testes PostgreSQL de baseline passaram antes dos últimos ajustes da criação direta.
+- [x] Ausência de posição/evento não apaga dados automaticamente nem encerra outros títulos a partir de um arquivo individual.
+- [x] A venda integral comprovada encerra e preserva trilha. Testados venda integral, ausência sem venda, seção inválida, compra manual posterior e manual sem vínculo em testes anteriores. A revisão antiga vinculada é bloqueada e teve teste de regressão aprovado.
 - [x] Snapshot com posição válida e nenhum movimento pode ser revisado e confirmado sem movimentos fictícios. Evidência: teste PostgreSQL no commit `7d7207a`.
 - [x] Reimportar o mesmo lote continua idempotente; operações posteriores à nova base continuam aplicadas uma única vez. Evidência: `Confirmacao_RevalidaRevisoesEPreservaMovimentacaoPosteriorSemDuplicarEventos`.
 
 ## Validação
 
-Os testes direcionados anteriores passaram em 18/11/2026. Para a alteração atual de posição não observada, o build completo .NET 10.0.404 e o build Vite passaram; não foram executados testes automatizados por orientação do usuário. A validação manual deve confirmar a divergência exibida e que a base anterior continua ativa.
+As linhas históricas abaixo preservam execuções anteriores. A validação final mais recente consta na seção de 26/11/2026 e passou no filtro focado; não confundir com a execução agregada antiga que falhou por timeout e assertions desatualizadas.
 
 | Verificação | Comando/método e ambiente | Estado | Evidência/limitação |
 |---|---|---|---|
@@ -83,8 +85,17 @@ Os testes direcionados anteriores passaram em 18/11/2026. Para a alteração atu
 | Build atual do frontend | `./node_modules/.bin/vite build` | passou | Bundling passou; Vite reportou o aviso já existente de chunk maior que 500 kB. Nenhum E2E foi iniciado nesta alteração. |
 | ESLint dos componentes de prévia e conciliação | `./node_modules/.bin/eslint src/components/PreviaTesouroDireto.tsx src/components/ConciliacaoTesouro.tsx src/api/services/tesouro-direto.service.ts` | passou | Nenhum teste automatizado foi criado ou executado nesta alteração. |
 | Migration e concorrência da confirmação inicial | integração PostgreSQL da classe `ConfirmacaoTesouroControllerTests` | passou | Banco temporário aplicou a migration e o teste confirmou que duas solicitações paralelas geram no máximo uma confirmação efetiva |
-| Rollback e concorrência ao trocar snapshot posterior | não executados | não executado | Falta provocar falha durante a troca da base e disputar confirmações concorrentes do mesmo snapshot |
+| Rollback e concorrência ao trocar snapshot posterior (baseline) | `dotnet test` filtrado em `ConfirmacaoTesouroControllerTests`, SDK em Docker e PostgreSQL 15 isolado | passou | 3 testes de rollback, concorrência e movimentação posterior passaram em 25/11/2026 antes da implementação de encerramento. A reexecução final após o encerramento permanece pendente |
 | E2E de reimportação | `frontend/e2e/conciliacao-tesouro.spec.ts`, Playwright 1.65.0, Chromium 1255, Vite na porta 5174 | passou | Dois cenários passaram; a validação manual com a conta real do usuário ainda está pendente |
+| Dois HTMLs originais pela interface | Playwright com API autenticada e PostgreSQL 15 isolado, sessão de teste e capturas desativadas | passou | Identificou mês/ano e instituição e confirmou os dois originais em carteiras vazias separadas em 25/11/2026. A reimportação foi exercitada com dados sintéticos do mesmo título |
+| Reimportação com encerramento pela interface | `e2e-real-api/tesouro-import.spec.ts` com API autenticada e PostgreSQL 15 isolado | passou | Confirmação inicial seguida por reimportação posterior com venda integral. Posição ficou encerrada e extrato ativo mostrou venda bruta e cobrança separadas. O ledger permaneceu sem transações duplicadas. [Validação](../validation/tesouro-importacao-2026-11-25.md) |
+| Filtro agregado após alterações de encerramento | .NET 10.0.404 em cópia temporária e PostgreSQL isolado, filtro `FullyQualifiedName~Tesouro` | falhou parcialmente | 105 unitários passaram. Na execução agregada 33 integrações passaram e 3 falharam, por um timeout no cleanup PostgreSQL durante carga concorrente e duas asserções que esperavam nomes JSON incorretos. As asserções foram corrigidas, mas o filtro não foi reexecutado a pedido do usuário |
+
+## Validação final — 26/11/2026
+
+Integração .NET 10.0.404 com PostgreSQL 15 descartável: 49/49 aprovados, 0 falhas e 0 ignorados no filtro Tesouro/consolidação. Unitários Tesouro, snapshot e conciliação: 105/105 aprovados. Playwright sintético em Chromium: 11/11 aprovados. Inclui leitura por membro de carteira compartilhada apenas para lote confirmado. Build e typecheck são registrados no plano de importação inicial. O navegador isolado permaneceu na tela de login, portanto não houve conferência manual autenticada.
+
+Após essa rodada, o cenário `ReimportarUmTituloPreservaOutroTituloDaMesmaCarteira` passou 1/1 em PostgreSQL descartável. Ele verifica que a reimportação de um título preserva a base ativa, o lote, o saldo e o preço do outro título Tesouro na mesma carteira. A primeira execução exigiu ajuste da fixture para incluir o aceite explícito do snapshot.
 
 ## Riscos, gaps e pendências
 
@@ -93,13 +104,14 @@ Os testes direcionados anteriores passaram em 18/11/2026. Para a alteração atu
 | HTML não tem ID estável e a cobertura temporal não é comprovada | Falso pareamento ou falso alerta de ausência | Mostrar divergência como hipótese, preservar multiconjunto e pedir revisão | Issues #55/#58 abertas |
 | Um HTML representa um título, não a carteira inteira | Não é possível detectar automaticamente outros títulos ausentes | Não inferir remoção; planejar lote de vários arquivos se a carteira inteira precisar ser comparada | Limite atual da interface |
 | Movimento manual sem par pode ter o efeito substituído sem ciência | A nova base pode retirar o efeito da operação do saldo atual | Exigir aceite explícito da nova base, registrar os IDs dos manuais e manter a transação original | Integração PostgreSQL e E2E passaram |
-| Revisão pode ficar obsoleta após concorrência | Confirmação aceita dados que o usuário não revisou | Hash do diff + versão da carteira + transação serializável | Pendente |
-| Ausência de posição no HTML pode parecer saldo zero | O usuário poderia interpretar ausência como encerramento | Manter `posicao_nao_observada` sem saldo zero quando faltar evidência; habilitar encerramento apenas pela regra de venda integral aprovada | Encerramento pendente de implementação e validação |
+| Revisão antiga já vinculada em prévia pendente | Ignorar o vínculo pode manter o efeito da operação manual no ledger e duplicar o saldo; um bloqueio sem recuperação pode prender a prévia | API detecta `TransacaoId` legado e bloqueia a criação direta. A UI deve oferecer revisão compatível ou instrução para recriar a prévia depois de corrigir o vínculo. Adicionar regressão | API bloqueia e informa caminho para revisar a operação; teste de regressão passou. Conferência manual pendente |
+| Revisão pode ficar obsoleta após concorrência | Confirmação aceita dados que o usuário não revisou | Hash do diff + versão da carteira + transação serializável | Filtro final passou em PostgreSQL isolado, incluindo os cenários de concorrência da suíte focada |
+| Ausência de posição no HTML pode parecer saldo zero | O usuário poderia interpretar ausência como encerramento | Manter `posicao_nao_observada` sem saldo zero quando faltar evidência; habilitar encerramento apenas pela regra de venda integral aprovada | Implementado e validado em cenários sintéticos; conferir no navegador |
 | Um HTML representa um título, não a carteira inteira | Não é possível detectar automaticamente outros títulos ausentes | Não inferir remoção de outros títulos a partir de um arquivo individual | Limite atual da fonte/contrato |
 
 ## Entrega e sincronização
 
 - Implementação/PR/commits: PR #62 contém upload, prévia tabular, confirmação inicial, comparação de snapshots, revisão auditável e sinalização de posição não observada nos commits `3adef8c`, `43d8c14`, `26aa337` e `aa21a9c`.
 - Relatório/evidências: resultado da criação inicial está registrado em [Issue #58](https://github.com/JonathanBenicio/invest-dashboard/issues/58).
-- Limitações restantes: validação manual do usuário, rollback de falha durante reimportação, concorrência no snapshot posterior e ação explícita para encerrar uma posição; ausência não desativa a base automaticamente.
+- Limitações atuais: o encerramento por venda integral foi coberto com extrato sintético do mesmo título. Os dois HTMLs originais disponíveis são títulos diferentes e validam a importação inicial, não uma reimportação real do mesmo título. A validação autenticada manual da conta do usuário permanece pendente.
 - Índices: ligar a Issues #55, #57, #58, Story US-IMPORT-002, ADR-0004, `docs/INDEX.md` e `conductor/tracks.md`.

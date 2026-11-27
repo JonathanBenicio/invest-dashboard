@@ -1,40 +1,51 @@
-# Plano — teste de integração da importação inicial do Tesouro Direto
+# Plano — teste de integração e fluxo guiado da importação inicial do Tesouro Direto
 
-- Estado: concluído com limitações registradas
+- Estado: implementação completa; validações automatizadas focadas aprovadas. A sessão autenticada com conta real não foi conferida nesta etapa.
 - Issue: [#68](https://github.com/JonathanBenicio/invest-dashboard/issues/68); iniciativa relacionada [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53).
 - ADR: N/A — teste do comportamento existente, sem decisão arquitetural nova identificada.
 - Story: N/A — validação técnica de fluxo existente.
-- Baseline: branch `codex/tesouro-previa-e-cotacoes`, commit `d68df4f` (plano publicado e sincronizado); alterações locais de frontend, agentes e backend preservadas.
+- Baseline: branch `codex/tesouro-previa-e-cotacoes`, HEAD `d7fe081`; o working tree já continha alterações locais da importação e de outro fluxo de carteiras compartilhadas. Essas mudanças foram preservadas e não houve commit nesta etapa.
 - Plano canônico: `docs/plan/tesouro-teste-integracao-importacao-inicial.md`
 
 ## Objetivo, baseline e escopo
 
-Verificar pela API, sem depender do frontend, a importação de HTML em carteira vazia com confirmação inicial sem revisão individual. Há testes de integração existentes para criação e confirmação de lote, mas o cenário examinado registra revisão individual; a cobertura completa do caminho direto ainda deve ser confirmada.
+Verificar pela API a importação inicial de um título do Tesouro ainda sem posição compatível na carteira. A decisão atual permite criar a posição nova sem revisão individual dos movimentos, mesmo que a carteira contenha outros títulos. A confirmação ainda valida o saldo, a completude dos movimentos e a ausência de lançamentos manuais anteriores que pudessem duplicar o efeito.
 
-Inclui fixture HTML sintética, conciliação, confirmação e verificação de posição e eventos oficiais, além de bloqueios relevantes. Não inclui dados pessoais, alterações na carteira real ou mudanças de comportamento sem diagnóstico. O teste de confirmação depende de PostgreSQL de teste isolado e das dependências .NET do projeto.
+Inclui fixture HTML sintética, conciliação, confirmação e verificação de posição e eventos oficiais, além de bloqueios relevantes. A ausência de posição compatível para o título habilita criar a posição sem revisar cada movimento, mesmo que a carteira tenha outros títulos. O servidor continua exigindo seção de posição válida, saldo e movimentos completos e ausência de movimentos manuais anteriores do mesmo ativo que possam duplicar o saldo. Não inclui dados pessoais nem alterações na carteira real.
 
-A regra de taxa anual não informada em compra foi integrada no backend e no frontend. O backend sinaliza `camposNaoInformados`, preserva o traço e permite a confirmação se os demais campos essenciais estiverem válidos. A prévia mostra “Não informado: taxa do título (% a.a.)” sem classificar a ausência como erro. A tabela também recebeu contenção de largura e orientação de rolagem; a validação visual responsiva ainda está pendente.
+A regra de taxa anual não informada em compra foi integrada no backend e no frontend. O backend sinaliza `camposNaoInformados`, preserva o traço e permite a confirmação se os demais campos essenciais estiverem válidos. A prévia mostra “Não informado: taxa do título (% a.a.)” sem classificar a ausência como erro.
+
+Fluxo guiado aprovado para esta tela: etapa 1 exige HTML e carteira para iniciar a leitura, e exige data de referência válida para salvar a prévia. Quando o HTML informa mês e ano, o calendário limita as datas a esse mês. A etapa 2 resume título e vencimento, e exige escolha explícita de uma posição compatível ou da criação de nova posição quando autorizada. A etapa 3 apresenta comparação e revisão antes da confirmação. Posições existentes são apresentadas por nome completo e vencimento. Detalhes extensos ficam recolhidos até serem solicitados.
 
 ## Etapas e verificações
 
 | Etapa/entrega | Dependências | Verificação observável | Estado e evidência |
 |---|---|---|---|
 | Examinar testes e fixtures existentes, inclusive o arquivo não rastreado | Nenhuma | Identificar cobertura do caminho direto e preservar alterações existentes | Concluído; adicionada cobertura de integração do caminho inicial |
+| Validar a prévia atual antes da reorganização | Dependências frontend do lockfile | Executar o E2E da prévia sintética existente | Passou: teste `apresenta prévia de arquivo privado` aprovado em cópia temporária |
 | Preparar HTML sintético com posição, compra, venda e taxa, incluindo traço não aplicável | Contrato real do leitor | Fixture reproduz os formatos relevantes sem dados pessoais | Concluído |
-| Testar upload, conciliação e confirmação inicial sem revisões por HTTP | PostgreSQL isolado e API de teste autenticada | Respostas indicam importação inicial disponível e confirmação bem-sucedida | Passou; teste informado pelo agente backend |
+| Testar criação direta em carteira que contém outros ativos | PostgreSQL isolado e API autenticada | Criar posição sem posição compatível, preservar os outros ativos e não duplicar eventos | Teste focalizado passou para revisão legada sem vínculo e bloqueio de operação manual anterior. Teste adicional para revisão antiga vinculada passou em PostgreSQL isolado (3 testes de criação) |
 | Verificar saldo, eventos oficiais vinculados e ausência de transações duplicadas | Confirmação no banco de teste | Estado persistido corresponde à fixture | Passou; teste informado pelo agente backend |
-| Testar bloqueio do caminho direto para carteira com histórico e dados essenciais inválidos | Fixtures adequadas | API não confirma indevidamente; conferir respostas e efeitos | Cobertura existente executada; 3 integrações passaram |
+| Testar bloqueios da criação direta | Dados essenciais inválidos, posição correspondente existente, operação manual anterior e revisão legada vinculada | API bloqueia saldo incompleto, duplicação manual e vínculo antigo inseguro | Casos focados existem para saldo e manual anterior. A API bloqueia vínculo vigente; a conciliação mostra o motivo e orienta conferir a operação manual. Regressão PostgreSQL passou |
 | Alinhar semântica da taxa ausente em compra | Regra aprovada pelo usuário | Leitor, DTO, prévia e confirmação usam “não informado”, sem converter para zero | Implementado; testes unitários informados como aprovados |
-| Validar responsividade da prévia | Playwright com fixture sintética via harness do projeto | Conferir conteúdo e tabela em 360, 767, 768, 1280, 1366 e 1920 px; menu móvel aberto e desktop expandido/recolhido | Passou; teste direcionado em 22/11/2026 |
-| Executar testes direcionados e build pertinente | SDK .NET 10, dependências e PostgreSQL de teste | Registrar comandos, resultados e testes ignorados | Backend passou conforme relato do agente; frontend validado em instalação limpa compatível com o lockfile |
+| Restringir opções à posição do Tesouro com título e vencimento compatíveis | Dados da prévia e posições da carteira | Resultado da conciliação lista somente candidatos compatíveis e apresenta nome, vencimento e ticker | Implementado no backend; 3 testes unitários informados pelo agente backend como aprovados em Docker |
+| Implementar sequência guiada de três etapas | E2E sintético e contrato de conciliação | Leitura exige arquivo/carteira; salvar exige data; escolher posição existente leva à revisão; escolher posição nova quando permitido leva à confirmação direta, sem revisão individual; voltar refaz a busca | Concluído no fluxo da interface; conferência manual do usuário pendente |
+| Recolher dados extensos e avisos da prévia | Componente de prévia existente | Tabelas, linhas não interpretadas e explicações ficam em seção expansível | Concluído; exercitado no E2E |
+| Validar responsividade e navegação da prévia | Playwright com fixture sintética via harness do projeto | Conferir conteúdo e tabela em 320, 360, 767, 768, 1280, 1366 e 1920 px; menus móvel e desktop | Passou em 24/11/2026; 5 testes E2E da suíte passaram |
+| Executar testes direcionados, lint, tipos e build | Dependências frontend do lockfile; runtime .NET 10 para backend | Registrar comandos, resultados, avisos e limitações | Frontend passou em instalação limpa temporária; teste unitário backend aprovado em execução anterior do agente, não reexecutado neste ambiente (dotnet ausente) |
 
 ## Critérios de aceite
 
-- [x] Fluxo direto de carteira vazia verificado pela API com fixture sintética, sem revisões individuais.
+- [x] A criação sem revisão individual ignora revisões antigas sem vínculo, mas bloqueia revisões antigas que vincularam uma transação manual. A UI explica como conferir a operação e, se o vínculo estiver incorreto, excluir a prévia e reenviar. API/PostgreSQL e Playwright focados passaram.
 - [x] Posição e eventos oficiais persistidos verificados, sem compras/vendas duplicadas.
 - [x] Histórico existente e dados essenciais inválidos não permitem confirmação inicial indevida.
 - [x] Regra de taxa ausente em compra refletida na API e na prévia frontend.
-- [x] Prévia tabular verificada nos viewports definidos via Playwright; sem overflow da página e com rolagem da tabela em celular.
+- [x] Leitura bloqueada até selecionar carteira e arquivo; salvar a prévia exige uma referência válida. Criação e continuação exigem escolha explícita quando não existe posição compatível.
+- [x] Posição existente não é pré-selecionada automaticamente; nome, vencimento e ticker identificam cada opção compatível.
+- [x] Para posição existente, comparação/revisão aparece após continuar; voltar refaz a busca. Para posição nova sem vínculo antigo, a confirmação direta aparece após escolha explícita.
+- [x] Tabelas, avisos e explicações detalhadas começam recolhidos e podem ser abertos para consulta.
+- [x] Prévia tabular verificada nos viewports 320, 360, 767, 768, 1280, 1366 e 1920 via Playwright; sem overflow da página e com rolagem da tabela em telas estreitas.
+- [x] Calendário de referência limita os dias ao mês/ano lidos do HTML. E2E verifica `min=2026-11-01` e `max=2026-11-30` no HTML de novembro de 2026.
 - [x] Resultados conhecidos e limitações registrados; testes ignorados não apresentados como aprovados.
 
 ## Validação
@@ -44,23 +55,38 @@ A regra de taxa anual não informada em compra foi integrada no backend e no fro
 | Integração direcionada | `dotnet test tests/InvestDashboard.IntegrationTests/InvestDashboard.IntegrationTests.csproj --filter FullyQualifiedName~ConfirmacaoTesouro --verbosity minimal`, em `src/` | passou | SDK 10.0.404 em Docker, PostgreSQL 17 isolado: 3 passaram; agente reporta teste atualizado do fluxo direto passando (1 teste); 22/11/2026 |
 | Testes unitários do leitor e confirmação | `dotnet test` filtrado nos projetos unitários | passou | Agente backend reporta 20 testes direcionados aprovados após alinhar expectativa e regra; não reexecutados pelo agente principal |
 | Build backend | `dotnet build InvestDashboard.slnx --no-restore --verbosity minimal`, em `src/` | passou | SDK 10.0.404 em Docker: 0 erros e 0 avisos; agente backend reportou build atualizado aprovado |
-| ESLint frontend | `eslint src/api/services/tesouro-direto.service.ts src/components/PreviaTesouroDireto.tsx` | passou | Execução local após mudança: exit code 0 |
-| TypeScript frontend | `tsc -b --noEmit` | passou | TS 5.9.3 de acordo com `package-lock.json`, em cópia temporária limpa; `baseUrl` redundante removido de `tsconfig.app.json` |
-| Build frontend | `npm run build` em cópia temporária restaurada pelo `package-lock.json` | passou | Vite 7.3.6; avisos de comentário puro de SignalR e bundle acima de 500 kB, sem falha de build |
-| Regressão responsiva da prévia | `playwright test --config playwright.visual.config.ts --grep 'apresenta prévia de arquivo privado'` | passou | 1 E2E; 360, 767, 768, 1280, 1366 e 1920 px. Em telas estreitas a tabela rola internamente, sem overflow horizontal da página; menu móvel aberto e menu desktop em ambos os estados; fixture sintética, nenhuma chamada à API real; 22/11/2026 |
+| ESLint frontend | `./node_modules/.bin/eslint src/api/services/tesouro-direto.service.ts src/components/ConciliacaoTesouro.tsx src/components/PreviaTesouroDireto.tsx e2e/tesouro-direto.spec.ts`, em `/tmp/invest-groups-validation` | passou | Código executado em cópia temporária com dependências instaladas pelo lockfile; exit code 0 |
+| TypeScript frontend | `./node_modules/.bin/tsc -b --noEmit`, em `/tmp/invest-groups-validation` | passou | Cópia temporária com versões compatíveis ao lockfile; exit code 0 |
+| Build frontend | `npm run build`, em `/tmp/invest-groups-validation` | passou | Vite 7.3.6; avisos preexistentes de comentário puro de SignalR e bundle acima de 500 kB, sem falha |
+| Fluxo guiado e responsividade | `./node_modules/.bin/playwright test --config playwright.groups.config.ts`, em `/tmp/invest-groups-validation` | passou | 5 E2E, com mocks sintéticos, sem chamar API real nem alterar carteira. Cobre requisitos de análise, seleção explícita de posição existente/criação inicial, retorno à escolha com nova consulta, revisão, tabela rolável e ausência de overflow em 320, 360, 767, 768, 1280, 1366 e 1920 px; menu móvel aberto e desktop nos dois estados. Execução intermediária encontrou o seletor de criação sumindo antes de avançar; foi corrigido. Outra execução inicial tentou abrir o menu móvel em largura desktop; o harness foi ajustado para 360 px. 24/11/2026 |
+| Filtro Tesouro consolidado | .NET 10.0.404 em Docker, cópia temporária e PostgreSQL isolado | falhou parcialmente | 105 unitários passaram. 33 integrações passaram e 3 falharam em uma execução agregada: um timeout ao limpar banco durante carga concorrente e duas asserções de teste com nomes JSON incorretos. As asserções foram ajustadas. O filtro não foi reexecutado a pedido do usuário |
+| Importação inicial dos HTMLs originais | Playwright em Chromium, API autenticada com sessão de teste e PostgreSQL isolado. Arquivos lidos localmente e artefatos de captura desativados | passou | Dois HTMLs reais foram importados em carteiras vazias isoladas e seus extratos oficiais apareceram nos detalhes. O ensaio usou um dia de referência dentro do mês do arquivo. [Validação](../validation/tesouro-importacao-2026-11-25.md) |
+
+## Validação final — 26/11/2026
+
+| Verificação | Ambiente e resultado |
+|---|---|
+| Integração HTTP Tesouro, Extrato e consolidação | 49 testes passaram, 0 falhas/ignorados, .NET 10.0.404 em Docker com PostgreSQL 15 descartável; cobre criação direta, data/instituição, rollback, concorrência, extrato de leitor compartilhado, encerramento, filtro consolidado e carteiras sem grupo |
+| Integrações consolidadas pós-fixture | 5/5 `InvestimentosConsolidadosTests`: quatro usam InMemory e um usa PostgreSQL descartável. Inclui datas diferentes entre bases Tesouro em PostgreSQL e duas carteiras sem grupo mantendo linhas individuais em InMemory |
+| Unitários Tesouro | 105 passaram, 0 falhas/ignorados |
+| Playwright focal | 11/11 passaram com MSW e dados sintéticos em Chromium; seletores e viewport cobrem calendário, fluxo guiado, instituição divergente, exclusão de prévias, Extrato e agrupamento. O cenário de carteira sem grupo foi repetido isoladamente após a última alteração e passou 1/1 |
+| Frontend lint, tipos e build | Lint 0 erros e 10 avisos preexistentes de Fast Refresh; typecheck passou com Bun/lockfile; build Vite passou com avisos de Browserslist, SignalR e chunk acima de 500 kB |
+| Build API | Docker/.NET 10 passou. A compilação também foi exercitada pelas integrações |
+
+Os testes usaram dados sintéticos, carteiras criadas em banco descartável ou interceptação MSW. Os dois HTMLs originais haviam sido processados anteriormente em carteiras de teste isoladas, mas eram de títulos diferentes e não provam reimportação real do mesmo título. A tela autenticada não foi conferida nesta rodada porque o navegador disponível permaneceu na tela de login.
 
 ## Riscos, gaps e pendências
 
 | Item | Impacto | Mitigação/ação | Referência/estado |
 |---|---|---|---|
 | Fixture sintética não cobre todas as variantes do HTML real | Teste verde não prova que toda importação real funciona | Usar formatos observados sem dados privados e investigar diferenças separadamente | Pendente |
-| Dependências ou PostgreSQL de teste indisponíveis | Teste pode não executar ou ser ignorado | Usar serviço isolado autorizado e relatar resultado real | Pendente |
+| Limite da validação com HTML original | O ensaio cobriu a importação inicial em duas carteiras vazias isoladas | Validar a troca de base com outro extrato do mesmo título | Reimportação passou com fixture sintética. Os dois originais são de títulos diferentes |
+| Revisão antiga vinculada a transação manual | Criar posição sem reaplicar vínculo pode contar a operação manual e o saldo do extrato duas vezes. O bloqueio mantém a prévia pendente e orienta conferir a operação manual | Ao reabrir a conciliação, reconhecer vínculos antigos e permitir revisão compatível ou orientar recriar o lote após resolver o vínculo | Bloqueado pela API; teste PostgreSQL passou. Conferência manual pendente |
 | A instalação `node_modules` do checkout está desalinhada dos manifests e contém arquivos sem permissão de escrita | Validações locais podem usar versões incompatíveis; `npm ci` direto falhou com EACCES | Dependências corretas foram restauradas numa cópia temporária limpa do projeto; reinstalação da pasta local requer corrigir ownership/limpeza com cuidado | Limitação local; checkout preservado |
-| Fixture sintética não cobre todas as variações do HTML real nem prova funcionamento em produção | Pode haver diferenças de layout/dados ou configuração externa | Comparar com arquivos reais e API de destino em validação autenticada futura | Fora do teste automatizado; registrar como limitação |
 
 ## Entrega e sincronização
 
 - Implementação: backend e frontend alterados localmente, sem commit.
 - PR relacionado: #62; issue de validação: #68.
-- Evidências e limitações: integração e testes unitários backend reportados como aprovados; E2E responsivo, ESLint, typecheck e build frontend passaram. Não houve importação na carteira real nem validação contra a API de produção.
-- Índices e rastreamento: índice documental atualizado; issue #68 registrada com referência à iniciativa #53 e ao PR #62.
+- Evidências e limitações: integração e testes unitários backend reportados como aprovados; E2E responsivo (5 testes), ESLint, typecheck e build frontend passaram. Não houve importação na carteira real nem validação contra a API de produção. Esta atualização do plano permanece local até o commit/push autorizado.
+- Índices e rastreamento: índice documental, track da iniciativa, issue #68 e PR #62 relacionados; publicação desta versão do plano pendente.

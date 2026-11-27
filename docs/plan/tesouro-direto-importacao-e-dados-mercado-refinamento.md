@@ -1,6 +1,6 @@
 # Plano — refinamento da importação e dos dados de mercado do Tesouro Direto
 
-- Estado: em andamento; confirmação transacional HTML está sendo ampliada para criação inicial de posição. Avaliação por cotação pública permanece pendente. XLSX foi adiado pelo usuário.
+- Estado: importação HTML, criação inicial, reimportação auditável e consulta do Extrato implementadas com validações focadas. Avaliação financeira por cotação permanece na Issue #64 e fora do fechamento desta rodada. XLSX foi adiado pelo usuário.
 - Iniciativa relacionada: [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53), etapas [#54](https://github.com/JonathanBenicio/invest-dashboard/issues/54) a [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58); todas estavam abertas na consulta de 14/11/2026, com descrições ainda baseadas no escopo anterior.
 - ADR: pendente para identidade, base temporal, reconciliação e avaliações. Story: pendente.
 - Baseline observado: branch `codex/homologacao-autenticacao-real`, `f85ae79`, em 13/11/2026; havia alterações prévias indexadas e não indexadas, inclusive no plano existente.
@@ -54,6 +54,20 @@ O serviço de transações reconstrói todas as posições da carteira a partir 
 - A URL JSON de Tesouro Direto fornecida na pesquisa retornou HTTP 410 ao acesso pela ferramenta de navegação nesta revisão; isso não prova indisponibilidade universal ou definitiva. Contrato, cobertura, frequência e condições de uso não foram verificados. Não depender dela como fonte em tempo real nem contornar bloqueios; reavaliar se houver documentação e acesso confiáveis.
 - A [documentação ANBIMA](https://developers.anbima.com.br/pt/documentacao/precos-indices/apis-de-precos/titulos-publicos/) descreve APIs de preços e VNA, com horários próprios. Elegibilidade, credenciais, custos e permissão de automação/redistribuição para o caso de uso permanecem por confirmar; não presumir acesso gratuito irrestrito ou adotar scraping como dependência inicial.
 
+### Cobertura observada no HTML do portal
+
+Inventário da [issue #54](https://github.com/JonathanBenicio/invest-dashboard/issues/54). Os dois originais pertencem ao mesmo layout reconhecido em novembro de 2026, com um título por arquivo. A versão do portal e a abrangência histórica do arquivo não são informadas pelo cabeçalho.
+
+| Grupo de campos | Originais observados | Tratamento e limite |
+|---|---|---|
+| Identidade do título e custódia | Título, vencimento, cabeçalho com instituição | O leitor exige identidade única de título e vencimento. A instituição é exibida quando o cabeçalho pode ser associado com segurança. |
+| Referência do saldo | Frase de mês e ano junto do valor do saldo, sem dia | A prévia exige o dia. Se mês e ano estiverem ausentes ou conflitantes, a tela solicita a data manual. A API recusa data fora do mês quando reconhecido. |
+| Posição | Linhas por aplicação com quantidade, preço, valor investido, rentabilidade, valor bruto, tributos, custódia e líquido | Preserva campos originais e sinaliza lacunas. Uma tabela sem posição só habilita a análise de encerramento com evidência de venda integral. |
+| Movimentações | Cartões de compra, venda e taxas com datas próprias | Preserva valor, natureza, tipo e taxas conforme disponíveis. Eventos do mesmo dia e valor podem ser distintos. Datas dos cartões não determinam a referência do saldo. |
+| Histórico | Dados efetivamente presentes nos arquivos | O leitor não carrega recursos externos, não executa scripts e não confirma a completude de períodos, filtros, páginas ou regras CSS. A validação com os originais cobre importação inicial. A troca de base usou dois HTMLs sintéticos do mesmo título. |
+
+Os arquivos e seus valores permanecem privados. O resultado do ensaio está no [relatório da importação](../validation/tesouro-importacao-2026-11-25.md).
+
 ## Etapas e verificações
 
 | Etapa | Dependência e resultado observável | Estado |
@@ -74,7 +88,7 @@ Em 19/11/2026, a revisão sanitizada do HTML usado pelo usuário identificou que
 
 Em 22/11/2026, o usuário aprovou tratar o traço em `Taxa (% a.a.)` de uma compra como **taxa não informada**, preservando o texto original e sinalizando a lacuna no movimento. Não converter para zero nem afirmar que a taxa é não aplicável. A confirmação pode prosseguir quando os demais dados essenciais estiverem completos e a rentabilidade contratada da posição estiver disponível; essa regra não elimina as demais verificações de conciliação e confirmação.
 
-**Implementação e validação pendentes:** o leitor atual classifica o traço em compras como não aplicável, e o teste unitário existente espera que seja não interpretado. Ambos precisam ser alinhados à regra aprovada e validados. A documentação pública consultada não esclareceu o significado do traço no cartão de compra; esta é uma decisão de produto, não uma interpretação confirmada pelo Tesouro. Referências: [rentabilidade dos títulos](https://www.tesourodireto.com.br/b/rentabilidade-dos-titulos-do-tesouro-direto) e [impostos e taxas](https://www.tesourodireto.com.br/b/impostos-e-taxas-no-tesouro-direto).
+**Estado:** a regra de taxa não informada em compra foi integrada ao leitor e à prévia. O traço é preservado e sinalizado em `camposNaoInformados`; a confirmação depende dos demais dados essenciais. Os resultados e as pendências de validação estão no [plano de importação inicial](tesouro-teste-integracao-importacao-inicial.md). A documentação pública consultada não esclareceu o significado do traço no cartão de compra; esta é uma decisão de produto, não uma interpretação confirmada pelo Tesouro. Referências: [rentabilidade dos títulos](https://www.tesourodireto.com.br/b/rentabilidade-dos-titulos-do-tesouro-direto) e [impostos e taxas](https://www.tesourodireto.com.br/b/impostos-e-taxas-no-tesouro-direto).
 
 As divergências de reimportação, operações manuais sem par e ausência de eventos/lotes são detalhadas no [plano auditável de snapshots](tesouro-reimportacao-snapshots.md). O fluxo atual bloqueia movimentos manuais não conciliados, mas ainda não compara o lote novo com o anterior nem persiste a revisão de ausências.
 
@@ -109,4 +123,18 @@ Uma verificação local, sem publicar conteúdo pessoal, reconheceu os dois HTML
 Registro de 17/11/2026: as issues #53–#58 permaneceram abertas para criação inicial HTML, validação das taxas derivadas, reimportações posteriores, atualização por cotação e cobertura ponta a ponta.
 
 Registro de 17/11/2026: a CI do PR #62 passou nos quatro jobs. A criação inicial via HTML foi compilada localmente e o TypeScript passou. A suíte de 154 unitários e 101 integrações PostgreSQL antecedia esse caminho de criação; àquela data ainda não havia teste específico. Os dados pessoais não foram incluídos na branch.
+
+## Estado e cobertura verificável em 26/11/2026
+
+A importação HTML pode criar posição inicial quando não existe posição compatível, confirmar sem revisão individual dos movimentos quando os campos essenciais são válidos e não há operação manual anterior que gere duplicação, e reimportar snapshots com revisão/auditoria. A divergência de instituição reconhecida bloqueia a importação. O extrato oficial da base ativa aparece nos detalhes, com venda e cobrança separadas. As decisões e limites técnicos estão nos planos de [criação inicial](tesouro-teste-integracao-importacao-inicial.md), [reimportação](tesouro-reimportacao-snapshots.md) e [Extrato detalhado](tesouro-extrato-detalhado.md).
+
+| Aspecto | O que está coberto | Limite conhecido |
+|---|---|---|
+| Amostras do Portal | Dois HTMLs privados foram processados anteriormente em carteiras de teste separadas. As fixtures automatizadas são sintéticas e exercitam posições, movimentos, instituição e referência mês/ano. | Os arquivos originais são de títulos diferentes; não demonstram cobertura de todas as versões ou períodos do Portal nem reimportação real do mesmo título. |
+| Identidade do título | Nome, código/ticker quando presente e vencimento completo são usados para compatibilidade; ativos com identidade distinta não são combinados por aproximação textual. | HTML sem identificador estável não permite provar equivalência entre cadastros canônicos diferentes. Casos inconclusivos precisam de revisão. |
+| Seção de posição | Campos reconhecidos são preservados e validados antes de criar/atualizar a base. Posição ausente ou seção incompleta não vira saldo zero. | A leitura não comprova cobertura de cartões ocultos por CSS, páginas não exportadas ou períodos fora do HTML. |
+| Cartões de movimentação | Data, tipo, natureza, quantidade, preço, taxa e valor disponíveis são interpretados; eventos oficiais permanecem separados de transações do ledger. Taxa anual “—” em compra é preservada e sinalizada como não informada. | Não há ID estável de evento. Similaridade de data/valor não deduplica nem prova que dois movimentos sejam a mesma operação. |
+| Referência e instituição | Mês/ano do cabeçalho limita o calendário, o dia é escolhido pelo usuário e validado pela API; nome da instituição do arquivo é comparado ao vínculo da carteira quando identificável. | Para dois extratos do mesmo mês, o dia ainda é entrada do usuário. Nomes desconhecidos/ambíguos não constituem correspondência comprovada. |
+
+Em 26/11/2026, a validação focada final aprovou 49 integrações .NET com PostgreSQL descartável, 105 unitários e 11 cenários Playwright sintéticos. Build da API, typecheck, build Vite e lint passaram. A cobertura não substitui amostras futuras do Portal nem uma conferência autenticada manual; a lacuna estrutural está registrada na Issue #54. Avaliação por cotação pública/líquido e comparação com CDI continuam fora desta entrega nas Issues #64 e #65.
 Os cinco testes Playwright direcionados também passaram na branch isolada com navegador em cache temporário, sem alterar o cache compartilhado. O binário de compatibilidade para Ubuntu 24.04 foi utilizado no host Ubuntu 26.04.

@@ -7,6 +7,9 @@ test('revisa candidatos da carteira sem confirmar ou gravar associação', async
     window.fetch = async (input, init) => {
       const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, window.location.origin)
       const json = (dados: unknown) => new Response(JSON.stringify({ dados }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      if (url.pathname.endsWith('/tesouro-direto/previa')) {
+        return new Response(JSON.stringify({ dados: { mesReferencia: null, anoReferencia: null } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
       if (url.pathname.endsWith('/tesouro-direto/lotes')) {
         if (init?.method === 'GET') return json([])
         return json({ id: 'lote-1', carteiraId: 'portfolio-1', dataReferencia: '2026-11-14', formato: 'html', estado: 'Pendente', criadoEmUtc: '2026-11-14T12:00:00Z', confirmadoEmUtc: null, hashPrevia: 'hash-previa-1',
@@ -15,7 +18,7 @@ test('revisa candidatos da carteira sem confirmar ou gravar associação', async
       if (url.pathname.endsWith('/lotes/lote-1/conciliacao')) {
         const request = JSON.parse(String(init?.body)) as { ativoId: string | null }
         return json({ carteiraVersao: 1, dataReferencia: '2026-11-14', ativoId: request.ativoId,
-          ativos: [{ ativoId: 'ativo-1', ticker: 'TESOURO35' }],
+          ativos: [{ ativoId: 'ativo-1', ticker: 'TESOURO35', nome: 'Título sintético', vencimento: '2035-01-01' }],
           eventos: [{ indice: 0, dadosInterpretados: { natureza: 'Compra', tipo: 'Crédito', data: '2026-10-01', quantidade: 2, preco: 100 }, candidatos: request.ativoId ? ['transacao-1'] : [] },
             { indice: 1, dadosInterpretados: { natureza: 'Venda', tipo: 'Débito', data: null, quantidade: 1, preco: 100 }, candidatos: [] }],
           transacoes: request.ativoId ? [{ id: 'transacao-1', tipo: 'Buy', data: '2026-10-01T12:00:00Z', quantidade: 2, preco: 100, posteriorBase: false }] : [], podeConfirmar: false })
@@ -41,12 +44,13 @@ test('revisa candidatos da carteira sem confirmar ou gravar associação', async
   await page.getByLabel('Carteira de destino').click()
   await page.getByRole('option', { name: 'Carteira Principal' }).click()
   await page.getByLabel('Arquivo do extrato').setInputFiles({ name: 'sintetico.html', mimeType: 'text/html', buffer: Buffer.from('<html></html>') })
+  await page.getByRole('button', { name: 'Analisar extrato' }).click()
   await page.getByLabel('Data de referência do extrato').fill('2026-11-14')
-  await page.getByRole('button', { name: 'Analisar e salvar prévia' }).click()
-  await page.getByRole('button', { name: 'Revisar conciliação' }).click()
-  await page.getByLabel('Posição da carteira para comparar').click()
-  await page.getByRole('option', { name: 'TESOURO35' }).click()
-  await page.getByRole('button', { name: 'Comparar movimentações' }).click()
+  await page.getByRole('button', { name: 'Salvar e continuar' }).click()
+  await page.getByRole('button', { name: 'Continuar para escolha da posição' }).click()
+  await page.getByLabel('Posição correspondente ao título e vencimento do extrato').click()
+  await page.getByRole('option', { name: /Título sintético.*01\/01\/2035.*TESOURO35/ }).click()
+  await page.getByRole('button', { name: 'Continuar para revisão' }).click()
   await expect(page.getByText('Movimentação do extrato 1 · Compra · 01/10/2026')).toBeVisible()
   await expect(page.getByText(/Compra · 01\/10\/2026 · quantidade 2 · preço/).first()).toBeVisible()
   await expect(page.getByText(/sugerida para comparação/)).toBeVisible()
@@ -61,7 +65,7 @@ test('revisa candidatos da carteira sem confirmar ou gravar associação', async
   await page.getByLabel('Decisão para movimentação 1').click()
   await page.getByRole('option', { name: /sugestão/ }).click()
   await page.getByRole('button', { name: 'Salvar revisão' }).click()
-  await expect(page.getByRole('alert')).toContainText('Compare novamente as movimentações')
+  await expect(page.getByRole('alert')).toContainText(/compare novamente as movimentações/i)
   await expect(page.getByRole('button', { name: 'Salvar revisão' })).toBeDisabled()
   await page.getByRole('button', { name: 'Revisar esta movimentação' }).last().click()
   await expect(page.getByText(/Não é possível propor vínculo: data não interpretada/)).toBeVisible()
@@ -82,7 +86,7 @@ test('confirma um lote apto com a versão e as revisões exibidas', async ({ pag
       if (url.pathname.endsWith('/lotes/lote-1')) return json({ ...resumo, previa })
       if (url.pathname.endsWith('/lotes/lote-1/conciliacao')) {
         const { ativoId } = JSON.parse(String(init?.body))
-        return json({ carteiraVersao: 4, dataReferencia: resumo.dataReferencia, dataBaseAtiva: '2026-09-30', ativoId, ativos: [{ ativoId: 'ativo-1', ticker: 'TESOURO35' }],
+        return json({ carteiraVersao: 4, dataReferencia: resumo.dataReferencia, dataBaseAtiva: '2026-09-30', ativoId, ativos: [{ ativoId: 'ativo-1', ticker: 'TESOURO35', nome: 'Título sintético', vencimento: '2035-01-01' }],
           eventos: [{ indice: 0, dadosInterpretados: movimento, candidatos: [] }],
           transacoes: [{ id: 'manual-1', tipo: 'Buy', data: '2026-10-02T12:00:00Z', quantidade: 1, preco: 99, posteriorBase: false }],
           podeConfirmar: !!ativoId, posicaoPropostaDisponivel: true,
@@ -112,10 +116,10 @@ test('confirma um lote apto com a versão e as revisões exibidas', async ({ pag
   await page.getByLabel('Carteira de destino').click()
   await page.getByRole('option', { name: 'Carteira Principal' }).click()
   await page.getByRole('button', { name: 'Revisar prévia' }).click()
-  await page.getByRole('button', { name: 'Revisar conciliação' }).click()
-  await page.getByLabel('Posição da carteira para comparar').click()
-  await page.getByRole('option', { name: 'TESOURO35' }).click()
-  await page.getByRole('button', { name: 'Comparar movimentações' }).click()
+  await page.getByRole('button', { name: 'Continuar para escolha da posição' }).click()
+  await page.getByLabel('Posição correspondente ao título e vencimento do extrato').click()
+  await page.getByRole('option', { name: /Título sintético.*01\/01\/2035.*TESOURO35/ }).click()
+  await page.getByRole('button', { name: 'Continuar para revisão' }).click()
   const confirmar = page.getByRole('button', { name: 'Confirmar importação' })
   await expect(confirmar).toBeDisabled()
   await page.getByRole('button', { name: 'Revisar esta movimentação' }).click()

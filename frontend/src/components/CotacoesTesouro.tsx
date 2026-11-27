@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { tesouroDiretoService, type TituloTesouroPublico } from '@/api/services/tesouro-direto.service'
@@ -12,7 +12,7 @@ const dataBr = (data: string) => data.split('-').reverse().join('/')
 const dinheiro = (valor: number) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const chave = (titulo: TituloTesouroPublico) => JSON.stringify([titulo.tipoTitulo, titulo.dataVencimento])
 
-export function CotacoesTesouro() {
+export function CotacoesTesouro({ tituloInicial, vencimentoInicial }: { tituloInicial?: string; vencimentoInicial?: string } = {}) {
   const [aberto, setAberto] = useState(false)
   const [selecionado, setSelecionado] = useState('')
   const [inicio, setInicio] = useState('')
@@ -26,6 +26,24 @@ export function CotacoesTesouro() {
     queryFn: () => tesouroDiretoService.cotacoes(titulo!, periodo!.inicio, periodo!.fim),
     enabled: !!titulo && !!periodo, retry: false,
   })
+
+  useEffect(() => {
+    if (!titulos.data || !tituloInicial || !vencimentoInicial || selecionado) return
+    const normalizar = (nome: string) => nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+\d{4}$/, '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('pt-BR')
+    const candidatos = titulos.data.dados.titulos.filter(item => item.dataVencimento === vencimentoInicial &&
+      normalizar(item.tipoTitulo) === normalizar(tituloInicial))
+    if (candidatos.length !== 1) return
+    const escolhido = candidatos[0]
+    const ultimo = escolhido.ultimaDataDisponivel
+    const anterior = new Date(`${ultimo}T00:00:00Z`)
+    anterior.setUTCDate(anterior.getUTCDate() - 365)
+    const primeiro = anterior.toISOString().slice(0, 10)
+    setSelecionado(chave(escolhido))
+    setInicio(primeiro)
+    setFim(ultimo)
+    setPeriodo({ inicio: primeiro, fim: ultimo })
+  }, [titulos.data, tituloInicial, vencimentoInicial, selecionado])
 
   function selecionar(valor: string) {
     setSelecionado(valor)

@@ -13,10 +13,23 @@ public static class ConciliaTesouro
     public static ConciliacaoTesouroDto Preparar(Carteira carteira, DateOnly dataReferencia,
         PreviaTesouroDto previa, Guid? ativoId, IReadOnlyList<Transacao> transacoes)
     {
-        var ativos = carteira.Positions.Where(p => p.TipoAtivo == TipoAtivo.RendaFixa)
-            .Select(p => new AtivoConciliacaoTesouroDto(p.AtivoId, p.Ticker)).OrderBy(p => p.Ticker).ToArray();
-        if (ativoId.HasValue && !ativos.Any(a => a.AtivoId == ativoId.Value))
+        var posicoesRendaFixa = carteira.Positions.Where(p => p.TipoAtivo == TipoAtivo.RendaFixa).ToArray();
+        if (ativoId.HasValue && !posicoesRendaFixa.Any(p => p.AtivoId == ativoId.Value))
             throw new ArgumentException("Ativo não disponível na carteira.", nameof(ativoId));
+
+        var posicoesListadas = ativoId.HasValue
+            ? posicoesRendaFixa.Where(p => p.AtivoId == ativoId.Value)
+            : posicoesRendaFixa.Where(p => ConfirmacaoTesouro.TituloCompativel(previa, p.Ativo as RendaFixa));
+        var ativos = posicoesListadas
+            .Select(p => new AtivoConciliacaoTesouroDto(
+                p.AtivoId,
+                p.Ticker,
+                p.Ativo?.Name ?? p.Ticker,
+                p.Ativo is RendaFixa rendaFixa ? DateOnly.FromDateTime(rendaFixa.MaturityDate) : null))
+            .OrderBy(p => p.Nome, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(p => p.Vencimento)
+            .ThenBy(p => p.Ticker, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
         var relevantes = ativoId is null ? [] : transacoes
             .Where(t => t.CarteiraId == carteira.Id && t.AtivoId == ativoId && t.Type is TipoTransacao.Buy or TipoTransacao.Sell)

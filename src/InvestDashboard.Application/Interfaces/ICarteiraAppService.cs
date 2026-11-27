@@ -15,6 +15,7 @@ namespace InvestDashboard.Application.Interfaces
         Task<ProjecaoRendaFixaConsolidadaDto> GetFixedIncomeProjectionAsync(Guid? grupoId = null);
         Task<ProjecaoRendaFixaDto?> GetFixedIncomeProjectionAsync(Guid positionId);
         Task<IReadOnlyList<PosicaoInvestimentoDto>> GetUserPositionsAsync(Guid? portfolioId = null, Guid? grupoId = null);
+        Task<IReadOnlyList<PosicaoInvestimentoDto>> GetConsolidatedPositionsAsync(Guid? portfolioId = null, Guid? grupoId = null);
         Task<PosicaoInvestimentoDto?> GetPositionByIdAsync(Guid positionId);
         Task<PosicaoInvestimentoDto?> UpdatePositionValuationAsync(Guid positionId, decimal totalValue, DateTime observedAtUtc);
         Task<IReadOnlyList<PrecoHistoricoDto>> GetPriceHistoryAsync(Guid positionId, DateTime? fromDate = null);

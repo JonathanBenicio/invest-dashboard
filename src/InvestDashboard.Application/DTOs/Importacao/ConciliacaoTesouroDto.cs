@@ -3,7 +3,11 @@ using System.Text.Json.Serialization;
 namespace InvestDashboard.Application.DTOs.Importacao;
 
 public sealed record SolicitarConciliacaoTesouroDto([property: JsonPropertyName("ativoId")] Guid? AtivoId);
-public sealed record AtivoConciliacaoTesouroDto([property: JsonPropertyName("ativoId")] Guid AtivoId, [property: JsonPropertyName("ticker")] string Ticker);
+public sealed record AtivoConciliacaoTesouroDto(
+    [property: JsonPropertyName("ativoId")] Guid AtivoId,
+    [property: JsonPropertyName("ticker")] string Ticker,
+    [property: JsonPropertyName("nome")] string Nome,
+    [property: JsonPropertyName("vencimento")] DateOnly? Vencimento);
 public sealed record TransacaoConciliacaoTesouroDto(
     [property: JsonPropertyName("id")] Guid Id, [property: JsonPropertyName("tipo")] string Tipo,
     [property: JsonPropertyName("data")] DateTime Data, [property: JsonPropertyName("quantidade")] decimal Quantidade,
@@ -25,6 +29,11 @@ public sealed record ComparacaoSnapshotTesouroDto(
     [property: JsonPropertyName("quantidadeProposta")] decimal? QuantidadeProposta,
     [property: JsonPropertyName("divergencias")] IReadOnlyList<DivergenciaSnapshotTesouroDto> Divergencias,
     [property: JsonPropertyName("requerAceite")] bool RequerAceite);
+public sealed record EncerramentoPosicaoTesouroDto(
+    [property: JsonPropertyName("podeEncerrar")] bool PodeEncerrar,
+    [property: JsonPropertyName("quantidadeAnterior")] decimal? QuantidadeAnterior,
+    [property: JsonPropertyName("quantidadeReconciliada")] decimal? QuantidadeReconciliada,
+    [property: JsonPropertyName("motivo")] string Motivo);
 public sealed record ConciliacaoTesouroDto(
     [property: JsonPropertyName("carteiraVersao")] int CarteiraVersao,
     [property: JsonPropertyName("dataReferencia")] DateOnly DataReferencia,
@@ -39,4 +48,6 @@ public sealed record ConciliacaoTesouroDto(
     [property: JsonPropertyName("comparacaoSnapshot")] ComparacaoSnapshotTesouroDto? ComparacaoSnapshot = null,
     [property: JsonPropertyName("posicaoPropostaDisponivel")] bool PosicaoPropostaDisponivel = false,
     [property: JsonPropertyName("motivosCriacaoPosicao")] IReadOnlyList<string>? MotivosCriacaoPosicao = null,
-    [property: JsonPropertyName("importacaoInicialSemRevisao")] bool ImportacaoInicialSemRevisao = false);
+    [property: JsonPropertyName("importacaoInicialSemRevisao")] bool ImportacaoInicialSemRevisao = false,
+    [property: JsonPropertyName("encerramentoPosicao")] EncerramentoPosicaoTesouroDto? EncerramentoPosicao = null,
+    [property: JsonPropertyName("criacaoPosicaoSemRevisao")] bool CriacaoPosicaoSemRevisao = false);

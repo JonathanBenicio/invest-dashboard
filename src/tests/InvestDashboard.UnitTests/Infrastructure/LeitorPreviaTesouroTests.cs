@@ -25,12 +25,12 @@ public sealed class LeitorPreviaTesouroTests
     private static InvestDashboard.Application.DTOs.Importacao.PreviaTesouroDto Ler(string html) =>
         new LeitorPreviaTesouro().Ler(Guid.NewGuid(), "html", new MemoryStream(Encoding.UTF8.GetBytes(html)));
 
-    private static string TabelaPosicao(string quantidade = "0,01", string valorLiquido = "1,23", string dias = "30") => $$"""
+    private static string TabelaPosicao(string quantidade = "0,01", string valorLiquido = "1,23", string dias = "30", bool incluirLinha = true) => $$"""
         <table><tbody>
         <tr class="saldo-table-data-names"><td></td><td>DATA DA APLICAÇÃO</td><td>QUANTIDADE DE TÍTULOS</td><td>PREÇO DO TÍTULO NA APLICAÇÃO</td><td>VALOR INVESTIDO</td><td>RENTABILIDADE CONTRATADA</td></tr>
         <tr class="saldo-table-data-names"><td colspan="2">RENTABILIDADE CONTRATADA</td><td>VALOR BRUTO</td><td>TEMPO DA APLICAÇÃO</td><td>ALÍQUOTA</td><td colspan="2">IMPOSTO PREVISTO</td><td colspan="2">TAXA DEVIDA</td><td>VALOR LÍQUIDO</td></tr>
         <tr class="saldo-table-data-names"><td>ANUALIZADA</td><td>ACUMULADA</td><td>I.R.</td><td>IOF</td><td>B3</td><td>INSTITUIÇÃO FINANCEIRA</td></tr>
-        <tr class="saldo-table-data-values"><td></td><td>02/03/2024</td><td>{{quantidade}}</td><td>R$ 123,45</td><td>1,23</td><td>IPCA + 6%</td><td>-1,20%</td><td>2%</td><td>1,25</td><td>{{dias}}</td><td>22,5%</td><td>0,01</td><td>0,00</td><td>0,01</td><td>0,00</td><td>{{valorLiquido}}</td></tr>
+        {{(incluirLinha ? $"<tr class=\"saldo-table-data-values\"><td></td><td>02/03/2024</td><td>{quantidade}</td><td>R$ 123,45</td><td>1,23</td><td>IPCA + 6%</td><td>-1,20%</td><td>2%</td><td>1,25</td><td>{dias}</td><td>22,5%</td><td>0,01</td><td>0,00</td><td>0,01</td><td>0,00</td><td>{valorLiquido}</td></tr>" : string.Empty)}}
         </tbody></table>
         """;
 
@@ -50,7 +50,28 @@ public sealed class LeitorPreviaTesouroTests
         dados.ValorLiquido.Should().Be(1.23m);
         dados.CamposNaoInterpretados.Should().BeEmpty();
         posicao.CamposBrutos["preco_aplicacao"].Should().Be("R$ 123,45");
+        previa.SecaoPosicoesReconhecida.Should().BeTrue();
         previa.PodeConfirmar.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ReconheceTabelaCanonicaVaziaSemSugerirSaldoOuPosicao()
+    {
+        var html = Html("02/03/2024", "Compra", "Crédito", "1", "1", "1", "1")
+            .Replace("</div>\n</div>", "</div>\n" + TabelaPosicao(incluirLinha: false) + "\n</div>");
+
+        var previa = Ler(html);
+
+        previa.Posicoes.Should().BeEmpty();
+        previa.SecaoPosicoesReconhecida.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IndicaQueSecaoDePosicoesNaoFoiReconhecidaQuandoElaEstaAusente()
+    {
+        var previa = Ler(Html("02/03/2024", "Compra", "Crédito", "1", "1", "1", "1"));
+
+        previa.SecaoPosicoesReconhecida.Should().BeFalse();
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -91,8 +92,10 @@ public sealed class LotesTesouroController(
             pedido.Revisoes.Select(r => r.IndiceEvento).Distinct().Count() != pedido.Revisoes.Count)
             return BadRequest();
         var importacaoInicial = pedido.ImportacaoInicialSemRevisao;
-        if (importacaoInicial && (!pedido.CriarPosicao || pedido.Revisoes.Count != 0 ||
-                pedido.HashPrevia is not { Length: 64 } || pedido.HashPrevia.Any(c => !Uri.IsHexDigit(c))))
+        var criacaoSemRevisao = pedido.CriacaoPosicaoSemRevisao || importacaoInicial;
+        if ((pedido.CriacaoPosicaoSemRevisao && !pedido.CriarPosicao) ||
+            (criacaoSemRevisao && (!pedido.CriarPosicao || pedido.Revisoes.Count != 0 ||
+                pedido.HashPrevia is not { Length: 64 } || pedido.HashPrevia.Any(c => !Uri.IsHexDigit(c)))))
             return BadRequest();
         if (!db.Database.IsNpgsql()) return StatusCode(503);
 
@@ -105,29 +108,38 @@ public sealed class LotesTesouroController(
             if (lote is null) return NotFound();
 
             var loteExibido = Mapear(lote);
-            if (importacaoInicial && !string.Equals(pedido.HashPrevia, loteExibido.HashPrevia, StringComparison.Ordinal))
+            if (criacaoSemRevisao && !string.Equals(pedido.HashPrevia, loteExibido.HashPrevia, StringComparison.Ordinal))
                 return Conflito("A prévia mudou. Reabra o lote antes de confirmar.");
             var bases = db.Set<BasePosicaoTesouro>();
             var vigentes = await db.Set<DecisaoConciliacaoTesouro>().Where(x => x.LoteId == loteId && x.CarteiraId == carteiraId)
                 .GroupBy(x => x.IndiceEvento).Select(g => g.OrderByDescending(x => x.Revisao).First()).ToListAsync(ct);
             var esperadas = pedido.Revisoes.ToDictionary(x => x.IndiceEvento, x => x.Revisao);
-            if (vigentes.Count != esperadas.Count || vigentes.Any(x => x.CarteiraVersao != pedido.CarteiraVersao ||
-                    x.AtivoId != pedido.AtivoId || !esperadas.TryGetValue(x.IndiceEvento, out var revisao) || revisao != x.Revisao))
+            if (!pedido.CriacaoPosicaoSemRevisao && (vigentes.Count != esperadas.Count || vigentes.Any(x => x.CarteiraVersao != pedido.CarteiraVersao ||
+                    x.AtivoId != pedido.AtivoId || !esperadas.TryGetValue(x.IndiceEvento, out var revisao) || revisao != x.Revisao)))
                 return Conflito("Revise novamente as movimentações e a versão da carteira.");
             if (lote.Estado == "Confirmado")
                 return await bases.AnyAsync(x => x.LoteId == loteId && (!pedido.AtivoId.HasValue || x.AtivoId == pedido.AtivoId), ct)
                     ? Ok(new RespostaApi<LoteTesouroResposta>(Mapear(lote))) : Conflito("O lote já foi confirmado para outro ativo.");
             if (lote.Estado != "Pendente" || carteira.Version != pedido.CarteiraVersao)
                 return Conflito("A carteira ou o lote mudou após a revisão.");
+            if (criacaoSemRevisao && vigentes.Any(decisao => decisao.TransacaoId.HasValue))
+                return Conflito("Esta prévia tem uma movimentação vinculada a uma operação manual de outra posição. Confira a operação manual na carteira. Se o vínculo estiver incorreto, exclua esta prévia e envie o HTML novamente; a exclusão remove as revisões da prévia. Se o vínculo estiver correto, a operação precisa ser conciliada antes de criar o título.");
+
+            var instituicaoDivergente = DeterminarInstituicaoDivergente(loteExibido.Previa, carteira);
+            if (instituicaoDivergente is not null)
+                return Conflito($"O extrato identifica {instituicaoDivergente}, mas a carteira está vinculada a {carteira.InstituicaoFinanceiraProfile!.Nome}. Escolha outra carteira vinculada à instituição identificada no extrato.");
 
             if (importacaoInicial && !await ImportacaoInicialTesouro.CarteiraDisponivelAsync(db, carteiraId, loteId, ct))
                 return Conflito("A carteira já possui histórico ou o lote possui revisões. Reabra a conciliação.");
 
             var previa = loteExibido.Previa;
-            if (lote.DataReferencia > DataCivil(DateTime.UtcNow) ||
-                (!importacaoInicial && previa.Movimentacoes.Count != vigentes.Count) ||
-                !ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out var saldoCalculado))
-                return Conflito("O extrato contém lacunas, posições inválidas, movimentações sem revisão ou data futura.");
+            if (lote.DataReferencia > DataCivil(DateTime.UtcNow))
+                return Conflito($"A data de referência do extrato ({lote.DataReferencia:dd/MM/yyyy}) ainda é futura. Use um extrato com data de referência de hoje ou anterior.");
+            if (!criacaoSemRevisao && previa.Movimentacoes.Count != vigentes.Count)
+                return Conflito("Revise todas as movimentações do extrato antes de confirmar.");
+            var saldoDisponivel = ConfirmacaoTesouro.TentarCalcularSaldo(previa, lote.DataReferencia, out var saldoCalculado);
+            if (pedido.CriarPosicao && !saldoDisponivel)
+                return Conflito("O extrato contém lacunas ou posições inválidas e não permite criar uma posição.");
 
             var ativoId = pedido.AtivoId;
             if (pedido.CriarPosicao)
@@ -161,6 +173,9 @@ public sealed class LotesTesouroController(
             var manuais = (await transacoes.GetByPortfolioIdAsync(carteiraId, ct))
                 .Where(x => x.AtivoId == ativoId && x.Type is TipoTransacao.Buy or TipoTransacao.Sell)
                 .ToDictionary(x => x.Id);
+            if (criacaoSemRevisao && (anterior is not null ||
+                manuais.Values.Any(x => DataCivil(x.TransactionDate) <= lote.DataReferencia)))
+                return Conflito("Este título já tem saldo-base ou movimentações manuais anteriores na carteira. Reabra a conciliação.");
             var loteAnterior = anterior is null ? null : await lotes.BuscarPorIdAsync(carteiraId, autor, anterior.LoteId, ct);
             PreviaTesouroDto? previaAnterior = null;
             if (loteAnterior is not null)
@@ -168,8 +183,24 @@ public sealed class LotesTesouroController(
                 try { previaAnterior = JsonSerializer.Deserialize<PreviaTesouroDto>(loteAnterior.PreviaJson); }
                 catch (JsonException) { previaAnterior = null; }
             }
+
+            // Na criação direta, decisões do fluxo antigo ficam no histórico sem vincular eventos.
+            var decisoesPorIndice = vigentes.Where(_ => !criacaoSemRevisao).ToDictionary(x => x.IndiceEvento);
+            var encerramento = !pedido.CriarPosicao && previa.Posicoes.Count == 0
+                ? CalculadorEncerramentoTesouro.Avaliar(previa, lote.DataReferencia, anterior, previaAnterior,
+                    manuais.Values.ToArray(), decisoesPorIndice)
+                : null;
+            var encerramentoComprovado = encerramento?.PodeEncerrar == true;
+            if (!saldoDisponivel && !encerramentoComprovado)
+                return Conflito(encerramento?.Motivo ?? "O extrato não contém uma posição que possa ser confirmada.");
+
+            var quantidadeProposta = encerramentoComprovado ? 0m : saldoCalculado.Quantidade;
+            var custoProposto = encerramentoComprovado ? 0m : saldoCalculado.CustoTotal;
+            var precoProposto = encerramentoComprovado ? anterior!.PrecoUnitario : saldoCalculado.PrecoUnitario;
+
             var comparacao = pedido.CriarPosicao ? null : ComparadorSnapshotTesouro.Preparar(loteId, lote.HashConteudo,
-                carteira.Version, lote.DataReferencia, previa, anterior, previaAnterior, manuais.Values.ToArray(), saldoCalculado.Quantidade);
+                carteira.Version, lote.DataReferencia, previa, anterior, previaAnterior, manuais.Values.ToArray(),
+                quantidadeProposta, encerramento);
             var snapshotAceito = comparacao?.RequerAceite == true && pedido.AceitarDivergencias &&
                 string.Equals(comparacao.Hash, pedido.HashDivergencias, StringComparison.Ordinal);
             if (comparacao?.RequerAceite == true && !snapshotAceito)
@@ -177,10 +208,9 @@ public sealed class LotesTesouroController(
             var vinculadas = new HashSet<Guid>();
             var oficiais = new List<EventoOficialTesouro>();
             var agora = DateTime.UtcNow;
-            var decisoesPorIndice = vigentes.ToDictionary(x => x.IndiceEvento);
             for (var indice = 0; indice < previa.Movimentacoes.Count; indice++)
             {
-                if (!decisoesPorIndice.TryGetValue(indice, out var decisao) && !importacaoInicial)
+                if (!decisoesPorIndice.TryGetValue(indice, out var decisao) && !criacaoSemRevisao)
                     return Conflito("Uma movimentação do extrato está sem revisão.");
                 var evento = previa.Movimentacoes[indice];
                 var m = evento.DadosInterpretados;
@@ -219,7 +249,7 @@ public sealed class LotesTesouroController(
                 await db.SaveChangesAsync(ct);
             }
             var saldo = new BasePosicaoTesouro(Guid.NewGuid(), loteId, carteiraId, ativoId!.Value,
-                lote.DataReferencia, saldoCalculado.Quantidade, saldoCalculado.CustoTotal, saldoCalculado.PrecoUnitario);
+                lote.DataReferencia, quantidadeProposta, custoProposto, precoProposto);
             saldo.Ativar();
             db.Add(saldo);
             db.AddRange(oficiais);
@@ -256,6 +286,23 @@ public sealed class LotesTesouroController(
 
     private const int MaximoArquivo = 10 * 1024 * 1024;
     private const int MaximoRequisicao = MaximoArquivo + 64 * 1024;
+
+    private static string? DeterminarInstituicaoDivergente(PreviaTesouroDto previa, Carteira? carteira)
+    {
+        var instituicaoExtrato = previa.InstituicaoHtml;
+        var instituicaoCarteira = carteira?.InstituicaoFinanceiraProfile;
+        if (string.IsNullOrWhiteSpace(instituicaoExtrato) || instituicaoCarteira is null ||
+            carteira?.InstituicaoFinanceiraId is null)
+            return null;
+
+        var nomeExtrato = InstituicaoFinanceira.NormalizeName(instituicaoExtrato).TrimEnd('.', ',');
+        if (nomeExtrato is "XP INVESTIMENTOS CCTVM S/A" or "XP INVESTIMENTOS CCTVM SA")
+            nomeExtrato = "XP INVESTIMENTOS";
+
+        return string.Equals(nomeExtrato, instituicaoCarteira.NomeNormalizado, StringComparison.Ordinal)
+            ? null
+            : instituicaoExtrato;
+    }
 
     [HttpPost]
     [RequestSizeLimit(MaximoRequisicao)]
@@ -298,16 +345,42 @@ public sealed class LotesTesouroController(
             if (arquivo.Length == 0 || await multipart.ReadNextSectionAsync(cancellationToken) is not null) return ArquivoInvalido();
             var hash = Convert.ToHexString(SHA256.HashData(arquivo.GetBuffer().AsSpan(0, checked((int)arquivo.Length)))).ToLowerInvariant();
             var formato = extensao == ".htm" ? "html" : extensao[1..];
+            arquivo.Position = 0;
+            var previa = leitor.Ler(carteiraId, formato, arquivo);
+            var carteira = await carteiras.GetByIdForUserAsync(carteiraId, usuarioId.Value.ToString(), cancellationToken);
+            var instituicaoDivergente = DeterminarInstituicaoDivergente(previa, carteira);
+            if (instituicaoDivergente is not null)
+            {
+                return Problem(
+                    detail: $"O extrato identifica {instituicaoDivergente}, mas a carteira está vinculada a {carteira!.InstituicaoFinanceiraProfile!.Nome}. Escolha outra carteira vinculada à instituição identificada no extrato.",
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Instituição do extrato diverge da carteira",
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["codigo"] = "tesouro_instituicao_diverge_da_carteira"
+                    });
+            }
+            if (previa.MesReferencia is int mesReferencia && previa.AnoReferencia is int anoReferencia &&
+                (dataReferencia.Value.Month != mesReferencia || dataReferencia.Value.Year != anoReferencia))
+            {
+                var mes = CultureInfo.GetCultureInfo("pt-BR").DateTimeFormat.GetMonthName(mesReferencia);
+                return Problem(
+                    detail: $"O extrato informa posição em {mes} de {anoReferencia}. Escolha uma data desse mês e ano.",
+                    statusCode: StatusCodes.Status400BadRequest,
+                    title: "Data de referência incompatível",
+                    extensions: new Dictionary<string, object?>
+                    {
+                        ["codigo"] = "tesouro_data_referencia_mes_ano_incompativel"
+                    });
+            }
+
+            var previaJson = JsonSerializer.Serialize(previa);
             var existente = await db.Set<LoteImportacaoTesouro>().AsNoTracking().FirstOrDefaultAsync(
                 x => x.CarteiraId == carteiraId && x.UsuarioId == usuarioId.Value &&
                     x.HashConteudo == hash && x.DataReferencia == dataReferencia.Value, cancellationToken);
             if (existente is not null && existente.Formato != formato) return ArquivoInvalido();
             if (existente?.Estado == "Confirmado")
                 return Ok(new RespostaApi<LoteTesouroResposta>(Mapear(existente)));
-
-            arquivo.Position = 0;
-            var previa = leitor.Ler(carteiraId, formato, arquivo);
-            var previaJson = JsonSerializer.Serialize(previa);
             try
             {
                 existente = await BuscarOuAtualizarPreviaPendenteAsync(carteiraId, usuarioId.Value, hash,
@@ -353,6 +426,21 @@ public sealed class LotesTesouroController(
         {
             return ArquivoInvalido();
         }
+    }
+
+    [HttpDelete("{loteId:guid}")]
+    public async Task<IActionResult> ExcluirPrevia(Guid carteiraId, Guid loteId, CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "no-store";
+        if (usuario.UserId is not Guid autor || !await PodeGerenciar(carteiraId, autor, ct)) return NotFound();
+        if (!db.Database.IsNpgsql()) return StatusCode(503);
+        var excluidos = await db.Set<LoteImportacaoTesouro>()
+            .Where(l => l.Id == loteId && l.CarteiraId == carteiraId && l.UsuarioId == autor && l.Estado == "Pendente")
+            .ExecuteDeleteAsync(ct);
+        if (excluidos == 1) return NoContent();
+        return await lotes.BuscarPorIdAsync(carteiraId, autor, loteId, ct) is null
+            ? NotFound()
+            : Conflict(new RespostaApi<object>(null!, false, "Somente prévias pendentes podem ser excluídas."));
     }
 
     [HttpGet("{loteId:guid}")]

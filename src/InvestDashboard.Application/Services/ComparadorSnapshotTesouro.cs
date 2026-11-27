@@ -16,7 +16,7 @@ public static class ComparadorSnapshotTesouro
     public static ComparacaoSnapshotTesouroDto? Preparar(Guid loteAtualId, string hashConteudoAtual, int carteiraVersao,
         DateOnly dataReferenciaAtual, PreviaTesouroDto previaAtual, BasePosicaoTesouro? baseAnterior,
         PreviaTesouroDto? previaAnterior, IReadOnlyCollection<Transacao> transacoes,
-        decimal? quantidadeAtual)
+        decimal? quantidadeAtual, EncerramentoPosicaoTesouroDto? encerramentoPosicao = null)
     {
         if (baseAnterior is null && previaAnterior is null && transacoes.Count == 0)
             return null;
@@ -41,9 +41,17 @@ public static class ComparadorSnapshotTesouro
         }
 
         if (previaAtual.Posicoes.Count == 0 && (baseAnterior is not null || previaAnterior is not null))
-            Adicionar(divergencias, "posicao_nao_observada", "posicao",
-                "Este arquivo não apresenta uma posição interpretável do título. A ausência não comprova encerramento nem saldo zero; a base anterior não será substituída.",
-                baseAnterior is null ? null : $"{baseAnterior.DataReferencia:yyyy-MM-dd} · quantidade {Numero(baseAnterior.Quantidade)}", null);
+        {
+            if (encerramentoPosicao?.PodeEncerrar == true)
+                Adicionar(divergencias, "posicao_encerrada_por_venda", "posicao",
+                    encerramentoPosicao.Motivo,
+                    baseAnterior is null ? null : $"{baseAnterior.DataReferencia:yyyy-MM-dd} · quantidade {Numero(baseAnterior.Quantidade)}",
+                    Numero(encerramentoPosicao.QuantidadeReconciliada));
+            else if (baseAnterior?.Quantidade is > 0 || baseAnterior is null)
+                Adicionar(divergencias, "posicao_nao_observada", "posicao",
+                    "Este arquivo não apresenta uma posição interpretável do título. A ausência não comprova encerramento nem saldo zero; a base anterior não será substituída.",
+                    baseAnterior is null ? null : $"{baseAnterior.DataReferencia:yyyy-MM-dd} · quantidade {Numero(baseAnterior.Quantidade)}", null);
+        }
 
         foreach (var manual in transacoesNaJanela)
             Adicionar(divergencias, "movimento_manual_na_janela", manual.Id.ToString("N"),
@@ -77,6 +85,7 @@ public static class ComparadorSnapshotTesouro
             dataBaseAnterior,
             quantidadeAnterior,
             quantidadeAtual,
+            encerramentoPosicao,
             movimentosManuais = transacoesNaJanela.Select(item => new
             {
                 item.Id,
@@ -123,6 +132,7 @@ public static class ComparadorSnapshotTesouro
         IReadOnlyList<PosicaoPreviaTesouroDto> atual, List<DivergenciaSnapshotTesouroDto> divergencias)
     {
         var contagens = Contar(atual.Select(ChavePosicao));
+        var contagensAnteriores = Contar(anterior.Select(ChavePosicao));
         foreach (var linha in anterior)
         {
             var chave = ChavePosicao(linha);
@@ -138,17 +148,34 @@ public static class ComparadorSnapshotTesouro
                 "Uma linha de posição anterior não foi encontrada neste snapshot; isso não prova encerramento.",
                 ResumoPosicao(linha), null);
         }
+
+        foreach (var linha in atual)
+        {
+            var chave = ChavePosicao(linha);
+            if (chave is null || !Consumir(contagensAnteriores, chave))
+                Adicionar(divergencias, "linha_posicao_nova", chave is null ? linha.NumeroLinha.ToString(CultureInfo.InvariantCulture) : HashTexto(chave),
+                    "Uma linha de aplicação nova foi identificada neste snapshot.", null, ResumoPosicao(linha));
+        }
     }
 
     private static void CompararMovimentacoes(IReadOnlyList<MovimentoPreviaTesouroDto> anterior,
         IReadOnlyList<MovimentoPreviaTesouroDto> atual, List<DivergenciaSnapshotTesouroDto> divergencias)
     {
         var contagens = Contar(atual.Select(ChaveMovimento));
-        foreach (var grupo in anterior.Select(ChaveMovimento).Where(x => x is not null).GroupBy(x => x!, StringComparer.Ordinal))
-            if (grupo.Count() > 1 || contagens.GetValueOrDefault(grupo.Key) > 1)
-                Adicionar(divergencias, "evento_ambiguo", HashTexto(grupo.Key),
+        var contagensAnteriores = Contar(anterior.Select(ChaveMovimento));
+        var chavesAmbiguas = anterior.Select(ChaveMovimento).Where(x => x is not null).Cast<string>()
+            .Concat(atual.Select(ChaveMovimento).Where(x => x is not null).Cast<string>())
+            .Distinct(StringComparer.Ordinal)
+            .Where(chave => contagensAnteriores.GetValueOrDefault(chave) > 1 || contagens.GetValueOrDefault(chave) > 1);
+        foreach (var chave in chavesAmbiguas)
+        {
+            var anteriores = contagensAnteriores.GetValueOrDefault(chave);
+            var atuais = contagens.GetValueOrDefault(chave);
+            if (anteriores > 1 || atuais > 1)
+                Adicionar(divergencias, "evento_ambiguo", HashTexto(chave),
                     "Há eventos com campos iguais; não é possível confirmar sua identidade entre arquivos.",
-                    $"Ocorrências anteriores: {grupo.Count()}", $"Ocorrências atuais: {contagens.GetValueOrDefault(grupo.Key)}");
+                    $"Ocorrências anteriores: {anteriores}", $"Ocorrências atuais: {atuais}");
+        }
         foreach (var movimento in anterior)
         {
             var chave = ChaveMovimento(movimento);
@@ -163,6 +190,14 @@ public static class ComparadorSnapshotTesouro
             Adicionar(divergencias, "evento_nao_observado", HashTexto(chave),
                 "Um evento anterior não foi encontrado neste snapshot; verifique a cobertura do arquivo.",
                 ResumoMovimento(movimento), null);
+        }
+
+        foreach (var movimento in atual)
+        {
+            var chave = ChaveMovimento(movimento);
+            if (chave is null || !Consumir(contagensAnteriores, chave))
+                Adicionar(divergencias, "evento_novo", chave is null ? HashTexto(JsonSerializer.Serialize(movimento.Campos)) : HashTexto(chave),
+                    "Uma movimentação nova foi identificada neste snapshot.", null, ResumoMovimento(movimento));
         }
     }
 

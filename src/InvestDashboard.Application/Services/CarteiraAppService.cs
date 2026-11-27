@@ -313,12 +313,15 @@ namespace InvestDashboard.Application.Services
                 throw new AuthenticationException("Authentication is required.");
 
             await RequireActiveGroupMembershipAsync(grupoId, userId);
+            var nomesGrupo = (await _grupoRepository.GetGroupsForUserAsync(userId))
+                .ToDictionary(item => item.Group.Id, item => item.Group.Name);
 
             if (portfolioId.HasValue)
             {
                 var ownedPortfolio = await _carteiraRepository.GetByIdForUserAsync(portfolioId.Value, userId);
                 return ownedPortfolio is not null && (!grupoId.HasValue || ownedPortfolio.GrupoId == grupoId)
-                    ? ownedPortfolio.Positions.Select(position => MapToPositionDto(position, ownedPortfolio)).ToList()
+                    ? ownedPortfolio.Positions.Select(position => MapToPositionDto(position, ownedPortfolio,
+                        ownedPortfolio.GrupoId is Guid idGrupoPosicao && nomesGrupo.TryGetValue(idGrupoPosicao, out var nomeGrupo) ? nomeGrupo : null)).ToList()
                     : [];
             }
 
@@ -328,7 +331,47 @@ namespace InvestDashboard.Application.Services
             {
                 var portfolios = await _carteiraRepository.GetByUserIdPageAsync(userId, skip, 100, grupoId);
                 positions.AddRange(portfolios.SelectMany(portfolio => portfolio.Positions
-                    .Select(position => MapToPositionDto(position, portfolio))));
+                    .Select(position => MapToPositionDto(position, portfolio,
+                        portfolio.GrupoId is Guid idGrupoPosicao && nomesGrupo.TryGetValue(idGrupoPosicao, out var nomeGrupo) ? nomeGrupo : null))));
+            }
+
+            return positions;
+        }
+
+        public async Task<IReadOnlyList<PosicaoInvestimentoDto>> GetConsolidatedPositionsAsync(
+            Guid? portfolioId = null, Guid? grupoId = null)
+        {
+            var positions = (await GetUserPositionsAsync(portfolioId, grupoId)).ToList();
+            if (positions.Count == 0) return positions;
+
+            var tesouroPositions = positions
+                .Where(position => position.Subtype == "TESOURO_DIRETO")
+                .ToArray();
+            var latestValuations = await _valuacaoPosicaoRepository.GetLatestByPositionIdsAsync(
+                tesouroPositions.Select(position => position.Id).ToArray());
+            var valuationsByPosition = latestValuations.ToDictionary(valuation => valuation.PosicaoId);
+            foreach (var carteiraId in tesouroPositions.Select(position => position.CarteiraId).Distinct())
+            {
+                var basesAtivas = await _basesTesouro.GetAtivasAsync(carteiraId);
+                foreach (var basePosicao in basesAtivas)
+                {
+                    var position = tesouroPositions.FirstOrDefault(candidate =>
+                        candidate.CarteiraId == carteiraId && candidate.AtivoId == basePosicao.AtivoId);
+                    if (position is null) continue;
+
+                    valuationsByPosition.TryGetValue(position.Id, out var latestValuation);
+                    var valuationIsAtOrAfterBase = latestValuation is not null &&
+                        DateOnly.FromDateTime(latestValuation.DataObservadaUtc) >= basePosicao.DataReferencia;
+                    if (valuationIsAtOrAfterBase)
+                    {
+                        if (latestValuation!.PrecoUnitario == position.CurrentPrice)
+                            position.DataAvaliacao = DateOnly.FromDateTime(latestValuation.DataObservadaUtc);
+                        continue;
+                    }
+
+                    if (basePosicao.PrecoUnitario == position.CurrentPrice)
+                        position.DataAvaliacao = basePosicao.DataReferencia;
+                }
             }
 
             return positions;
@@ -837,7 +880,8 @@ namespace InvestDashboard.Application.Services
             return parsed;
         }
 
-        private static PosicaoInvestimentoDto MapToPositionDto(PosicaoInvestimento pos, Carteira? carteira = null)
+        private static PosicaoInvestimentoDto MapToPositionDto(PosicaoInvestimento pos, Carteira? carteira = null,
+            string? grupoNome = null)
         {
             return new PosicaoInvestimentoDto
             {
@@ -845,6 +889,9 @@ namespace InvestDashboard.Application.Services
                 CarteiraId = pos.CarteiraId,
                 CarteiraNome = carteira?.Name,
                 GrupoId = carteira?.GrupoId,
+                GrupoNome = grupoNome,
+                TitularId = carteira?.TitularId,
+                InstituicaoFinanceiraId = carteira?.InstituicaoFinanceiraId,
                 Titular = carteira?.TitularProfile?.Nome ?? carteira?.Titular,
                 InstituicaoFinanceira = carteira?.InstituicaoFinanceiraProfile?.Nome ?? carteira?.InstituicaoFinanceira,
                 AtivoId = pos.AtivoId,
@@ -859,6 +906,10 @@ namespace InvestDashboard.Application.Services
                     _ => null
                 },
                 Status = pos.Quantity <= 0 ? "closed" : pos.MaturedAtUtc.HasValue ? "matured" : "open",
+                DataAvaliacao = pos.TipoAtivo != TipoAtivo.RendaFixa && pos.Ativo is not null &&
+                    pos.Ativo.LastUpdatedUtc > DateTime.MinValue
+                    ? DateOnly.FromDateTime(pos.Ativo.LastUpdatedUtc)
+                    : null,
                 PurchaseDate = pos.PurchaseDateUtc,
                 Issuer = (pos.Ativo as RendaFixa)?.Issuer,
                 InterestRate = pos.Ativo is RendaFixa { Subtype: not "TESOURO_DIRETO" } fixedIncome ? fixedIncome.InterestRate : null,

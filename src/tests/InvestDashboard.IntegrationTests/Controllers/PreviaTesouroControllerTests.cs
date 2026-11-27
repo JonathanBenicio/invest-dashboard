@@ -31,6 +31,10 @@ public sealed class PreviaTesouroControllerTests
         </div>
         """;
 
+    private static string HtmlComCabecalho(string cabecalho) => Html.Replace(
+        "<h1 class=\"td-meus-investimentos-detalhe__titulo_card\">Tesouro Prefixado 2035</h1>",
+        $"<h1 class=\"td-meus-investimentos-detalhe__titulo_card\">Tesouro Prefixado 2035</h1>{cabecalho}");
+
     [Fact]
     public async Task SemAutenticacao_EscondeConteudo()
     {
@@ -70,6 +74,9 @@ public sealed class PreviaTesouroControllerTests
         dados.GetProperty("carteiraId").GetGuid().Should().Be(carteira);
         dados.GetProperty("formato").GetString().Should().Be("html");
         dados.GetProperty("vencimento").GetString().Should().Be("2035-01-01");
+        dados.GetProperty("mesReferencia").ValueKind.Should().Be(JsonValueKind.Null);
+        dados.GetProperty("anoReferencia").ValueKind.Should().Be(JsonValueKind.Null);
+        dados.GetProperty("instituicaoHtml").ValueKind.Should().Be(JsonValueKind.Null);
         dados.GetProperty("movimentacoes").GetArrayLength().Should().Be(1);
         dados.GetProperty("podeConfirmar").GetBoolean().Should().BeFalse();
         dados.GetProperty("coberturaCompleta").GetBoolean().Should().BeFalse();
@@ -80,6 +87,31 @@ public sealed class PreviaTesouroControllerTests
         using var transacoes = await client.GetAsync($"/api/v1/transactions/portfolio/{carteira}");
         using var transacoesJson = JsonDocument.Parse(await transacoes.Content.ReadAsStringAsync());
         transacoesJson.RootElement.GetProperty("dados").GetArrayLength().Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Html_DevolveReferenciaMensalEInstituicaoDoCabecalhoNaPrevia()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var client = Autenticado(factory);
+        var carteira = await CriarCarteira(client);
+        const string cabecalho = """
+            <h2>Posição em Novembro/2026</h2>
+            <div class="td-meus-investimentos-detalhe-box">
+              <div class="td-meus-investimentos-deatlhe-instituicao">
+                <p class="td-meus-investimentos-deatlhe-instituicao__info"><span class="td-meus-investimentos-deatlhe-instituicao__nome">Instituição sintética CTVM S/A</span></p>
+              </div>
+            </div>
+            """;
+        using var resposta = await Postar(client, carteira, Encoding.UTF8.GetBytes(HtmlComCabecalho(cabecalho)), "extrato.html");
+
+        resposta.StatusCode.Should().Be(HttpStatusCode.OK, await resposta.Content.ReadAsStringAsync());
+        using var json = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
+        var previa = json.RootElement.GetProperty("dados");
+        previa.GetProperty("mesReferencia").GetInt32().Should().Be(11);
+        previa.GetProperty("anoReferencia").GetInt32().Should().Be(2026);
+        previa.GetProperty("instituicaoHtml").GetString().Should().Be("Instituição sintética CTVM S/A");
+        previa.GetProperty("secaoPosicoesReconhecida").GetBoolean().Should().BeFalse();
     }
 
     [Fact]

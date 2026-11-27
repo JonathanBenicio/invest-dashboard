@@ -18,9 +18,18 @@ public sealed class TesouroDiretoHtmlReaderTests
         </div>
         """;
 
-    private static string Documento(string cartoes) => $$"""
+    private const string CabecalhosPosicao = """
+        <tr class="saldo-table-vencimento"><th colspan="16">VENCIMENTO</th></tr>
+        <tr class="saldo-table-headers"><th colspan="6">CABEÇALHO</th><th colspan="10">CABEÇALHO</th></tr>
+        <tr class="saldo-table-data-names"><td></td><td>DATA DA APLICAÇÃO</td><td>QUANTIDADE DE TÍTULOS</td><td>PREÇO DO TÍTULO NA APLICAÇÃO</td><td>VALOR INVESTIDO</td><td>RENTABILIDADE CONTRATADA</td></tr>
+        <tr class="saldo-table-data-names"><td colspan="2">RENTABILIDADE CONTRATADA</td><td>VALOR BRUTO</td><td>TEMPO DA APLICAÇÃO</td><td>ALÍQUOTA</td><td colspan="2">IMPOSTO PREVISTO</td><td colspan="2">TAXA DEVIDA</td><td>VALOR LÍQUIDO</td></tr>
+        <tr class="saldo-table-data-names"><td>ANUALIZADA</td><td>ACUMULADA</td><td>I.R.</td><td>IOF</td><td>B3</td><td>INSTITUIÇÃO FINANCEIRA</td></tr>
+        """;
+
+    private static string Documento(string cartoes, params string[] referencias) => $$"""
         <div class="td-custom-meus-investimentos-titulo">
           <h1 class="td-meus-investimentos-detalhe__titulo_card">Tesouro Prefixado 2035</h1>
+          {{string.Concat(referencias.Select(referencia => $"<h2>{referencia}</h2>"))}}
           <table><tbody><tr class="saldo-table-vencimento"><th><strong>VENCIMENTO: 01/01/2035</strong></th></tr></tbody></table>
           {{cartoes}}
         </div>
@@ -40,6 +49,80 @@ public sealed class TesouroDiretoHtmlReaderTests
             "02/03/2024", "Informação sintética", "Compra", "0,01", "123,45", "10,00", "1,23");
         resultado.Movimentacoes[0].Campos[1].Rotulo.Should().Be("Campo adicional:");
         resultado.Movimentacoes[1].Campos[2].Valor.Should().Be("Venda");
+    }
+
+    [Fact]
+    public void Ler_ExtraiMesEAnoDaReferenciaVisivelDoExtrato()
+    {
+        var resultado = new TesouroDiretoHtmlReader().Ler(Documento(Cartao, "Posição em Novembro/2026"));
+
+        resultado.MesReferencia.Should().Be(11);
+        resultado.AnoReferencia.Should().Be(2026);
+    }
+
+    [Fact]
+    public void Ler_ExtraiReferenciaDoTextoDoBlocoSemMisturarValorFilho()
+    {
+        var cabecalho = "<div class=\"td-meu-investimento-titulo\">Posição em Novembro/2026<span class=\"td-meu-investimento-titulo--valor\">Saldo sintético</span></div>";
+        var html = Documento(Cartao).Replace("</h1>", "</h1>" + cabecalho);
+
+        var resultado = new TesouroDiretoHtmlReader().Ler(html);
+
+        resultado.MesReferencia.Should().Be(11);
+        resultado.AnoReferencia.Should().Be(2026);
+    }
+
+    [Fact]
+    public void Ler_ExtraiInstituicaoDoCabecalhoSemUsarTextoDeOutrosCampos()
+    {
+        const string instituicao = """
+            <div class="td-meus-investimentos-detalhe-box">
+              <div class="td-meus-investimentos-deatlhe-instituicao">
+                <p class="td-meus-investimentos-deatlhe-instituicao__info"><span class="td-meus-investimentos-deatlhe-instituicao__nome">Instituição sintética CTVM S/A</span></p>
+              </div>
+            </div>
+            """;
+        var html = Documento(Cartao, "Posição em Novembro/2026").Replace("</h1>", "</h1>" + instituicao);
+
+        var resultado = new TesouroDiretoHtmlReader().Ler(html);
+
+        resultado.InstituicaoHtml.Should().Be("Instituição sintética CTVM S/A");
+    }
+
+    [Fact]
+    public void Ler_DeixaInstituicaoVaziaQuandoOIdentificadorDoCabecalhoEstaDuplicado()
+    {
+        const string instituicao = """
+            <div class="td-meus-investimentos-detalhe-box">
+              <div class="td-meus-investimentos-deatlhe-instituicao">
+                <p class="td-meus-investimentos-deatlhe-instituicao__info"><span class="td-meus-investimentos-deatlhe-instituicao__nome">Instituição sintética CTVM S/A</span></p>
+              </div>
+            </div>
+            """;
+        var html = Documento(Cartao).Replace("</h1>", "</h1>" + instituicao + instituicao);
+
+        var resultado = new TesouroDiretoHtmlReader().Ler(html);
+
+        resultado.InstituicaoHtml.Should().BeNull();
+    }
+
+    [Fact]
+    public void Ler_DeixaReferenciaManualQuandoCabecalhosConflitam()
+    {
+        var resultado = new TesouroDiretoHtmlReader().Ler(Documento(Cartao,
+            "Posição em Novembro/2026", "Posição em Dezembro/2026"));
+
+        resultado.MesReferencia.Should().BeNull();
+        resultado.AnoReferencia.Should().BeNull();
+    }
+
+    [Fact]
+    public void Ler_DeixaReferenciaManualQuandoFormatoNaoEhReconhecido()
+    {
+        var resultado = new TesouroDiretoHtmlReader().Ler(Documento(Cartao, "Posição em Novemb/2026"));
+
+        resultado.MesReferencia.Should().BeNull();
+        resultado.AnoReferencia.Should().BeNull();
     }
 
     [Fact]
@@ -72,6 +155,67 @@ public sealed class TesouroDiretoHtmlReaderTests
         var semCartoes = new TesouroDiretoHtmlReader().Ler(Documento(tabela));
         semCartoes.Posicoes.Should().ContainSingle();
         semCartoes.Movimentacoes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Ler_MarcaSecaoDePosicoesReconhecidaMesmoQuandoATabelaEstaVazia()
+    {
+        var tabela = $"<table><tbody>{CabecalhosPosicao}</tbody></table>";
+
+        var resultado = new TesouroDiretoHtmlReader().Ler(Documento(Cartao + tabela));
+
+        resultado.Posicoes.Should().BeEmpty();
+        resultado.SecaoPosicoesReconhecida.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Ler_NaoMarcaSecaoReconhecidaQuandoTabelaVaziaTemLinhaDeClasseDesconhecida()
+    {
+        var tabela = $"<table><tbody>{CabecalhosPosicao}<tr class=\"saldo-table-dados-alternativos\"><td>Saldo sintético</td></tr></tbody></table>";
+
+        var resultado = new TesouroDiretoHtmlReader().Ler(Documento(Cartao + tabela));
+
+        resultado.Posicoes.Should().BeEmpty();
+        resultado.SecaoPosicoesReconhecida.Should().BeFalse();
+        resultado.Movimentacoes.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void Ler_ExigeCelulasDeCabecalhoEmThParaReconhecerSecaoVazia()
+    {
+        var cabecalhosInvalidos = CabecalhosPosicao
+            .Replace("<th colspan=\"6\">", "<td colspan=\"6\">")
+            .Replace("</th><th colspan=\"10\">", "</td><td colspan=\"10\">")
+            .Replace("</th>", "</td>");
+        var tabela = $"<table><tbody>{cabecalhosInvalidos}</tbody></table>";
+
+        var resultado = new TesouroDiretoHtmlReader().Ler(Documento(Cartao + tabela));
+
+        resultado.Posicoes.Should().BeEmpty();
+        resultado.SecaoPosicoesReconhecida.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Ler_NaoCombinaCabecalhosEDadosDePosicaoEmTabelasDiferentes()
+    {
+        const string tabelaDados = """
+            <table><tbody><tr class="saldo-table-data-values"><td></td><td>02/03/2024</td><td>0,01</td><td>123,45</td><td>1,23</td><td>10%</td><td>11%</td><td>2%</td><td>1,25</td><td>30</td><td>22,5%</td><td>0,01</td><td>0,00</td><td>0,01</td><td>0,00</td><td>1,23</td></tr></tbody></table>
+            """;
+        var documento = Documento(Cartao + $"<table><tbody>{CabecalhosPosicao}</tbody></table>" + tabelaDados);
+
+        var resultado = new TesouroDiretoHtmlReader().Ler(documento);
+
+        resultado.Posicoes.Should().BeEmpty();
+        resultado.SecaoPosicoesReconhecida.Should().BeFalse();
+        resultado.Movimentacoes.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void Ler_NaoMarcaSecaoDePosicoesQuandoATabelaEstaAusente()
+    {
+        var resultado = new TesouroDiretoHtmlReader().Ler(Documento(Cartao));
+
+        resultado.SecaoPosicoesReconhecida.Should().BeFalse();
     }
 
     [Fact]

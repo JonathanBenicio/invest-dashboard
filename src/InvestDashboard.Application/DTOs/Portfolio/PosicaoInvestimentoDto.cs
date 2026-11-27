@@ -10,6 +10,9 @@ namespace InvestDashboard.Application.DTOs.Portfolio
         public Guid CarteiraId { get; set; }
         public string? CarteiraNome { get; set; }
         public Guid? GrupoId { get; set; }
+        public string? GrupoNome { get; set; }
+        public Guid? TitularId { get; set; }
+        public Guid? InstituicaoFinanceiraId { get; set; }
         public string? Titular { get; set; }
         public string? InstituicaoFinanceira { get; set; }
         [JsonPropertyName("ativoId")]
@@ -21,6 +24,7 @@ namespace InvestDashboard.Application.DTOs.Portfolio
         public string Subtype { get; set; } = string.Empty; // e.g., 'CDB', 'ACAO', 'FII'
         public string? Sector { get; set; }
         public string Status { get; set; } = "open";
+        public DateOnly? DataAvaliacao { get; set; }
         public decimal Quantity { get; set; }
         public decimal AveragePrice { get; set; }
         public decimal CurrentPrice { get; set; }

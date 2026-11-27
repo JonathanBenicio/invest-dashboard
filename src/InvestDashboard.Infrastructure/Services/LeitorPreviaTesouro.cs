@@ -20,7 +20,8 @@ public sealed class LeitorPreviaTesouro : ILeitorPreviaTesouro
                     m.Campos.Select(c => new CampoPreviaTesouroDto(c.Rotulo, c.Valor)).ToArray(), InterpretarMovimento(m))).ToArray(), [],
                 ["A leitura pode não identificar todo o histórico do arquivo; revise os dados antes de usá-los.",
                  "A visibilidade dos elementos por CSS não foi verificada.",
-                 "Esta leitura não registra nem concilia movimentações."], true, false, false);
+                 "Esta leitura não registra nem concilia movimentações."], true, false, false,
+                extrato.MesReferencia, extrato.AnoReferencia, extrato.InstituicaoHtml, extrato.SecaoPosicoesReconhecida);
         }
 
         if (formato == "xlsx")

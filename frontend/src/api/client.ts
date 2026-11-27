@@ -12,6 +12,7 @@ interface RequestOptions extends Omit<RequestInit, 'method' | 'body'> {
 
 interface ApiProblem {
   message?: string
+  mensagem?: string
   title?: string
   detail?: string
   code?: string
@@ -42,7 +43,7 @@ const readProblem = async (response: Response): Promise<ApiProblem> =>
   response.json().catch(() => ({} as ApiProblem))
 
 const errorMessage = (error: ApiProblem, statusText: string) =>
-  error.detail || error.message || error.title || statusText
+  error.detail || error.message || error.mensagem || error.title || statusText
 
 const handleResponse = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {

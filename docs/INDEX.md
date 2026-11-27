@@ -30,18 +30,22 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Registro histórico 0001: stack e padrão arquitetural](adrs/0001-core-tech-stack.md)
 - [ADRs existentes](adrs/) — localização canônica atual para novos ADRs; mantida para evitar movimentação desnecessária.
 - [Proposta: avaliações de renda fixa por posição](adrs/0002-position-scoped-valuations.md) — implementação validada localmente; status ainda proposto até revisão.
-- [ADR-0004: revisão auditável de divergências entre snapshots do Tesouro](adrs/0004-tesouro-reimportacao-snapshots.md) — proposta de regra, com comparação e auditoria implementadas parcialmente no PR #62.
+- [ADR-0004: revisão auditável de divergências entre snapshots do Tesouro](adrs/0004-tesouro-reimportacao-snapshots.md) — decisão aceita; implementação e validações focadas no checkout.
 
 **Pendência editorial:** o registro de stack em `docs/0002-monorepo-tech-stack.md` e `docs/adrs/0001-core-tech-stack.md` se sobrepõe e ambos se declaram aceitos; além disso, o identificador `0001` é usado para decisões diferentes. Os caminhos são listados explicitamente para desambiguar a navegação. Nenhum registro foi renumerado, movido ou declarado substituído; resolver status e eventual consolidação exige decisão dos responsáveis.
 
+- [ADR-0005: consulta consolidada de investimentos](adrs/0005-consulta-consolidada-investimentos.md) — adotada, implementada e validada em testes focados.
+
 ## Planos existentes
+
+- [Investimentos consolidados por grupo](plan/investimentos-consolidados-por-grupo.md) — integração PostgreSQL e Playwright focados aprovados; conferência autenticada e publicação no PR #62 pendentes.
 
 - [Plano de implementação da plataforma](plan/plan.md) (preexistente; confirmar premissas antes de reutilizar)
 - [Importação de extrato do Tesouro Direto](plan/tesouro-direto-extrato-plano.md) — iniciativa #53, em refinamento.
-- [Extrato detalhado do Tesouro Direto](plan/tesouro-extrato-detalhado.md) — plano para consultar eventos oficiais nos detalhes do título.
-- [Teste de integração da importação inicial do Tesouro Direto](plan/tesouro-teste-integracao-importacao-inicial.md) — planejado; validação da API com carteira de teste.
-- [Refinamento da importação e dos dados de mercado do Tesouro Direto](plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md) — implementação parcial e pendências.
-- [Reimportação auditável de snapshots do Tesouro Direto](plan/tesouro-reimportacao-snapshots.md) — Issues #55/#57/#58; inclui revisão de posição ausente e prévia em tabelas; aguardam validação manual, rollback e concorrência.
+- [Extrato detalhado do Tesouro Direto](plan/tesouro-extrato-detalhado.md) — API e UI implementadas; leitura compartilhada e E2E responsivo validados.
+- [Fluxo guiado e teste de integração da importação inicial do Tesouro Direto](plan/tesouro-teste-integracao-importacao-inicial.md) — integração, calendário mensal e fluxo guiado focados passaram; conferência autenticada manual pendente.
+- [Refinamento da importação e dos dados de mercado do Tesouro Direto](plan/tesouro-direto-importacao-e-dados-mercado-refinamento.md) — regras de importação implementadas; avaliação de mercado permanece em trabalho futuro.
+- [Reimportação auditável de snapshots do Tesouro Direto](plan/tesouro-reimportacao-snapshots.md) — Issues #55/#57/#58; inclui referência do HTML, revisão de divergências e encerramento comprovado por venda integral.
 - [Gestão de carteira](plan/carteira.md)
 - [Fechamento dos gaps das telas que usavam mocks](plan/mock-era-parity.md)
 - [Correções da revisão do PR #44](plan/pr-44-review-fixes.md) — planejado; isolamento de extratos, avaliação cronológica e indicadores com cotação atual.
@@ -50,6 +54,8 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 
 ## Relatórios de validação
 
+- [Fechamento da importação e do agrupamento em 26/11/2026](validation/fechamento-importacao-agrupamento-2026-11-26.md)
+- [Importação e reimportação do Tesouro Direto em 25 e 26/11/2026](validation/tesouro-importacao-2026-11-25.md)
 - [Correções da revisão do PR #44](validation/pr-44-review-fixes.md)
 
 ## Guias existentes

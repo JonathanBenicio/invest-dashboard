@@ -46,4 +46,40 @@ public sealed class ConciliaTesouroTests
         var acao = () => ConciliaTesouro.Preparar(carteira, new DateOnly(2024, 1, 1), previa, Guid.NewGuid(), []);
         acao.Should().Throw<ArgumentException>();
     }
+
+    [Fact]
+    public void ListaSomentePosicoesDoTesouroComTituloEVencimentoCompativeis()
+    {
+        var carteira = new Carteira(Guid.NewGuid(), "usuario", "Carteira");
+        var vencimento = new DateTime(2035, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var compativel = new RendaFixa(Guid.NewGuid(), "TD2035", "Tesouro Prefixado 2035",
+            20m, DateTime.UtcNow, "PREFIXADO", null, vencimento, "Tesouro Nacional", "TESOURO_DIRETO");
+        var outroVencimento = new RendaFixa(Guid.NewGuid(), "TD2034", "Tesouro Prefixado 2035",
+            20m, DateTime.UtcNow, "PREFIXADO", null, vencimento.AddYears(-1), "Tesouro Nacional", "TESOURO_DIRETO");
+        var outroProduto = new RendaFixa(Guid.NewGuid(), "CDB2035", "CDB Prefixado 2035",
+            20m, DateTime.UtcNow, "PREFIXADO", 10m, vencimento, "Banco", "CDB");
+        var data = new DateTime(2024, 3, 2, 12, 0, 0, DateTimeKind.Utc);
+
+        void AdicionarPosicao(RendaFixa ativo)
+        {
+            var transacao = new Transacao(Guid.NewGuid(), "usuario", carteira.Id, ativo.Id, ativo.Ticker,
+                TipoTransacao.Buy, 1m, 20m, 0m, data);
+            carteira.ProcessTransaction(transacao, 20m, TipoAtivo.RendaFixa);
+            carteira.Positions.Single(position => position.AtivoId == ativo.Id).UpdateMarketAsset(ativo);
+        }
+
+        AdicionarPosicao(compativel);
+        AdicionarPosicao(outroVencimento);
+        AdicionarPosicao(outroProduto);
+        var previa = new PreviaTesouroDto(carteira.Id, "html", "portal_tesouro_html",
+            "Tesouro Prefixado 2035", "2035-01-01", null, [], [], [], [], true, false, false);
+
+        var resultado = ConciliaTesouro.Preparar(carteira, new DateOnly(2024, 3, 3), previa, null, []);
+
+        resultado.Ativos.Should().ContainSingle();
+        resultado.Ativos[0].AtivoId.Should().Be(compativel.Id);
+        resultado.Ativos[0].Ticker.Should().Be(compativel.Ticker);
+        resultado.Ativos[0].Nome.Should().Be(compativel.Name);
+        resultado.Ativos[0].Vencimento.Should().Be(DateOnly.FromDateTime(compativel.MaturityDate));
+    }
 }

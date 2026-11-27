@@ -14,10 +14,11 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 | US-TAX-002 | Imposto de Renda | Estimativa mensal versionada implementada em escopo limitado | Endpoint `GET /api/v1/taxes/estimativa-mensal` e análise exibem estimativa, fonte, versão e limitações. Vendas recentes podem informar modalidade; dados legados/sem modalidade são excluídos e marcados incompletos. Revisão profissional antes de release. |
 | US-PORT-001 | Histórico patrimonial | Posições, cotações e avaliações manuais com histórico | API/UI exibem origem/horário, preservam o último valor com aviso e omitem histórico incompleto. Teste live do `BrapiMarketDataClient` cobriu cotação, histórico e busca reais; limites/token da conta contratada seguem pendentes. Avaliação manual persiste no PostgreSQL; autenticação Supabase real não tem conta de homologação. |
 | US-PORT-002 | Visualização e filtragem | Implementada; filtros combinados cobertos em teste | Endpoint oferece tipo, subtipo, emissor, setor, status, busca e paginação. Teste cobre filtros combinados, ordenação e paginação em InMemory e PostgreSQL; CI de `a9ad5ac` passou. |
+| US-PORT-003 | [Consolidar investimentos por grupo](#us-port-003--consolidar-investimentos-por-grupo) | Implementada e validada em testes focados | Issue [#70](https://github.com/JonathanBenicio/invest-dashboard/issues/70), [Plano](plan/investimentos-consolidados-por-grupo.md) e [ADR-0005](adrs/0005-consulta-consolidada-investimentos.md). Conferência autenticada pendente. |
 | US-SIM-001 | Simulação de investimentos | API/UI integradas; taxa informada manualmente | [SimulacaoController](../src/InvestDashboard.WebAPI/Controllers/SimulacaoController.cs) recebe contrato PT-BR (`valorInicial`, `aporteMensal`, `taxaJurosAnual`) para estratégias determinística e Monte Carlo; frontend carrega estratégias da API (`nome/descricao`), exibe resultado e estado de erro. Seleção automática de taxa configurada ainda não integrada. |
 | US-COMP-001 | Análise de posições | Carteira/posições e CDI conectados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) lê carteira, posições, histórico e CDI diário do BCB SGS 12; normaliza ambas as séries em datas completas comuns e mostra origem/atualização. Ibovespa B3 foi movido a funcionalidade futura por decisão do usuário. |
 | US-IMPORT-001 | Importação CSV de operações | Importador genérico implementado; layouts reais aguardam amostras | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê e valida CSV, envia operações com idempotência e atualiza consultas. [E2E](../frontend/e2e-real-api/csv-import.spec.ts) percorre a UI sem MSW e confirma transações/posições no PostgreSQL. [Plano de análise de CSVs de corretoras](plan/broker-csv-import-plan.md) define o procedimento por layout; faltam amostras reais anonimizadas. |
-| US-IMPORT-002 | Reimportação auditável de snapshots HTML | Parcial; diff, aceite, revisão de posição ausente e prévia tabular implementados; validação manual pendente | Issues [#55](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57](https://github.com/JonathanBenicio/invest-dashboard/issues/57), [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58), [ADR-0004](adrs/0004-tesouro-reimportacao-snapshots.md) e [plano](plan/tesouro-reimportacao-snapshots.md). |
+| US-IMPORT-002 | Reimportação auditável de snapshots HTML | Implementada; validações focadas passaram, com conferência manual pendente | Issues [#55](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57](https://github.com/JonathanBenicio/invest-dashboard/issues/57), [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58), [ADR-0004](adrs/0004-tesouro-reimportacao-snapshots.md) e [plano](plan/tesouro-reimportacao-snapshots.md). |
 
 ## US-AUTH-001 — Autenticação segura
 
@@ -91,9 +92,10 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 
 ## US-IMPORT-002 — Reimportação auditável de snapshots HTML
 
-- Estado: implementação parcial no PR #62; comparação, auditoria, aceite de manual sem vínculo, posição não observada e prévia em tabelas estão implementados no commit `aa21a9c`. Builds e ESLint passam; validação manual, rollback e concorrência permanecem pendentes.
+- Estado: implementação e validações focadas concluídas no checkout; a sessão autenticada manual não foi conferida.
+- Evidência final: 49/49 integrações Tesouro/consolidação, 105/105 unitários e 11/11 E2E focados passaram em 26/11/2026. Ver relatório de validação atualizado.
 - Issues: [#55](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57](https://github.com/JonathanBenicio/invest-dashboard/issues/57) e [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58); iniciativa: [#53](https://github.com/JonathanBenicio/invest-dashboard/issues/53).
-- ADR: [0004 — revisão auditável de divergências entre snapshots](adrs/0004-tesouro-reimportacao-snapshots.md), proposta.
+- ADR: [0004 — revisão auditável de divergências entre snapshots](adrs/0004-tesouro-reimportacao-snapshots.md), aceita.
 - Plano: [reimportação auditável de snapshots do Tesouro Direto](plan/tesouro-reimportacao-snapshots.md).
 
 **Como** investidor, **quero** importar um snapshot HTML posterior e revisar diferenças de posições, eventos e movimentos manuais, **para** atualizar o saldo sem perder operações ou apagar dados por ausência no arquivo.
@@ -105,22 +107,43 @@ O sistema apresenta as linhas da prévia em tabelas, associa eventos HTML a movi
 ### Critérios de aceite verificáveis
 
 - [x] Dado uma base e um lote anterior do mesmo título, quando um snapshot posterior for preparado, então quantidade/saldo anterior e proposto e registros potencialmente ausentes são exibidos para revisão. Evidência: testes direcionados de serviço/API com snapshots sintéticos no commit `3adef8c`.
-- [ ] Dado evento ambíguo ou duplicado, quando revisar a conciliação, então o sistema não escolhe nem deduplica automaticamente e preserva as alternativas. Evidência: teste multiconjunto.
+- [x] Dado evento ambíguo ou duplicado, a conciliação não escolhe nem deduplica automaticamente e preserva alternativas. Coberto por testes do comparador e integração.
 - [x] Dado movimento manual sem evento correspondente, quando revisar o snapshot, então a confirmação fica bloqueada até o usuário aceitar explicitamente a nova base; a transação original e o aceite permanecem auditáveis. Evidência: teste PostgreSQL e E2E direcionada passaram em 18/11/2026.
-- [ ] Dada uma posição anterior e um HTML posterior sem posição interpretável, quando revisar, então a tela mostra que a posição não foi observada, sem propor saldo zero nem desativar a base; confirmar permanece bloqueado. Evidência: builds passaram; validação manual pendente.
-- [ ] Dada uma prévia com posições ou movimentações, quando visualizar, então os campos aparecem em tabelas com estado de interpretação, preservando os valores brutos do HTML. Evidência: ESLint e build Vite passaram; validação manual pendente.
-- [ ] Dada divergência de snapshot, quando o usuário revisa, então o registro inclui autor, lote, versão da carteira, hash comparado e decisão; alteração posterior invalida a revisão. Evidência: teste de obsolescência/concorrência.
-- [ ] Dado upload de um título que não contém outro título da carteira, quando o snapshot for comparado, então nenhuma posição externa ao escopo do arquivo é removida nem classificada como encerrada. Evidência: teste multiativo.
+- [x] Dada uma posição anterior e um HTML posterior sem posição interpretável, a tela mostra que não foi observada, não propõe saldo zero e bloqueia a confirmação. Coberto por integração e E2E.
+- [x] Dada uma prévia com posições ou movimentações, os campos aparecem em tabelas com estado de interpretação e valores brutos. Playwright verificou tabela e acesso aos dados.
+- [x] Dada divergência de snapshot, o registro inclui autor, lote, versão, hash e decisão; revisão obsoleta é invalidada. Integrações PostgreSQL focadas passaram.
+- [x] Dado upload de um título, posições fora do ativo em conciliação não são removidas nem classificadas como encerradas. Integração PostgreSQL reimportou um dos dois títulos Tesouro da carteira e verificou que a base e a posição do outro permaneceram inalteradas.
 - [x] Dado posições válidas sem movimentos, quando o snapshot for confirmado, então a base pode ser atualizada sem criar movimento fictício. Evidência: teste de integração PostgreSQL em contêiner, 18/11/2026.
-- [ ] A base anterior só é substituída junto com a decisão e o rebuild em transação; rollback mantém estado anterior. Evidência: PostgreSQL.
+- [x] A base anterior é substituída junto com a decisão e rebuild transacionais; rollback mantém a base anterior. Integração PostgreSQL passou.
 
 ### Contratos, evidências e gaps
 
 - Autorização: usuário autenticado com permissão de gerenciar a carteira; revisar/reconfirmar a mesma versão.
 - Contrato: endpoints de prévia, conciliação, revisão, consulta de auditoria e confirmação expõem comparação/hash de snapshot; aceite manual validado por integração PostgreSQL.
 - Persistência: revisão de movimentos e revisão de divergências são append-only; esta última é criada com o hash, autor, decisão, versão da carteira e data.
-- Evidências: criação inicial e snapshot sem movimentações passaram em PostgreSQL em 18/11/2026. A reimportação com manual sem vínculo passou em PostgreSQL e E2E. O código para ausência de posição compila, mas aguarda teste manual do usuário; rollback e concorrência do snapshot posterior permanecem pendentes. XLSX está adiado.
+- Evidências: integração final focada passou 49/49 e unitários 105/105; Playwright focado 11/11. Inclui snapshot sem movimentos, rollback/concorrência, vínculo manual, posição não observada, encerramento por venda e leitura do Extrato compartilhado. Conferência autenticada manual pendente. XLSX adiado.
 - XLSX: adiado pelo usuário e fora desta história.
+
+## US-PORT-003 — consolidar investimentos por grupo
+
+- Estado: implementação e validações focadas concluídas no checkout.
+- Issue: [#70](https://github.com/JonathanBenicio/invest-dashboard/issues/70).
+- ADR: [0005 — consulta consolidada de investimentos](adrs/0005-consulta-consolidada-investimentos.md).
+- Plano: [investimentos consolidados por grupo](plan/investimentos-consolidados-por-grupo.md).
+
+**Como** pessoa que acompanha investimentos de várias carteiras do mesmo grupo, **quero** ver o saldo de um mesmo investimento consolidado e poder alternar para uma carteira, **para** entender o total e saber a quem pertence cada parte.
+
+### Critérios de aceite verificáveis
+
+- [x] Dadas duas carteiras acessíveis com o mesmo instrumento no grupo, a lista mostra um total que inclui ambas. O detalhe consolidado mostra as contribuições e permite abrir cada posição; integração e E2E passaram.
+- [x] Ao abrir por uma carteira, o detalhe inicia nessa carteira, oferece o consolidado do grupo e permite retornar à posição individual. O E2E cobriu a alternância para uma carteira agrupada e a entrada no detalhe de uma carteira sem grupo.
+- [x] O filtro por titular inclui todas as suas carteiras elegíveis. Ao escolher uma carteira, o detalhe exibe somente sua posição. Integração e E2E passaram.
+- [x] Carteiras sem acesso ficam fora de totais, opções e detalhes, inclusive em links diretos. Integração HTTP e revisão de segurança confirmaram o escopo.
+- [x] Operações e alterações continuam vinculadas à posição de uma carteira com autorização de escrita; o detalhe individual conserva os endpoints e IDs de posição.
+
+### Contratos, evidências e gaps
+
+A consulta consolida posições autorizadas antes de paginar. Integrações em InMemory verificaram agrupamento, paginação, filtros, posições encerradas, carteiras sem grupo e isolamento de acesso; PostgreSQL isolado verificou datas distintas entre bases Tesouro. O Playwright com MSW verificou os filtros e a alternância entre grupo e carteira em 320, 360 e 1920 px. A consulta pública do Tesouro aparece separadamente nos detalhes e em Análise e usa cache em memória da API. A conferência autenticada manual não foi executada.
 
 ## Manutenção do catálogo
 

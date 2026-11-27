@@ -19,7 +19,8 @@ public sealed class BasePosicaoTesouro : Entity<Guid>
     {
         if (id == Guid.Empty || loteId == Guid.Empty || carteiraId == Guid.Empty || ativoId == Guid.Empty)
             throw new ArgumentException("Identificadores da base são obrigatórios.");
-        if (quantidade <= 0 || custoTotal <= 0 || precoUnitario < 0)
+        if (quantidade < 0 || custoTotal < 0 || precoUnitario < 0 ||
+            quantidade == 0 && custoTotal != 0 || quantidade > 0 && custoTotal == 0)
             throw new ArgumentException("Quantidade, custo e preço da base são inválidos.");
         LoteId = loteId; CarteiraId = carteiraId; AtivoId = ativoId; DataReferencia = dataReferencia;
         Quantidade = quantidade; CustoTotal = custoTotal; PrecoUnitario = precoUnitario;

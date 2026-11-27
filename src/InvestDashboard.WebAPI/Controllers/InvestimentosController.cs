@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using InvestDashboard.Application.DTOs.Common;
 using InvestDashboard.Application.DTOs.Portfolio;
 using InvestDashboard.Application.DTOs.Trading;
+using InvestDashboard.Application.Services;
 using InvestDashboard.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,6 +31,8 @@ public sealed class InvestimentosController(
     public async Task<ActionResult<RespostaPaginada<PosicaoInvestimentoDto>>> GetAll(
         [FromQuery(Name = "carteiraId")] Guid? portfolioId,
         [FromQuery(Name = "grupoId")] Guid? grupoId,
+        [FromQuery(Name = "titularId")] Guid? titularId,
+        [FromQuery(Name = "instituicaoFinanceiraId")] Guid? instituicaoFinanceiraId,
         [FromQuery(Name = "tipo")] string? type,
         [FromQuery(Name = "subtipo")] string? subtype,
         [FromQuery(Name = "emissor")] string? issuer,
@@ -45,7 +48,8 @@ public sealed class InvestimentosController(
         if (portfolioId.HasValue && await portfolios.GetPortfolioByIdAsync(portfolioId.Value) is null)
             return NotFound(new RespostaApi<object>(null!, false, "Portfolio not found."));
 
-        var positions = await FilterPositionsAsync(portfolioId, grupoId, type, subtype, issuer, sector, status, search);
+        var positions = await FilterPositionsAsync(portfolioId, grupoId, type, subtype, issuer, sector, status, search,
+            titularId, instituicaoFinanceiraId);
         var ordered = SortPositions(positions, sortBy, sortOrder);
         var pageItems = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
         return Ok(new RespostaPaginada<PosicaoInvestimentoDto>(pageItems, page, pageSize, ordered.Count));
@@ -65,7 +69,56 @@ public sealed class InvestimentosController(
         [FromQuery(Name = "pagina")] int page = 1,
         [FromQuery(Name = "itensPorPagina")] int pageSize = 10)
     {
-        return await GetAll(portfolioId, null, type, subtype, issuer, sector, status, search, sortBy, sortOrder, page, pageSize);
+        return await GetAll(portfolioId, null, null, null, type, subtype, issuer, sector, status, search, sortBy, sortOrder, page, pageSize);
+    }
+
+    [HttpGet("consolidated")]
+    public async Task<ActionResult<RespostaPaginada<PosicaoInvestimentoConsolidadoDto>>> GetConsolidated(
+        [FromQuery(Name = "carteiraId")] Guid? portfolioId,
+        [FromQuery(Name = "grupoId")] Guid? grupoId,
+        [FromQuery(Name = "titularId")] Guid? titularId,
+        [FromQuery(Name = "instituicaoFinanceiraId")] Guid? instituicaoFinanceiraId,
+        [FromQuery(Name = "tipo")] string? type,
+        [FromQuery(Name = "subtipo")] string? subtype,
+        [FromQuery(Name = "emissor")] string? issuer,
+        [FromQuery(Name = "setor")] string? sector,
+        [FromQuery(Name = "situacao")] string? status,
+        [FromQuery(Name = "busca")] string? search,
+        [FromQuery(Name = "ordenarPor")] string? sortBy,
+        [FromQuery(Name = "ordem")] string? sortOrder,
+        [FromQuery(Name = "pagina")] int page = 1,
+        [FromQuery(Name = "itensPorPagina")] int pageSize = 10)
+    {
+        ValidatePage(page, pageSize);
+        if (portfolioId.HasValue && await portfolios.GetPortfolioByIdAsync(portfolioId.Value) is null)
+            return NotFound(new RespostaApi<object>(null!, false, "Portfolio not found."));
+        var positions = await FilterPositionsAsync(portfolioId, grupoId, type, subtype, issuer, sector, status,
+            search, titularId, instituicaoFinanceiraId, includeClosedByDefault: true);
+        var grouped = ConsolidadorPosicoesInvestimento.Agrupar(positions, portfolioId, titularId);
+        var ordered = SortConsolidatedPositions(grouped, sortBy, sortOrder);
+        var pageItems = ordered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Ok(new RespostaPaginada<PosicaoInvestimentoConsolidadoDto>(pageItems, page, pageSize, ordered.Count));
+    }
+
+    [HttpGet("consolidated/{grupoId:guid}/{ativoId:guid}")]
+    public async Task<ActionResult<RespostaApi<DetalheInvestimentoConsolidadoDto>>> GetConsolidatedDetail(
+        Guid grupoId, Guid ativoId,
+        [FromQuery(Name = "titularId")] Guid? titularId,
+        [FromQuery(Name = "instituicaoFinanceiraId")] Guid? instituicaoFinanceiraId,
+        [FromQuery(Name = "situacao")] string? status)
+    {
+        var positions = await portfolios.GetConsolidatedPositionsAsync();
+        var contributions = positions.Where(position => position.GrupoId == grupoId && position.AtivoId == ativoId)
+            .Where(position => !titularId.HasValue || position.TitularId == titularId)
+            .Where(position => !instituicaoFinanceiraId.HasValue || position.InstituicaoFinanceiraId == instituicaoFinanceiraId)
+            .Where(position => MatchesConsolidatedStatus(position.Status, status))
+            .OrderBy(position => position.CarteiraNome, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(position => position.CarteiraId)
+            .ToArray();
+        if (contributions.Length == 0) return NotFound(new RespostaApi<object>(null!, false, "Investment not found."));
+
+        var detail = ConsolidadorPosicoesInvestimento.CriarDetalhe(contributions, grupoId, ativoId, titularId);
+        return Ok(new RespostaApi<DetalheInvestimentoConsolidadoDto>(detail));
     }
 
     [HttpGet("summary")]
@@ -247,19 +300,53 @@ public sealed class InvestimentosController(
         string? issuer,
         string? sector,
         string? status,
-        string? search)
+        string? search,
+        Guid? titularId = null,
+        Guid? instituicaoFinanceiraId = null,
+        bool includeClosedByDefault = false)
     {
-        var positions = await portfolios.GetUserPositionsAsync(portfolioId, grupoId);
+        var positions = includeClosedByDefault
+            ? await portfolios.GetConsolidatedPositionsAsync(portfolioId, grupoId)
+            : await portfolios.GetUserPositionsAsync(portfolioId, grupoId);
         return positions
             .Where(position => string.IsNullOrWhiteSpace(type) || position.Type.Equals(type, StringComparison.OrdinalIgnoreCase))
             .Where(position => string.IsNullOrWhiteSpace(subtype) || position.Subtype.Equals(subtype, StringComparison.OrdinalIgnoreCase))
             .Where(position => string.IsNullOrWhiteSpace(issuer) || position.Issuer?.Contains(issuer, StringComparison.OrdinalIgnoreCase) == true)
             .Where(position => string.IsNullOrWhiteSpace(sector) || position.Sector?.Contains(sector, StringComparison.OrdinalIgnoreCase) == true)
-            .Where(position => string.IsNullOrWhiteSpace(status) || position.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
+            .Where(position => includeClosedByDefault
+                ? MatchesConsolidatedStatus(position.Status, status)
+                : string.IsNullOrWhiteSpace(status) || position.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
             .Where(position => string.IsNullOrWhiteSpace(search)
                 || position.Ticker.Contains(search, StringComparison.OrdinalIgnoreCase)
                 || position.Name.Contains(search, StringComparison.OrdinalIgnoreCase))
+            .Where(position => !titularId.HasValue || position.TitularId == titularId)
+            .Where(position => !instituicaoFinanceiraId.HasValue || position.InstituicaoFinanceiraId == instituicaoFinanceiraId)
             .ToList();
+    }
+
+    private static bool MatchesConsolidatedStatus(string positionStatus, string? requestedStatus)
+    {
+        if (string.Equals(requestedStatus, "all", StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.IsNullOrWhiteSpace(requestedStatus)) return positionStatus != "closed";
+        return positionStatus.Equals(requestedStatus, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<PosicaoInvestimentoConsolidadoDto> SortConsolidatedPositions(
+        List<PosicaoInvestimentoConsolidadoDto> positions, string? sortBy, string? sortOrder)
+    {
+        var descending = string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase);
+        Func<PosicaoInvestimentoConsolidadoDto, object> key = sortBy?.ToLowerInvariant() switch
+        {
+            "nome" => position => position.Nome,
+            "ticker" => position => position.Ticker,
+            "emissor" => position => position.Emissor ?? string.Empty,
+            "totalinvestido" => position => position.TotalInvestido,
+            "valoratual" => position => position.ValorAtual,
+            "percentualganho" => position => position.PercentualGanho,
+            _ => position => position.Ticker
+        };
+        var ordered = descending ? positions.OrderByDescending(key) : positions.OrderBy(key);
+        return ordered.ThenBy(position => position.Id, StringComparer.Ordinal).ToList();
     }
 
     private static List<PosicaoInvestimentoDto> SortPositions(

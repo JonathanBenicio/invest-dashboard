@@ -1,9 +1,9 @@
 # ADR-0004 — revisão auditável de divergências entre snapshots do Tesouro Direto
 
 - Data: 2026-11-18
-- Estado da decisão: proposta
-- Implementação: parcial no PR #62; comparação e auditoria nos commits `3adef8c`/`43d8c14`; aceite explícito de manual sem vínculo no commit `26aa337`; sinalização de posição ausente e prévia tabular no commit `aa21a9c`
-- Validação: integração PostgreSQL em SDK .NET 10.0.404 e E2E Playwright 1.65.0 passaram em 18/11/2026; ver plano vinculado
+- Estado da decisão: aceita pelo usuário; as regras de negócio foram confirmadas durante a iniciativa #53
+- Implementação: comparação, revisão persistida, confirmação transacional, criação inicial, encerramento comprovado por venda integral e Extrato detalhado implementados no checkout
+- Validação: integração focal PostgreSQL 15 passou em 26/11/2026; confira resultados e limites nos planos vinculados
 - Issue: [#55 — contrato e regras de conciliação](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57 — persistir e reconciliar posições](https://github.com/JonathanBenicio/invest-dashboard/issues/57)
 - Story: [US-IMPORT-002](../USER-STORIES.md#us-import-002--reimportação-auditável-de-snapshots-html)
 - Plano: [reimportação auditável de snapshots](../plan/tesouro-reimportacao-snapshots.md)
@@ -16,7 +16,7 @@ O sistema persiste cada importação HTML como lote, permite revisar eventos por
 
 O HTML é interpretado preliminarmente e não prova, por si só, cobertura completa. A posição pode conter várias linhas de aquisição, e os cartões de movimento não expõem ID genérico estável. Comparar só valor/data pode confundir operações idênticas.
 
-## Decisão proposta
+## Decisão
 
 - Comparar a prévia nova com o lote apontado pela base ativa do mesmo título/vencimento; comparar somente os escopos que o arquivo declara e não inferir posições de outros títulos.
 - Produzir um diff de linhas/eventos com correspondência multiconjunto por campos observáveis. Marcar registros ausentes como potenciais divergências, não removê-los nem deduplicá-los automaticamente.
@@ -41,19 +41,19 @@ O HTML é interpretado preliminarmente e não prova, por si só, cobertura compl
 - Application calcula diff sem escolher pares automaticamente; WebAPI expõe divergências e recebe a revisão; frontend destaca campos e exige ação antes de confirmar.
 - A entidade/tabela de revisão de snapshot ligada ao lote/carteira e seus índices estão implementados no PR #62. O histórico anterior não é reescrito; decisões são append-only.
 - O controller de confirmação revalida hash, autor, versão e revisões sob a transação serializável que troca a base ativa.
-- PostgreSQL é requisito deste fluxo. EF InMemory não prova constraints, transação serializável, unique indexes ou rollback; migrations e persistência foram exercitadas em PostgreSQL temporário, mas rollback de falha durante a troca ainda precisa de teste específico.
+- PostgreSQL é requisito deste fluxo. EF InMemory não prova constraints, transação serializável, unique indexes ou rollback; migrations, persistência, rollback durante confirmação e concorrência foram exercitados em PostgreSQL temporário.
 - A API preserva histórico manual e oficial. A revisão registra a comparação aceita e os movimentos no período. A base nova passa a ser o saldo efetivo, portanto transações manuais anteriores à data-base não são reaplicadas; seus registros permanecem no ledger/auditoria.
-- Migração: tabela nova sem preenchimento de decisões antigas; lotes existentes continuam sem decisão de snapshot e só exigem revisão se forem reimportados depois da migration. O rollback da migration e da confirmação ainda precisa de validação PostgreSQL; a remoção da tabela não deve apagar lotes/eventos/base existentes.
+- Migração: tabela nova sem preenchimento de decisões antigas; lotes existentes continuam sem decisão de snapshot e só exigem revisão se forem reimportados depois da migration. O rollback transacional da confirmação foi validado em PostgreSQL; o rollback da migration permanece sem validação nesta rodada.
 - Não há inferência de posição ausente em outro título quando o upload contém só um título.
 
 ## Implementação
 
 - Estado e escopo implementado: diff de snapshots, hash, revisão persistida, aceite na confirmação e prévia tabular; branch `codex/tesouro-previa-e-cotacoes`.
 - Referências/PR/commits: Issues #55/#57/#58; PR #62; commits `3adef8c`, `43d8c14`, `26aa337` e `aa21a9c`.
-- Restante: validação manual do usuário; cobrir rollback de falha durante a reimportação e concorrência na troca da base posterior. Posição ausente é apenas sinalizada; encerramento explícito não é inferido.
+- Restante: validação autenticada manual não executada nesta rodada. A posição ausente continua sinalizada; encerramento ocorre somente quando a venda integral é reconciliada e revisada.
 
 ## Validação e gaps
 
 - Critérios de validação: comparações multiconjunto reproduzíveis; hash revalidado; revisão obsoleta recusada; rollback deixa base antiga ativa; auditoria mantém decisões anteriores; operação manual nunca é removida automaticamente.
-- Execuções e evidências reais: o teste direcionado de reimportação passou em PostgreSQL 15 isolado/SDK .NET 10.0.404; dois cenários E2E da conciliação passaram com Playwright 1.65.0 e Chromium 1255; ESLint direcionado passou em 18/11/2026. Criação inicial, posição sem movimentos e comparador têm evidências anteriores no plano. Build anterior da aplicação passou em Docker.
+- Execuções e evidências: filtro final de integrações Tesouro/consolidação passou em PostgreSQL 15 descartável (.NET 10.0.404), 49/49; suite unitária relacionada passou 105/105; E2E focal passou 11/11 em Chromium 1255 com dados sintéticos. Builds, typecheck e lint passaram conforme os planos.
 - Limitações: cobertura incompleta do HTML e falta de ID estável impedem tratar o diff como prova. Um upload por título não permite reconciliar a coleção completa da carteira. O aceite autoriza a nova base, não prova que a leitura do HTML esteja completa.

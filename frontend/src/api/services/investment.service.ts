@@ -4,6 +4,7 @@
  */
 
 import { api } from '../client'
+import type { DetalheInvestimentoConsolidadoDto, PosicaoInvestimentoConsolidadoDto } from '../dtos/investment.dto'
 import type {
   PosicaoInvestimentoDto,
   PrecoHistoricoDto,
@@ -35,6 +36,12 @@ const INVESTMENT_ENDPOINTS = {
  * Investment service with CRUD operations
  */
 export const investmentService = {
+  getConsolidated: (filters: InvestimentoFiltros = {}): Promise<RespostaPaginada<PosicaoInvestimentoConsolidadoDto>> =>
+    api.get('/investments/consolidated', { params: filters as Record<string, string | number | boolean> }),
+  getConsolidatedDetail: (grupoId: string, ativoId: string, titularId?: string, instituicaoFinanceiraId?: string, situacao?: 'closed' | 'all'): Promise<RespostaApi<DetalheInvestimentoConsolidadoDto>> =>
+    api.get(`/investments/consolidated/${encodeURIComponent(grupoId)}/${encodeURIComponent(ativoId)}`, {
+      params: { titularId, instituicaoFinanceiraId, situacao },
+    }),
   /**
    * Get all investments with optional filters
    */

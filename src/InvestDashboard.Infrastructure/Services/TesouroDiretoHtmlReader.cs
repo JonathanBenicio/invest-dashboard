@@ -1,6 +1,7 @@
 using AngleSharp.Dom;
 using AngleSharp.Html.Parser;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace InvestDashboard.Infrastructure.Services;
 
@@ -21,6 +22,9 @@ public sealed class TesouroDiretoHtmlReader
      "rentabilidade_contratada", "rentabilidade_bruta_anualizada", "rentabilidade_bruta_acumulada",
      "valor_bruto", "dias_corridos", "aliquota_ir", "imposto_previsto_ir", "imposto_previsto_iof",
      "taxa_devida_b3", "taxa_devida_instituicao", "valor_liquido"];
+    private static readonly Regex CabecalhoReferencia = new(
+        @"^Posi[cç][aã]o\s+em\s+(?<mes>janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*/\s*(?<ano>\d{4})$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
     public TesouroDiretoHtmlExtrato Ler(string html)
     {
@@ -79,17 +83,36 @@ public sealed class TesouroDiretoHtmlReader
             movimentacoes.Add(new TesouroDiretoHtmlMovimentacao(campos));
         }
 
-        var posicoes = LerPosicoes(containers[0]);
-        if (movimentacoes.Count == 0 && posicoes.Count == 0)
+        var (posicoes, secaoPosicoesReconhecida) = LerPosicoes(containers[0]);
+        var referencia = LerReferencia(containers[0]);
+        var instituicao = LerInstituicao(containers[0]);
+        if (movimentacoes.Count == 0 && posicoes.Count == 0 && !secaoPosicoesReconhecida)
             throw new InvalidDataException("Estrutura de posição ou movimentação não reconhecida no arquivo HTML.");
-        return new TesouroDiretoHtmlExtrato(titulo, vencimento, movimentacoes, posicoes);
+        return new TesouroDiretoHtmlExtrato(titulo, vencimento, movimentacoes, posicoes,
+            referencia?.Mes, referencia?.Ano, instituicao, secaoPosicoesReconhecida);
     }
 
-    private static IReadOnlyList<TesouroDiretoHtmlPosicao> LerPosicoes(IElement container)
+    private static (IReadOnlyList<TesouroDiretoHtmlPosicao> Posicoes, bool SecaoReconhecida) LerPosicoes(IElement container)
     {
-        var linhas = container.QuerySelectorAll("tr.saldo-table-data-values");
-        if (linhas.Length == 0) return [];
-        var cabecalhos = container.QuerySelectorAll("tr.saldo-table-data-names");
+        var tabelas = container.QuerySelectorAll("table")
+            .Where(tabela => tabela.QuerySelectorAll("tr.saldo-table-data-names, tr.saldo-table-data-values").Length > 0)
+            .ToArray();
+        if (tabelas.Length != 1) return ([], false);
+
+        var tabelaPosicoes = tabelas[0];
+        var linhas = tabelaPosicoes.QuerySelectorAll("tr.saldo-table-data-values");
+        var cabecalhos = tabelaPosicoes.QuerySelectorAll("tr.saldo-table-data-names");
+        var linhasSemClasseReconhecida = tabelaPosicoes.QuerySelectorAll("tr")
+            .Any(linha => !LinhaPosicaoReconhecida(linha));
+        var secaoReconhecida = cabecalhos.Length == 3 && !cabecalhos.Any(TemConteudoOculto) &&
+            ValidarCabecalho(cabecalhos[0], ["", "DATA DA APLICAÇÃO", "QUANTIDADE DE TÍTULOS", "PREÇO DO TÍTULO NA APLICAÇÃO", "VALOR INVESTIDO", "RENTABILIDADE CONTRATADA"], [1, 1, 1, 1, 1, 1]) &&
+            ValidarCabecalho(cabecalhos[1], ["RENTABILIDADE CONTRATADA", "VALOR BRUTO", "TEMPO DA APLICAÇÃO", "ALÍQUOTA", "IMPOSTO PREVISTO", "TAXA DEVIDA", "VALOR LÍQUIDO"], [2, 1, 1, 1, 2, 2, 1]) &&
+            ValidarCabecalho(cabecalhos[2], ["ANUALIZADA", "ACUMULADA", "I.R.", "IOF", "B3", "INSTITUIÇÃO FINANCEIRA"], [1, 1, 1, 1, 1, 1]) &&
+            !linhasSemClasseReconhecida;
+
+        if (linhas.Length == 0)
+            return ([], secaoReconhecida);
+
         if (cabecalhos.Length != 3 || cabecalhos.Any(TemConteudoOculto) ||
             !ValidarCabecalho(cabecalhos[0], ["", "DATA DA APLICAÇÃO", "QUANTIDADE DE TÍTULOS", "PREÇO DO TÍTULO NA APLICAÇÃO", "VALOR INVESTIDO", "RENTABILIDADE CONTRATADA"], [1, 1, 1, 1, 1, 1]) ||
             !ValidarCabecalho(cabecalhos[1], ["RENTABILIDADE CONTRATADA", "VALOR BRUTO", "TEMPO DA APLICAÇÃO", "ALÍQUOTA", "IMPOSTO PREVISTO", "TAXA DEVIDA", "VALOR LÍQUIDO"], [2, 1, 1, 1, 2, 2, 1]) ||
@@ -117,7 +140,74 @@ public sealed class TesouroDiretoHtmlReader
                 throw new InvalidDataException("Data de posição HTML inválida.");
             resultado.Add(new TesouroDiretoHtmlPosicao(linha + 1, campos));
         }
-        return resultado;
+        return (resultado, secaoReconhecida);
+    }
+
+    private static bool LinhaPosicaoReconhecida(IElement linha)
+    {
+        var classes = linha.ClassList.ToArray();
+        if (classes.Length != 1) return false;
+
+        var celulas = linha.Children.Where(elemento => elemento.LocalName is "td" or "th").ToArray();
+        return classes[0] switch
+        {
+            "saldo-table-data-names" or "saldo-table-data-values" => celulas.Length > 0 &&
+                celulas.All(celula => celula.LocalName == "td"),
+            "saldo-table-vencimento" => celulas.Length == 1 && celulas[0].LocalName == "th" &&
+                string.Equals(celulas[0].GetAttribute("colspan"), "16", StringComparison.Ordinal),
+            "saldo-table-headers" => celulas.Length == 2 && celulas.All(celula => celula.LocalName == "th") &&
+                string.Equals(celulas[0].GetAttribute("colspan"), "6", StringComparison.Ordinal) &&
+                string.Equals(celulas[1].GetAttribute("colspan"), "10", StringComparison.Ordinal),
+            _ => false
+        };
+    }
+
+    private static (int Mes, int Ano)? LerReferencia(IElement container)
+    {
+        var referencias = new HashSet<(int Mes, int Ano)>();
+        foreach (var elemento in container.QuerySelectorAll("h1,h2,h3,h4,h5,h6,p,span,strong,b,div,td,th"))
+        {
+            if (elemento.LocalName is "script" or "style" or "template" or "noscript" || TemConteudoOculto(elemento))
+                continue;
+
+            var texto = Regex.Replace(string.Concat(elemento.ChildNodes.OfType<IText>().Select(no => no.TextContent)),
+                @"\s+", " ").Trim();
+            var correspondencia = CabecalhoReferencia.Match(texto);
+            if (!correspondencia.Success ||
+                !int.TryParse(correspondencia.Groups["ano"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var ano))
+                continue;
+
+            var mes = correspondencia.Groups["mes"].Value.ToLowerInvariant() switch
+            {
+                "janeiro" => 1,
+                "fevereiro" => 2,
+                "março" or "marco" => 3,
+                "abril" => 4,
+                "maio" => 5,
+                "junho" => 6,
+                "julho" => 7,
+                "agosto" => 8,
+                "setembro" => 9,
+                "outubro" => 10,
+                "novembro" => 11,
+                "dezembro" => 12,
+                _ => 0
+            };
+            if (mes > 0) referencias.Add((mes, ano));
+        }
+
+        return referencias.Count == 1 ? referencias.Single() : null;
+    }
+
+    private static string? LerInstituicao(IElement container)
+    {
+        const string seletor = "div.td-meus-investimentos-detalhe-box div.td-meus-investimentos-deatlhe-instituicao " +
+            "> p.td-meus-investimentos-deatlhe-instituicao__info > span.td-meus-investimentos-deatlhe-instituicao__nome";
+        var nomes = container.QuerySelectorAll(seletor);
+        if (nomes.Length != 1 || TemConteudoOculto(nomes[0])) return null;
+
+        var nome = nomes[0].TextContent.Trim();
+        return string.IsNullOrWhiteSpace(nome) ? null : nome;
     }
 
     private static bool ValidarCabecalho(IElement linha, string[] rotulos, int[] spans)
@@ -193,7 +283,8 @@ public sealed record TesouroDiretoHtmlPosicao(int NumeroLinha, IReadOnlyDictiona
 /// </summary>
 public sealed record TesouroDiretoHtmlExtrato(
     string Titulo, DateOnly Vencimento, IReadOnlyList<TesouroDiretoHtmlMovimentacao> Movimentacoes,
-    IReadOnlyList<TesouroDiretoHtmlPosicao> Posicoes)
+    IReadOnlyList<TesouroDiretoHtmlPosicao> Posicoes, int? MesReferencia = null, int? AnoReferencia = null,
+    string? InstituicaoHtml = null, bool SecaoPosicoesReconhecida = false)
 {
     public bool VisibilidadeCssVerificada => false;
     public bool ExigeRevisao => true;

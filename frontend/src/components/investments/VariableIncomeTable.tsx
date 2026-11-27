@@ -23,11 +23,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { RendaVariavelDto } from "@/api/dtos"
+import type { PosicaoInvestimentoConsolidadoDto } from "@/api/dtos/investment.dto"
 import { formatCurrency } from "@/lib/utils"
 import { formatQuoteObservation } from "@/hooks/use-market-quotes"
+import { InvestmentEvaluationSummary } from "@/components/investments/InvestmentEvaluationSummary"
 
 interface VariableIncomeTableProps {
-  data: RendaVariavelDto[]
+  data: (PosicaoInvestimentoConsolidadoDto | RendaVariavelDto)[]
+  selectedHolderId?: string
+  selectedSituation?: 'closed' | 'all'
   pageCount: number
   pagination: PaginationState
   setPagination: React.Dispatch<React.SetStateAction<PaginationState>>
@@ -44,6 +48,8 @@ interface VariableIncomeTableProps {
 
 export function VariableIncomeTable({
   data,
+  selectedHolderId,
+  selectedSituation,
   pageCount,
   pagination,
   setPagination,
@@ -59,6 +65,27 @@ export function VariableIncomeTable({
 }: VariableIncomeTableProps) {
   const navigate = useNavigate()
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const isConsolidated = (asset: PosicaoInvestimentoConsolidadoDto | RendaVariavelDto): asset is PosicaoInvestimentoConsolidadoDto => 'escopo' in asset
+  const abrirDetalhes = (asset: PosicaoInvestimentoConsolidadoDto | RendaVariavelDto) => {
+    if (isConsolidated(asset) && asset.escopo !== 'carteira' && asset.grupoId) {
+      void navigate({ to: '/investimento/$id', params: { id: asset.id }, search: {
+        type: 'variable', groupId: asset.grupoId, assetId: asset.ativoId,
+        holderId: selectedHolderId, situacao: selectedSituation, view: 'group',
+      } })
+      return
+    }
+    const positionId = isConsolidated(asset) ? asset.posicaoId ?? asset.id : asset.id
+    void navigate({ to: '/investimento/$id', params: { id: positionId }, search: {
+      type: 'variable', groupId: asset.grupoId ?? undefined, holderId: asset.titularId ?? undefined,
+      portfolioId: asset.carteiraId ?? undefined, situacao: selectedSituation, view: 'portfolio',
+    } })
+  }
+  const positionForAction = (asset: PosicaoInvestimentoConsolidadoDto | RendaVariavelDto): RendaVariavelDto | null => {
+    if (!isConsolidated(asset)) return asset
+    return asset.escopo === 'carteira' && asset.posicaoId && asset.carteiraId
+      ? { ...asset, id: asset.posicaoId, carteiraId: asset.carteiraId } as unknown as RendaVariavelDto
+      : null
+  }
 
   const getTypeColor = (type: string) => {
     switch (type) {
@@ -70,7 +97,7 @@ export function VariableIncomeTable({
     }
   }
 
-  const columns: ColumnDef<RendaVariavelDto>[] = [
+  const columns: ColumnDef<PosicaoInvestimentoConsolidadoDto | RendaVariavelDto>[] = [
     {
       accessorKey: "ticker",
       header: ({ column }) => {
@@ -84,12 +111,14 @@ export function VariableIncomeTable({
           </Button>
         )
       },
-      cell: ({ row }) => (
-        <div>
+      cell: ({ row }) => {
+        const asset = row.original
+        return <div>
           <p className="font-medium">{row.getValue("ticker")}</p>
-          <p className="text-xs text-muted-foreground">{row.original.nome}</p>
+          <p className="text-xs text-muted-foreground">{asset.nome}</p>
+          {isConsolidated(asset) && asset.escopo !== 'carteira' && <p className="text-xs text-muted-foreground">{asset.grupoNome ?? 'Grupo'} · {asset.quantidadeCarteiras} {asset.quantidadeCarteiras === 1 ? 'carteira' : 'carteiras'}</p>}
         </div>
-      ),
+      },
     },
     {
       accessorKey: "subtipo",
@@ -127,15 +156,19 @@ export function VariableIncomeTable({
         </div>
       ),
       cell: ({ row }) => {
-        const { origemPrecoAtual, precoObservadoEmUtc } = row.original
+        const asset = row.original
+        const { origemPrecoAtual, precoObservadoEmUtc, precoAtual } = asset
         return (
           <div className="text-right">
-            <p>{formatCurrency(row.original.valorAtual)}</p>
+            <p>{formatCurrency(asset.valorAtual)}</p>
             <p className="text-xs text-muted-foreground">
-              {origemPrecoAtual && precoObservadoEmUtc
-                ? `${formatCurrency(row.original.precoAtual)} · ${formatQuoteObservation(origemPrecoAtual.toUpperCase(), precoObservadoEmUtc)}`
-                : `${formatCurrency(row.original.precoAtual)} por unidade · Último preço salvo`}
+              {precoAtual == null
+                ? isConsolidated(asset) && asset.escopo !== 'carteira' ? 'Preço varia entre carteiras' : 'Preço não informado'
+                : origemPrecoAtual && precoObservadoEmUtc
+                  ? `${formatCurrency(precoAtual)} · ${formatQuoteObservation(origemPrecoAtual.toUpperCase(), precoObservadoEmUtc)}`
+                  : `${formatCurrency(precoAtual)} por unidade · Último preço salvo`}
             </p>
+            {isConsolidated(row.original) && <InvestmentEvaluationSummary investment={row.original} className="mt-1" />}
           </div>
         )
       },
@@ -164,6 +197,7 @@ export function VariableIncomeTable({
       enableHiding: false,
       cell: ({ row }) => {
         const asset = row.original
+        const individual = positionForAction(asset)
 
         return (
           <DropdownMenu>
@@ -173,29 +207,29 @@ export function VariableIncomeTable({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable' } })}>
+              <DropdownMenuItem onClick={() => abrirDetalhes(asset)}>
                 <Eye className="h-4 w-4 mr-2" />
                 Ver Detalhes
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable', action: 'buy' } })}>
+              {individual && <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: individual.id }, search: { type: 'variable', action: 'buy', situacao: selectedSituation } })}>
                 <PlusCircle className="h-4 w-4 mr-2 text-success" />
                 Comprar
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable', action: 'sell' } })}>
+              </DropdownMenuItem>}
+              {individual && <DropdownMenuItem onClick={() => navigate({ to: '/investimento/$id', params: { id: individual.id }, search: { type: 'variable', action: 'sell', situacao: selectedSituation } })}>
                 <MinusCircle className="h-4 w-4 mr-2 text-destructive" />
                 Vender
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onEdit(asset)}>
+              </DropdownMenuItem>}
+              {individual && <DropdownMenuItem onClick={() => onEdit(individual)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Editar
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              </DropdownMenuItem>}
+              {individual && <DropdownMenuItem
                 className="text-destructive"
-                onClick={() => onDelete(asset)}
+                onClick={() => onDelete(individual)}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Excluir
-              </DropdownMenuItem>
+              </DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
         )
@@ -242,15 +276,15 @@ export function VariableIncomeTable({
         <div className="flex gap-2 w-full sm:w-auto">
              <Input
                 placeholder="Filtrar por setor..."
-                value={(table.getColumn("sector")?.getFilterValue() as string) ?? ""}
+                value={(table.getColumn("setor")?.getFilterValue() as string) ?? ""}
                 onChange={(event) =>
-                  table.getColumn("sector")?.setFilterValue(event.target.value)
+                  table.getColumn("setor")?.setFilterValue(event.target.value)
                 }
                 className="max-w-sm"
             />
             <Select
-              value={(table.getColumn("subtype")?.getFilterValue() as string) ?? "all"}
-              onValueChange={(value) => table.getColumn("subtype")?.setFilterValue(value === "all" ? undefined : value)}
+              value={(table.getColumn("subtipo")?.getFilterValue() as string) ?? "all"}
+              onValueChange={(value) => table.getColumn("subtipo")?.setFilterValue(value === "all" ? undefined : value)}
             >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Tipo" />
@@ -298,9 +332,22 @@ export function VariableIncomeTable({
             const asset = row.original
             const profit = asset.ganho
             const profitPercent = asset.percentualGanho
+            const consolidated = isConsolidated(asset)
 
             return (
-              <Card key={row.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate({ to: '/investimento/$id', params: { id: asset.id }, search: { type: 'variable' } })}>
+              <Card
+                key={row.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                role="button"
+                tabIndex={0}
+                onClick={() => abrirDetalhes(asset)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    abrirDetalhes(asset)
+                  }
+                }}
+              >
                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                   <div className="space-y-1">
                     <CardTitle className="text-base font-medium line-clamp-1">
@@ -309,6 +356,9 @@ export function VariableIncomeTable({
                     <p className="text-xs text-muted-foreground line-clamp-1">
                       {asset.nome}
                     </p>
+                    {consolidated && asset.escopo !== 'carteira' && <p className="text-xs text-muted-foreground line-clamp-1">
+                      {asset.grupoNome ?? 'Grupo'} · {asset.quantidadeCarteiras} {asset.quantidadeCarteiras === 1 ? 'carteira' : 'carteiras'}{asset.titular ? ` · ${asset.titular}` : ''}
+                    </p>}
                   </div>
                   <Badge className={getTypeColor(asset.subtipo)} variant="secondary">
                     {asset.subtipo}
@@ -318,7 +368,9 @@ export function VariableIncomeTable({
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Preço Atual</p>
-                      <p className="font-semibold">{formatCurrency(asset.precoAtual)}</p>
+                      <p className="font-semibold">{asset.precoAtual == null
+                        ? consolidated && asset.escopo !== 'carteira' ? 'Varia por carteira' : 'Preço não informado'
+                        : formatCurrency(asset.precoAtual)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground text-xs mb-1">Resultado</p>
@@ -336,6 +388,7 @@ export function VariableIncomeTable({
                       <p className="font-medium">{asset.quantidade}</p>
                     </div>
                   </div>
+                  {consolidated && <InvestmentEvaluationSummary investment={asset} className="mt-3" />}
                 </CardContent>
               </Card>
             )

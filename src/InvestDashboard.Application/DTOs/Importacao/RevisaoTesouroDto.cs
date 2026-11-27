@@ -34,4 +34,5 @@ public sealed record ConfirmarLoteTesouroDto(
     [property: JsonPropertyName("hashDivergencias")] string? HashDivergencias = null,
     [property: JsonPropertyName("aceitarDivergencias")] bool AceitarDivergencias = false,
     [property: JsonPropertyName("importacaoInicialSemRevisao")] bool ImportacaoInicialSemRevisao = false,
-    [property: JsonPropertyName("hashPrevia")] string? HashPrevia = null);
+    [property: JsonPropertyName("hashPrevia")] string? HashPrevia = null,
+    [property: JsonPropertyName("criacaoPosicaoSemRevisao")] bool CriacaoPosicaoSemRevisao = false);

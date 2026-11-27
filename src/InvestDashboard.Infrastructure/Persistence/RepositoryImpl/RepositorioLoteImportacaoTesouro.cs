@@ -14,6 +14,10 @@ public sealed class RepositorioLoteImportacaoTesouro(InvestDbContext context) : 
     public Task<LoteImportacaoTesouro?> BuscarPorIdAsync(Guid carteiraId, Guid usuarioId, Guid id, CancellationToken cancellationToken = default) =>
         context.Set<LoteImportacaoTesouro>().FirstOrDefaultAsync(x => x.CarteiraId == carteiraId && x.UsuarioId == usuarioId && x.Id == id, cancellationToken);
 
+    public Task<LoteImportacaoTesouro?> BuscarConfirmadoPorCarteiraEIdAsync(Guid carteiraId, Guid id, CancellationToken cancellationToken = default) =>
+        context.Set<LoteImportacaoTesouro>().AsNoTracking()
+            .FirstOrDefaultAsync(x => x.CarteiraId == carteiraId && x.Id == id && x.Estado == "Confirmado", cancellationToken);
+
     public Task<LoteImportacaoTesouro?> BuscarPorChaveAsync(Guid carteiraId, Guid usuarioId, string hashConteudo, DateOnly dataReferencia, CancellationToken cancellationToken = default)
     {
         var hashNormalizado = hashConteudo.ToLowerInvariant();

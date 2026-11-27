@@ -29,6 +29,13 @@ import { z } from 'zod'
 const investmentSearchSchema = z.object({
   type: z.enum(['fixed', 'variable']).optional(),
   action: z.enum(['buy', 'sell']).optional(),
+  groupId: z.string().optional(),
+  assetId: z.string().optional(),
+  holderId: z.string().optional(),
+  portfolioId: z.string().optional(),
+  institutionId: z.string().optional(),
+  situacao: z.enum(['closed', 'all']).optional(),
+  view: z.enum(['group', 'portfolio']).optional(),
 })
 
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
@@ -110,12 +117,14 @@ export const portfolioDetailsRoute = createRoute({
 export const fixedIncomeRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: '/renda-fixa',
+  validateSearch: search => z.object({ groupId: z.string().optional(), holderId: z.string().optional(), portfolioId: z.string().optional(), situacao: z.enum(['closed', 'all']).optional() }).parse(search),
   component: FixedIncome,
 })
 
 export const variableIncomeRoute = createRoute({
   getParentRoute: () => layoutRoute,
   path: '/renda-variavel',
+  validateSearch: search => z.object({ groupId: z.string().optional(), holderId: z.string().optional(), portfolioId: z.string().optional(), situacao: z.enum(['closed', 'all']).optional() }).parse(search),
   component: VariableIncome,
 })
 
