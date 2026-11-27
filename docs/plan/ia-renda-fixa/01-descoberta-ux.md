@@ -26,4 +26,4 @@ Levantamento e desenho dos fluxos conforme o [épico](epico.md). O recorte e o r
 
 ## Validação, riscos e entrega
 
-Consultar [auditoria e handoff](ux/auditoria.md). A direção final depende da escolha de produto. Registrar resultados, dependências por capacidade e links de entrega na issue e na Page.
+Consultar [auditoria e handoff](ux/auditoria.md). O usuário escolheu a experiência híbrida em 27/11/2026. A validação do handoff está em andamento. Registrar resultados, dependências por capacidade e links de entrega na issue e na Page.

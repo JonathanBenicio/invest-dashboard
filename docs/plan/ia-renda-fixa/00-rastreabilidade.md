@@ -1,6 +1,6 @@
 # EP-00 · Rastreabilidade e baseline
 
-- Estado: em andamento
+- Estado: concluído
 - Épico: [mapa e dependências](epico.md)
 - Issue: [#72](https://github.com/JonathanBenicio/invest-dashboard/issues/72)
 - Page: [abrir plano](https://chatgpt.com/space/page_aedf74251a088191a965939b95eb07b1)
@@ -20,9 +20,11 @@ Rastreabilidade e baseline conforme o [épico](epico.md). O recorte e o resultad
 
 ## Critérios de aceite
 
-- [ ] Todos os documentos e vínculos externos comprovados.
-- [ ] Baseline de frontend, testes focados e build backend com estados e evidência.
+- [x] 16 planos canônicos publicados no PR em rascunho. As 15 subissues têm vínculo formal verificado e as 16 Pages têm links verificados.
+- [x] Baseline registrada com lint, build e testes focados de frontend e backend.
 
 ## Validação, riscos e entrega
 
 Consultar o [relatório da baseline](../../validation/ia-renda-fixa-baseline-2026-11-27.md). Registrar resultados, dependências por capacidade e links de entrega na issue e na Page.
+
+[PR documental #87](https://github.com/JonathanBenicio/invest-dashboard/pull/87) · [Issue épica #71](https://github.com/JonathanBenicio/invest-dashboard/issues/71).
