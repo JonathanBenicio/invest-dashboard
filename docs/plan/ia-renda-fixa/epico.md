@@ -31,7 +31,7 @@ Entregar assistente interno com streaming e histórico, extração de prints de 
 | [RF-03 · Experimentos e decisão de ML.NET](13-experimentos-mlnet.md) | RF-01 e RF-02 | invest-backend, invest-test, invest-review |
 | [QA-01 · Homologação e liberação](14-homologacao.md) | Por capacidade | invest-test, invest-review, invest-security, agente principal |
 
-Depois de EP-00, UX-01, IA-01 e o núcleo determinístico de RF-01 podem avançar em paralelo. Liberar primeiro print local, depois chat local, nuvem e fallback, grupos e anexos. Renda fixa segue em trilha própria. A aprovação do UX condiciona a implementação visual. Verificar cada capacidade como descrito em QA-01.
+EP-00 concluiu a rastreabilidade e a baseline. UX-01 concluiu a auditoria e o handoff da experiência híbrida, validada em protótipo com dados sintéticos. As entregas estão no [PR #87](https://github.com/JonathanBenicio/invest-dashboard/pull/87). IA-01 e o núcleo determinístico de RF-01 podem avançar em paralelo. Liberar primeiro print local, depois chat local, nuvem e fallback, grupos e anexos. Renda fixa segue em trilha própria. A direção híbrida aprovada em UX-01 orienta a implementação visual. Verificar cada capacidade como descrito em QA-01.
 
 ## Critérios de aceite e validação
 
@@ -45,4 +45,4 @@ Ver [baseline](../../validation/ia-renda-fixa-baseline-2026-11-27.md) e [QA-01](
 
 ## Riscos, gaps e entrega
 
-Registrar a seleção visual no UX-01, modelos homologados no IA-01 e regras oficiais aplicáveis no RF-02. Habilitar provedores, grupos e anexos separadamente. Atualizar Issue, Markdown, Pages, índice, histórias e track ao disponibilizar cada resultado.
+Registrar modelos homologados no IA-01 e regras oficiais aplicáveis no RF-02. A Page de UX já recebeu as propostas e a escolha visual. A sincronização documental mais recente via conector Pages aguarda acesso de edição. Habilitar provedores, grupos e anexos separadamente. Atualizar Issue, Markdown, Pages, índice, histórias e track ao disponibilizar cada resultado.

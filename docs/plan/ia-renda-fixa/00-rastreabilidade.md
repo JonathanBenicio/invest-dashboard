@@ -20,7 +20,7 @@ Rastreabilidade e baseline conforme o [épico](epico.md). O recorte e o resultad
 
 ## Critérios de aceite
 
-- [x] 16 planos canônicos publicados no PR em rascunho. As 15 subissues têm vínculo formal verificado e as 16 Pages têm links verificados.
+- [x] 16 planos canônicos publicados no PR documental. As 15 subissues têm vínculo formal verificado e as 16 Pages têm links verificados.
 - [x] Baseline registrada com lint, build e testes focados de frontend e backend.
 
 ## Validação, riscos e entrega
