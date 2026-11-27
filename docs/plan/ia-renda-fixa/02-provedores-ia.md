@@ -27,3 +27,9 @@ Adaptadores, capacidades e Compose conforme o [épico](epico.md). O recorte e o 
 ## Validação, riscos e entrega
 
 Evidências de implementação pendentes. Aplicar os controles e os testes descritos nesta página e em [QA-01](14-homologacao.md). Registrar resultados, dependências por capacidade e links de entrega na issue e na Page.
+
+## Referências de implementação
+
+- Adaptar o registro de Ollama e a declaração de ferramentas do [base-ia · 26573cc](https://github.com/JonathanBenicio/base-ia/blob/26573ccacab88b6caf29a8a0e7ff55d649fc9d73/agent-Invest/src/AgentInvest.API/Program.cs#L131). Usar a identidade autenticada da aplicação nas ferramentas.
+- Adaptar do Agent-System `20ab9e8` a [escrita de eventos SSE](https://github.com/JonathanBenicio/Agent-System/blob/20ab9e8531c15ab1200f3f4642fb1bec944f4cef/src/AgenticSystem.Api/Helpers/SseWriter.cs#L11) e o [controle de consumo mesmo após cancelamento](https://github.com/JonathanBenicio/Agent-System/blob/20ab9e8531c15ab1200f3f4642fb1bec944f4cef/src/AgenticSystem.Infrastructure/LLM/TenantQuotaChatClient.cs#L66). Exigir identidade e escopo antes de consultar ou transmitir dados.
+- Usar do [portfolio-management · 18ad6d1](https://github.com/JonathanBenicio/portfolio-management/blob/18ad6d158c433ee1cd87ba9dd077d7fbb62b96cd/PortfolioAPI/src/Portfolio.Infrastructure/Repositories/ChatRepository.cs#L17) a referência de conversa e mensagem. Transmitir e persistir a mesma resposta no backend.

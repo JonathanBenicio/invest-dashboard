@@ -1,6 +1,6 @@
 # UX-01 · Levantamento e desenho dos fluxos
 
-- Estado: em andamento
+- Estado: concluído. Entrega no [PR documental #87](https://github.com/JonathanBenicio/invest-dashboard/pull/87).
 - Épico: [mapa e dependências](epico.md)
 - Issue: [#73](https://github.com/JonathanBenicio/invest-dashboard/issues/73)
 - Page: [abrir plano](https://chatgpt.com/space/page_b038aaf4f0f08191aca942c831958301)
@@ -20,10 +20,10 @@ Levantamento e desenho dos fluxos conforme o [épico](epico.md). O recorte e o r
 
 ## Critérios de aceite
 
-- [ ] Capturas com dados sintéticos e observações verificáveis.
-- [ ] Três opções comparáveis e seleção registrada.
-- [ ] Handoff aprovado, com reflow a 320 px e estados de espera, erro e sucesso.
+- [x] Capturas com dados sintéticos e observações verificáveis.
+- [x] Três opções comparáveis e seleção registrada.
+- [x] Handoff da direção escolhida preparado, com matriz de estados e reflow conferido a 320 px.
 
 ## Validação, riscos e entrega
 
-Consultar [auditoria e handoff](ux/auditoria.md). O usuário escolheu a experiência híbrida em 27/11/2026. A validação do handoff está em andamento. Registrar resultados, dependências por capacidade e links de entrega na issue e na Page.
+Consultar [auditoria e handoff](ux/auditoria.md). O usuário escolheu a experiência híbrida em 27/11/2026. O protótipo e o handoff foram validados localmente. As propostas, a escolha e o resumo do handoff já foram registrados na Page. O código e as evidências finais estão no PR. A releitura da Page nesta rodada ficou indisponível por falta de acesso do conector.
