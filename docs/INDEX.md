@@ -24,6 +24,8 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 
 ## Arquitetura e decisões
 
+- Propostas do épico de IA e renda fixa: [assistente e provedores](adrs/0006-assistente-e-provedores-ia.md), [avaliação por print](adrs/0007-avaliacao-tesouro-por-print.md) e [projeções](adrs/0008-projecoes-renda-fixa.md).
+
 - [Diagrama de arquitetura](diagrams/architecture.md)
 - [Registro histórico 0001: adoção de ADRs](0001-adoption-of-adrs.md)
 - [Registro histórico 0002: stack monorepo](0002-monorepo-tech-stack.md)
@@ -37,6 +39,8 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [ADR-0005: consulta consolidada de investimentos](adrs/0005-consulta-consolidada-investimentos.md) — adotada, implementada e validada em testes focados.
 
 ## Planos existentes
+
+- [Épico de IA e renda fixa](plan/ia-renda-fixa/epico.md)
 
 - [Investimentos consolidados por grupo](plan/investimentos-consolidados-por-grupo.md) — integração focal e Playwright aprovados; conferência autenticada pendente.
 
@@ -53,6 +57,8 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 - [Planos OpenCode](plan/opencode/)
 
 ## Relatórios de validação
+
+- [Baseline de IA e renda fixa](validation/ia-renda-fixa-baseline-2026-11-27.md)
 
 - [Fechamento da importação e do agrupamento em 26/11/2026](validation/fechamento-importacao-agrupamento-2026-11-26.md)
 - [Importação e reimportação do Tesouro Direto em 25 e 26/11/2026](validation/tesouro-importacao-2026-11-25.md)

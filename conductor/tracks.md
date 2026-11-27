@@ -15,6 +15,7 @@
 | A definir | Chat IA (OpenCode) | Documento existente; estado atual pendente de confirmação | [opencode/chat-ia.md](../docs/plan/opencode/chat-ia.md) | Documento preexistente. |
 | A definir | Convenção de nomes (OpenCode) | Documento existente; estado atual pendente de confirmação | [opencode/naming-convention.md](../docs/plan/opencode/naming-convention.md) | Documento preexistente. |
 | A definir | Normalização de models/DTOs (OpenCode) | Documento existente; estado atual pendente de confirmação | [opencode/normalização-models-dtos.md](../docs/plan/opencode/normalização-models-dtos.md) | Documento preexistente. |
+| [#71](https://github.com/JonathanBenicio/invest-dashboard/issues/71) | IA e renda fixa | Em andamento | [Épico e subplanos](../docs/plan/ia-renda-fixa/epico.md) | EP-00 e UX-01 em execução. |
 
 ## Manutenção
 

@@ -19,6 +19,12 @@ Revisado em 29/09/2026. Contratos próprios padronizados em `/api/v1`, conforme 
 | US-COMP-001 | Análise de posições | Carteira/posições e CDI conectados | [Analysis.tsx](../frontend/src/pages/tools/Analysis.tsx) lê carteira, posições, histórico e CDI diário do BCB SGS 12; normaliza ambas as séries em datas completas comuns e mostra origem/atualização. Ibovespa B3 foi movido a funcionalidade futura por decisão do usuário. |
 | US-IMPORT-001 | Importação CSV de operações | Importador genérico implementado; layouts reais aguardam amostras | [Import.tsx](../frontend/src/pages/tools/Import.tsx) lê e valida CSV, envia operações com idempotência e atualiza consultas. [E2E](../frontend/e2e-real-api/csv-import.spec.ts) percorre a UI sem MSW e confirma transações/posições no PostgreSQL. [Plano de análise de CSVs de corretoras](plan/broker-csv-import-plan.md) define o procedimento por layout; faltam amostras reais anonimizadas. |
 | US-IMPORT-002 | Reimportação auditável de snapshots HTML | Implementada; validações focadas passaram, com conferência manual pendente | Issues [#55](https://github.com/JonathanBenicio/invest-dashboard/issues/55), [#57](https://github.com/JonathanBenicio/invest-dashboard/issues/57), [#58](https://github.com/JonathanBenicio/invest-dashboard/issues/58), [ADR-0004](adrs/0004-tesouro-reimportacao-snapshots.md) e [plano](plan/tesouro-reimportacao-snapshots.md). |
+| US-IA-001 | Consultar carteira e retomar a conversa | Proposta | [Plano](plan/ia-renda-fixa/06-conversas-streaming.md) |
+| US-IA-002 | Administrar provedores de IA | Proposta | [Plano](plan/ia-renda-fixa/03-politica-provedores.md) |
+| US-IA-003 | Consultar dados permitidos de um grupo | Proposta | [Plano](plan/ia-renda-fixa/09-assistente-grupos.md) |
+| US-IA-004 | Revisar um print e confirmar saldo observado | Proposta | [Plano](plan/ia-renda-fixa/05-revisao-saldo.md) |
+| US-IA-005 | Distinguir saldo de estimativa em renda fixa | Proposta | [Plano](plan/ia-renda-fixa/12-projecoes-renda-fixa.md) |
+
 
 ## US-AUTH-001 — Autenticação segura
 
@@ -144,6 +150,76 @@ O sistema apresenta as linhas da prévia em tabelas, associa eventos HTML a movi
 ### Contratos, evidências e gaps
 
 A consulta consolida posições autorizadas antes de paginar. Integrações em InMemory verificaram agrupamento, paginação, filtros, posições encerradas, carteiras sem grupo e isolamento de acesso; PostgreSQL isolado verificou datas distintas entre bases Tesouro. O Playwright com MSW verificou os filtros e a alternância entre grupo e carteira em 320, 360 e 1920 px. A consulta pública do Tesouro aparece separadamente nos detalhes e em Análise e usa cache em memória da API. A conferência autenticada manual não foi executada.
+
+<a id="us-ia-001"></a>
+
+## US-IA-001 — Consultar carteira e retomar a conversa
+
+- Estado: proposta
+- Issue: [#78](https://github.com/JonathanBenicio/invest-dashboard/issues/78)
+- Plano: [subplano](plan/ia-renda-fixa/06-conversas-streaming.md)
+
+Como investidor, quero consultar posições da minha carteira e abrir o histórico para retomar a análise com a mesma resposta exibida.
+
+### Critério de aceite verificável
+
+- [ ] Dados de uma carteira própria batem com o serviço financeiro e o histórico preserva o texto final. Evidência pendente.
+
+<a id="us-ia-002"></a>
+
+## US-IA-002 — Administrar provedores de IA
+
+- Estado: proposta
+- Issue: [#75](https://github.com/JonathanBenicio/invest-dashboard/issues/75)
+- Plano: [subplano](plan/ia-renda-fixa/03-politica-provedores.md)
+
+Como administrador da plataforma, quero ativar, testar e ordenar provedores para manter a capacidade disponível dentro do orçamento.
+
+### Critério de aceite verificável
+
+- [ ] Uma falha elegível antes da primeira saída usa provedor alternativo sem duplicar a resposta ou revelar a credencial. Evidência pendente.
+
+<a id="us-ia-003"></a>
+
+## US-IA-003 — Consultar dados permitidos de um grupo
+
+- Estado: proposta
+- Issue: [#81](https://github.com/JonathanBenicio/invest-dashboard/issues/81)
+- Plano: [subplano](plan/ia-renda-fixa/09-assistente-grupos.md)
+
+Como membro de grupo, quero analisar as carteiras que posso visualizar para entender o consolidado autorizado.
+
+### Critério de aceite verificável
+
+- [ ] Totais cobrem apenas carteiras visíveis. Revogação barra leitura e continuação da conversa afetada. Evidência pendente.
+
+<a id="us-ia-004"></a>
+
+## US-IA-004 — Revisar um print e confirmar saldo observado
+
+- Estado: proposta
+- Issue: [#77](https://github.com/JonathanBenicio/invest-dashboard/issues/77)
+- Plano: [subplano](plan/ia-renda-fixa/05-revisao-saldo.md)
+
+Como gestor da carteira, quero corrigir a prévia de um print do Tesouro para registrar o saldo bruto da posição existente.
+
+### Critério de aceite verificável
+
+- [ ] Prévia não altera o patrimônio. Confirmação registra uma avaliação idempotente após revisão. Evidência pendente.
+
+<a id="us-ia-005"></a>
+
+## US-IA-005 — Distinguir saldo de estimativa em renda fixa
+
+- Estado: proposta
+- Issue: [#84](https://github.com/JonathanBenicio/invest-dashboard/issues/84)
+- Plano: [subplano](plan/ia-renda-fixa/12-projecoes-renda-fixa.md)
+
+Como investidor, quero ver premissas e fontes de uma projeção para interpretar o saldo e a estimativa segundo suas datas e naturezas.
+
+### Critério de aceite verificável
+
+- [ ] Apresenta estimativa com premissas ou motivo da ausência. Evidência pendente.
 
 ## Manutenção do catálogo
 
