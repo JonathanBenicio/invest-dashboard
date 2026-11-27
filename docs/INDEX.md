@@ -41,6 +41,7 @@ Este índice reúne o material existente sem substituir documentos históricos. 
 ## Planos existentes
 
 - [Épico de IA e renda fixa](plan/ia-renda-fixa/epico.md)
+- [Pages de referência do épico de IA e renda fixa](plan/ia-renda-fixa/referencias/README.md)
 
 - [Investimentos consolidados por grupo](plan/investimentos-consolidados-por-grupo.md) — integração focal e Playwright aprovados; conferência autenticada pendente.
 

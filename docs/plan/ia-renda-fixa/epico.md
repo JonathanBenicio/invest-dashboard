@@ -6,6 +6,7 @@
 - Baseline: 27/11/2026 · `codex/tesouro-previa-e-cotacoes` · `d683cfe` · `.codex-attachments/` preexistente.
 - ADRs: [assistente e provedores](../../adrs/0006-assistente-e-provedores-ia.md), [avaliação por print](../../adrs/0007-avaliacao-tesouro-por-print.md), [projeções](../../adrs/0008-projecoes-renda-fixa.md)
 - Fontes: [Assistente](https://chatgpt.com/space/page_1277f245c874819180161c37edbd36b3) · [Prints](https://chatgpt.com/space/page_57fcb9aa019c8191bd64f5de3eef76fc) · [Renda fixa](https://chatgpt.com/space/page_8cb984bcffc4819195829d28e3ecec9f)
+- Referências no repositório: [exports históricos das Pages](referencias/README.md)
 
 ## Objetivo e escopo
 
