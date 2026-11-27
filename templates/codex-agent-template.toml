@@ -1,0 +1,7 @@
+# Copie para .codex/agents/<nome>.toml e substitua os exemplos.
+name = "nome-do-agente"
+description = "Descreva uma tarefa delimitada e quando usar este agente."
+developer_instructions = """
+Descreva responsabilidades, contexto específico e resultado esperado.
+O agente herda as permissões e conexões da sessão principal.
+"""

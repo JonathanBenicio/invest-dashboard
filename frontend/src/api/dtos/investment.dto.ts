@@ -30,6 +30,7 @@ export interface PosicaoInvestimentoDto {
   carteiraId: string
   carteiraNome?: string
   grupoId?: string
+  titularId?: string
   titular?: string
   instituicaoFinanceira?: string
   ativoId: string
@@ -51,11 +52,72 @@ export interface PosicaoInvestimentoDto {
   percentualGanho: number
   moeda: string
   emissor?: string
-  taxaJuros?: number
+  taxaJuros?: number | null
   indexador?: string
   dataVencimento?: string
   liquidez?: string
   convencao?: string
+}
+
+export interface PosicaoInvestimentoConsolidadoDto {
+  id: string
+  chaveConsolidacao: string
+  posicaoId?: string | null
+  grupoId?: string | null
+  grupoNome?: string | null
+  titularId?: string | null
+  titularNome?: string | null
+  titular?: string | null
+  carteiraId?: string | null
+  carteiraNome?: string | null
+  escopo: 'grupo' | 'titular' | 'carteira'
+  quantidadeCarteiras: number
+  ativoId: string
+  nome: string
+  ticker: string
+  tipo: TipoInvestimento
+  subtipo: TipoRendaFixa | TipoRendaVariavel
+  setor?: string | null
+  situacao: 'open' | 'matured' | 'closed' | 'mixed'
+  quantidade: number
+  precoMedio: number
+  precoAtual: number | null
+  origemPrecoAtual?: string | null
+  precoObservadoEmUtc?: string | null
+  totalInvestido: number
+  valorAtual: number
+  ganho: number
+  percentualGanho: number
+  moeda: string
+  emissor?: string | null
+  taxaJuros?: number | null
+  indexador?: string | null
+  dataVencimento?: string | null
+  liquidez?: string | null
+  convencao?: string | null
+  dataAvaliacaoMaisAntiga?: string | null
+  dataAvaliacaoMaisRecente?: string | null
+  datasAvaliacaoDiferentes: boolean
+  datasAvaliacaoCompletas: boolean
+}
+
+export interface DetalheInvestimentoConsolidadoDto {
+  consolidado: PosicaoInvestimentoConsolidadoDto
+  carteiras: {
+    posicaoId: string
+    carteiraId: string
+    carteiraNome: string
+    titularId?: string | null
+    titular: string
+    instituicaoFinanceiraId?: string | null
+    instituicaoFinanceira?: string | null
+    dataAvaliacao?: string | null
+    quantidade: number
+    totalInvestido: number
+    valorAtual: number
+    ganho: number
+    situacao: 'open' | 'matured' | 'closed'
+  }[]
 }
 
 export interface PrecoHistoricoDto {
@@ -133,12 +195,13 @@ export interface AtualizarInvestimentoRequest {
 export interface InvestimentoFiltros extends ParametrosPaginacao {
   carteiraId?: string
   grupoId?: string
+  titularId?: string
   tipo?: TipoInvestimento
   subtipo?: TipoRendaFixa | TipoRendaVariavel
   busca?: string
   emissor?: string
   setor?: string
-  situacao?: 'open' | 'matured' | 'closed'
+  situacao?: 'open' | 'matured' | 'closed' | 'all'
 }
 
 /**

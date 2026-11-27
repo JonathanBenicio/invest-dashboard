@@ -73,3 +73,6 @@ frontend/android/
 !.agents/skills/invest-feature-discovery/
 !.agents/skills/invest-screen-concept/
 !.agents/skills/invest-debug/
+
+
+.playwright-mcp/

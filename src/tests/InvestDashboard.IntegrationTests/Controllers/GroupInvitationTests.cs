@@ -25,12 +25,15 @@ public sealed class GroupInvitationTests
         invitationResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         using var invitationJson = JsonDocument.Parse(await invitationResponse.Content.ReadAsStringAsync());
         invitationJson.RootElement.GetProperty("dados").GetProperty("emailEnviado").GetBoolean().Should().BeFalse();
+        var invitationExpiresAt = invitationJson.RootElement.GetProperty("dados").GetProperty("expiraEmUtc").GetDateTime();
+        invitationExpiresAt.Should().BeAfter(DateTime.UtcNow.AddDays(6));
 
         using var invitedUser = CreateClient(factory, FakeAuthProvider.SecondTestUserId, FakeAuthProvider.SecondTestSessionId,
             FakeAuthProvider.SecondTestEmail, FakeAuthProvider.SecondTestName);
         using var pendingJson = JsonDocument.Parse(await (await invitedUser.GetAsync("/api/v1/grupos-carteiras/convites-pendentes")).Content.ReadAsStringAsync());
         var pendingInvitation = pendingJson.RootElement.GetProperty("dados").EnumerateArray().Single();
         pendingInvitation.GetProperty("grupoId").GetGuid().Should().Be(groupId);
+        pendingInvitation.GetProperty("expiraEmUtc").GetDateTime().Should().Be(invitationExpiresAt);
 
         var acceptResponse = await invitedUser.PostAsync(
             $"/api/v1/grupos-carteiras/{groupId}/convites/{pendingInvitation.GetProperty("id").GetGuid()}/aceitar", null);
@@ -40,6 +43,28 @@ public sealed class GroupInvitationTests
         groupsJson.RootElement.GetProperty("dados")[0].GetProperty("papel").GetString().Should().Be("Consulta");
         var membersResponse = await invitedUser.GetAsync($"/api/v1/grupos-carteiras/{groupId}/membros");
         membersResponse.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task NewSupabaseInviteKeepsOneHourExpiration()
+    {
+        using var factory = new CustomWebApplicationFactory();
+        using var admin = CreateClient(factory, FakeAuthProvider.TestUserId, FakeAuthProvider.TestSessionId,
+            FakeAuthProvider.TestEmail, FakeAuthProvider.TestName);
+        var groupResponse = await admin.PostAsJsonAsync("/api/v1/grupos-carteiras", new { nome = "Grupo novo" });
+        using var groupJson = JsonDocument.Parse(await groupResponse.Content.ReadAsStringAsync());
+        var groupId = groupJson.RootElement.GetProperty("dados").GetProperty("id").GetGuid();
+
+        var before = DateTime.UtcNow;
+        using var invitationResponse = await admin.PostAsJsonAsync($"/api/v1/grupos-carteiras/{groupId}/convites",
+            new { email = "nova-conta@example.com", papel = "Investidor" });
+        invitationResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var invitationJson = JsonDocument.Parse(await invitationResponse.Content.ReadAsStringAsync());
+        var dados = invitationJson.RootElement.GetProperty("dados");
+        dados.GetProperty("emailEnviado").GetBoolean().Should().BeTrue();
+        var expiresAt = dados.GetProperty("expiraEmUtc").GetDateTime();
+        expiresAt.Should().BeAfter(before.AddMinutes(59));
+        expiresAt.Should().BeBefore(DateTime.UtcNow.AddMinutes(61));
     }
 
     private static HttpClient CreateClient(CustomWebApplicationFactory factory, Guid userId, Guid sessionId, string email, string name)

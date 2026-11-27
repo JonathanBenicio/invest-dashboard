@@ -6,12 +6,12 @@ public class RendaFixa : Ativo
 {
     public string Issuer { get; private set; } = string.Empty;
     public string Indexer { get; private set; }
-    public decimal InterestRate { get; private set; }
+    public decimal? InterestRate { get; private set; }
     public DateTime MaturityDate { get; private set; }
     public string? Liquidity { get; private set; }
     public string? Convention { get; private set; }
 
-    public RendaFixa(Guid id, string ticker, string name, decimal currentPrice, DateTime lastUpdatedUtc, string indexer, decimal interestRate, DateTime maturityDate, string issuer = "", string subtype = "RENDA_FIXA", string? liquidity = null, string? convention = null)
+    public RendaFixa(Guid id, string ticker, string name, decimal currentPrice, DateTime lastUpdatedUtc, string indexer, decimal? interestRate, DateTime maturityDate, string issuer = "", string subtype = "RENDA_FIXA", string? liquidity = null, string? convention = null)
         : base(id, ticker, name, TipoAtivo.RendaFixa, currentPrice, lastUpdatedUtc, subtype)
     {
         if (string.IsNullOrWhiteSpace(indexer))
@@ -19,6 +19,9 @@ public class RendaFixa : Ativo
 
         if (interestRate < 0)
             throw new ArgumentException("Interest rate cannot be negative", nameof(interestRate));
+
+        if (interestRate is null && !string.Equals(subtype, "TESOURO_DIRETO", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Interest rate is required for this fixed income asset.", nameof(interestRate));
 
         if (string.IsNullOrWhiteSpace(issuer))
             throw new ArgumentException("Issuer cannot be null or empty", nameof(issuer));

@@ -6,6 +6,7 @@ description: Choose, run, or explain .NET test commands for the Invest Dashboard
 # Testes .NET do Invest Dashboard
 
 Confirme os projetos, versões e comandos no checkout, especialmente nos `.csproj` dos testes. O backend usa `src/InvestDashboard.slnx` e tem projetos separados em `src/tests/InvestDashboard.UnitTests` e `src/tests/InvestDashboard.IntegrationTests`; não suponha versões de xUnit, FluentAssertions ou do SDK sem consultar os manifests.
+Confirme os projetos e comandos no checkout. O backend usa `src/InvestDashboard.slnx`, .NET 10, xUnit 2.9.3 e FluentAssertions 8.9.0. Existem projetos separados em `src/tests/InvestDashboard.UnitTests` e `src/tests/InvestDashboard.IntegrationTests`.
 
 ## Escolha de escopo
 

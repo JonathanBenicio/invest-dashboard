@@ -18,6 +18,22 @@ public sealed class ValuacaoPosicaoRepository(InvestDbContext context) : IValuac
             .ThenByDescending(valuation => valuation.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<ValuacaoPosicao>> GetLatestByPositionIdsAsync(
+        IReadOnlyCollection<Guid> positionIds, CancellationToken cancellationToken = default)
+    {
+        if (positionIds.Count == 0) return [];
+
+        return await context.PositionValuations.AsNoTracking()
+            .Where(valuation => positionIds.Contains(valuation.PosicaoId))
+            .GroupBy(valuation => valuation.PosicaoId)
+            .Select(group => group
+                .OrderByDescending(valuation => valuation.DataObservadaUtc)
+                .ThenByDescending(valuation => valuation.RegistradaEmUtc)
+                .ThenByDescending(valuation => valuation.Id)
+                .First())
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ValuacaoPosicao>> GetByPositionIdAsync(Guid positionId, DateTime? fromDate = null,
         CancellationToken cancellationToken = default)
         => await GetByPositionIdsAsync([positionId], fromDate, cancellationToken);

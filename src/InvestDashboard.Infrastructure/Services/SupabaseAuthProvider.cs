@@ -42,7 +42,21 @@ public sealed class SupabaseAuthProvider(
         string password,
         CancellationToken cancellationToken = default)
     {
-        using var request = CreateRequest(HttpMethod.Post, "signup");
+        var signupPath = "signup";
+        var redirectUrl = configuration["Storage:SupabaseSignupRedirectUrl"];
+        if (!string.IsNullOrWhiteSpace(redirectUrl))
+        {
+            if (!Uri.TryCreate(redirectUrl, UriKind.Absolute, out var redirectUri)
+                || redirectUri.Scheme is not ("http" or "https")
+                || !string.IsNullOrEmpty(redirectUri.UserInfo))
+            {
+                throw new InvalidOperationException("Supabase signup redirect configuration is invalid.");
+            }
+
+            signupPath += $"?redirect_to={Uri.EscapeDataString(redirectUri.ToString())}";
+        }
+
+        using var request = CreateRequest(HttpMethod.Post, signupPath);
         request.Content = JsonContent.Create(new { email, password, data = new { name } }, options: JsonOptions);
         using var response = await httpClient.SendAsync(request, cancellationToken);
 

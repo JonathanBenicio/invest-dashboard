@@ -89,12 +89,15 @@ public sealed class GrupoCarteirasAppService(
             throw new InvalidOperationException("Já existe um convite pendente para esse e-mail.");
         var invitationId = Guid.NewGuid();
         var emailSent = await invitationEmailSender.SendInvitationAsync(email.Trim(), grupoId, invitationId, cancellationToken);
+        // New users must follow the short-lived Supabase link. Existing accounts
+        // accept inside the app and need time to sign in, so keep that invitation longer.
+        var expiresAt = emailSent ? now.AddHours(1) : now.AddDays(7);
         await repository.AddInvitationAsync(new ConviteGrupo(
-            invitationId, grupoId, email, role, usuarioId, now, now.AddHours(1)), cancellationToken);
+            invitationId, grupoId, email, role, usuarioId, now, expiresAt), cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return new ResultadoConviteGrupoDto(emailSent, emailSent
-            ? "O Supabase enviou um link de convite; ele expira em uma hora."
-            : "O e-mail já tem conta confirmada. A pessoa pode aceitar o convite na tela Grupos e usuários.");
+            ? "Convite enviado. A pessoa deve abrir o link do e-mail para entrar no grupo."
+            : "Não foi enviado um novo link. A pessoa deve entrar com este endereço e aceitar o convite em Grupos e usuários.", expiresAt);
     }
 
     public async Task<IReadOnlyList<ConvitePendenteGrupoDto>> ListarConvitesPendentesAsync(string email, CancellationToken cancellationToken = default)

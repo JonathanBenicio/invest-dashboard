@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { investmentDetailsRoute } from "../../router"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,8 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ChartPeriodFilter, type ChartPeriod } from "@/components/ChartPeriodFilter"
+import { ExtratoOficialTesouro } from "@/components/ExtratoOficialTesouro"
+import { CotacoesTesouro } from "@/components/CotacoesTesouro"
+import { InvestmentEvaluationSummary } from "@/components/investments/InvestmentEvaluationSummary"
 import { useInvestment, useInvestmentTransactions } from "@/hooks/use-investment-details"
 import { investmentService } from "@/api/services/investment.service"
+import { ApiError } from "@/api/errors"
 import { marketDataService } from "@/api/services/market-data.service"
 import { formatQuoteObservation, useMarketQuotes } from "@/hooks/use-market-quotes"
 import { transactionService } from "@/api/services/transaction.service"
@@ -26,10 +31,19 @@ type HistoricalPricePoint = { date: string; price: number }
 
 const money = (value: number) => formatCurrency(value)
 const dateLabel = (value: string) => new Intl.DateTimeFormat("pt-BR").format(new Date(value))
+const civilDateLabel = (value?: string | null) => value ? value.slice(0, 10).split('-').reverse().join('/') : 'Indisponível'
 
 export default function InvestmentDetails() {
+  const search = investmentDetailsRoute.useSearch()
+  return search.view === 'group' && search.groupId && search.assetId
+    ? <DetalheConsolidado key={`${search.groupId}:${search.assetId}`} grupoId={search.groupId} ativoId={search.assetId} />
+    : <DetalheIndividual />
+}
+
+function DetalheIndividual() {
   const { id } = investmentDetailsRoute.useParams()
   const search = investmentDetailsRoute.useSearch()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [period, setPeriod] = useState<ChartPeriod>("30d")
   const [action, setAction] = useState<TransactionAction>("Buy")
@@ -178,7 +192,7 @@ export default function InvestmentDetails() {
   const gainClass = asset.ganho >= 0 ? "text-success" : "text-destructive"
 
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <Button variant="ghost" size="icon" onClick={() => window.history.back()} aria-label="Voltar"><ArrowLeft className="h-5 w-5" /></Button>
@@ -199,6 +213,14 @@ export default function InvestmentDetails() {
         </div>}
       </div>
 
+      {asset.grupoId && <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-muted-foreground">Visão por carteira</span>
+        <Button variant="outline" onClick={() => void navigate({
+          to: '/investimento/$id', params: { id: asset.ativoId },
+          search: { type: asset.tipo === 'fixed_income' ? 'fixed' : 'variable', view: 'group', groupId: asset.grupoId, assetId: asset.ativoId, holderId: search.holderId, institutionId: search.institutionId, situacao: search.situacao },
+        })}>Ver consolidado do grupo</Button>
+      </div>}
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric title="Valor da posição" value={money(asset.valorAtual)} icon={<Wallet className="h-4 w-4" />} detail={`${asset.quantidade} unidades`} />
         <Metric title="Custo da posição" value={money(asset.totalInvestido)} icon={<BarChart3 className="h-4 w-4" />} detail={`Preço médio ${money(asset.precoMedio)}`} />
@@ -211,8 +233,8 @@ export default function InvestmentDetails() {
         <CardContent className="space-y-2">
           {fixedIncomeProjectionQuery.isLoading ? <p className="text-sm text-muted-foreground">Calculando…</p> :
             fixedIncomeProjectionQuery.isError ? <p className="text-sm text-muted-foreground">A estimativa não está disponível.</p> :
-            fixedIncomeProjectionQuery.data ? <><div className="grid gap-2 sm:grid-cols-2"><p>Último valor de extrato: <strong>{money(fixedIncomeProjectionQuery.data.dados.valorObservado)}</strong></p><p>Vencimento: <strong>{dateLabel(fixedIncomeProjectionQuery.data.dados.dataVencimento)}</strong></p></div>
-              {fixedIncomeProjectionQuery.data.dados.valorProjetadoBruto === null ?
+            fixedIncomeProjectionQuery.data ? <><div className="grid gap-2 sm:grid-cols-2"><p>Último valor de extrato: <strong>{money(fixedIncomeProjectionQuery.data.dados.valorObservado)}</strong></p><p>Vencimento: <strong>{fixedIncomeProjectionQuery.data.dados.dataVencimento.slice(0, 10).split('-').reverse().join('/')}</strong></p></div>
+            {fixedIncomeProjectionQuery.data.dados.valorProjetadoBruto === null ?
                 <p className="text-sm text-muted-foreground">{fixedIncomeProjectionQuery.data.dados.motivo}</p> :
                 <p>Estimativa bruta: <strong>{money(fixedIncomeProjectionQuery.data.dados.valorProjetadoBruto)}</strong></p>}
               {fixedIncomeProjectionQuery.data.dados.taxaSimbolo && fixedIncomeProjectionQuery.data.dados.taxaValorObservado !== undefined && <p className="text-sm">Premissa observada: <strong>{fixedIncomeProjectionQuery.data.dados.taxaSimbolo} {fixedIncomeProjectionQuery.data.dados.taxaValorObservado.toLocaleString('pt-BR')} {fixedIncomeProjectionQuery.data.dados.taxaUnidade}</strong>{fixedIncomeProjectionQuery.data.dados.taxaDataReferencia ? ` · referência ${dateLabel(fixedIncomeProjectionQuery.data.dados.taxaDataReferencia)}` : ''}{fixedIncomeProjectionQuery.data.dados.taxaPeriodicidade ? ` · ${fixedIncomeProjectionQuery.data.dados.taxaPeriodicidade}` : ''}</p>}
@@ -234,6 +256,8 @@ export default function InvestmentDetails() {
         </CardContent>
       </Card>
 
+      {asset.subtipo === "TESOURO_DIRETO" && <ExtratoOficialTesouro key={asset.id} carteiraId={asset.carteiraId} ativoId={asset.ativoId} />}
+      {asset.subtipo === "TESOURO_DIRETO" && <CotacoesTesouro tituloInicial={asset.nome} vencimentoInicial={asset.dataVencimento?.slice(0, 10)} />}
       <Card>
         <CardHeader><CardTitle>Movimentações da posição</CardTitle></CardHeader>
         <CardContent>
@@ -259,6 +283,120 @@ export default function InvestmentDetails() {
       </Dialog>
     </div>
   )
+}
+
+function DetalheConsolidado({ grupoId, ativoId }: { grupoId: string; ativoId: string }) {
+  const search = investmentDetailsRoute.useSearch()
+  const navigate = useNavigate()
+  const titularId = search.holderId ?? ''
+  const instituicaoId = search.institutionId ?? ''
+  const situacao = search.situacao
+  const situacaoSelecionada = situacao ?? 'balance'
+  const grupos = useQuery({ queryKey: ['portfolio-groups'], queryFn: groupService.list })
+  const todas = useQuery({
+    queryKey: ['investment-consolidated', grupoId, ativoId, 'all-options'],
+    queryFn: () => investmentService.getConsolidatedDetail(grupoId, ativoId, undefined, undefined, 'all'),
+    retry: false,
+  })
+  const carteiras = todas.data?.dados.carteiras ?? []
+  const instituicoes = [...new Map(carteiras.filter(item => item.instituicaoFinanceiraId && item.instituicaoFinanceira)
+    .map(item => [item.instituicaoFinanceiraId!, item.instituicaoFinanceira!])).entries()]
+  const titulares = [...new Map(carteiras.filter(item => item.titularId).map(item => [item.titularId!, item.titular])).entries()]
+  const elegiveis = carteiras.filter(item => (!titularId || item.titularId === titularId) &&
+    (!instituicaoId || item.instituicaoFinanceiraId === instituicaoId) &&
+    (situacaoSelecionada === 'all' || (situacaoSelecionada === 'closed' ? item.situacao === 'closed' : item.situacao !== 'closed')))
+  const consolidado = useQuery({
+    queryKey: ['investment-consolidated', grupoId, ativoId, titularId, instituicaoId, situacao],
+    queryFn: () => investmentService.getConsolidatedDetail(grupoId, ativoId, titularId || undefined, instituicaoId || undefined, situacao),
+    retry: false,
+  })
+  const resultado = consolidado
+  const item = resultado.data?.dados.consolidado
+  const grupoNome = grupos.data?.dados.find(grupo => grupo.id === grupoId)?.nome
+
+  function atualizarFiltros(titular: string, instituicao: string, proximaSituacao: 'closed' | 'all' | undefined) {
+    void navigate({ to: '/investimento/$id', params: { id: ativoId }, replace: true,
+      search: { type: search.type, view: 'group', groupId: grupoId, assetId: ativoId,
+        holderId: titular || undefined, institutionId: instituicao || undefined, situacao: proximaSituacao } })
+  }
+
+  function abrirCarteira(posicaoId: string) {
+    void navigate({ to: '/investimento/$id', params: { id: posicaoId },
+      search: { type: search.type, view: 'portfolio', groupId: grupoId, assetId: ativoId,
+        holderId: titularId || undefined, institutionId: instituicaoId || undefined, situacao } })
+  }
+
+  if (resultado.isLoading || todas.isLoading) return <p role="status" className="p-4">Carregando investimento consolidado…</p>
+  if (resultado.error instanceof ApiError && resultado.error.status === 404) return <div role="status" className="space-y-3 rounded-md border p-4">
+    <p>Não há posições disponíveis com os filtros atuais.</p>
+    {(titularId || instituicaoId || situacao) && <Button variant="outline" onClick={() => atualizarFiltros('', '', undefined)}>Limpar filtros</Button>}
+  </div>
+  if (resultado.isError || todas.isError || !item) return <div role="alert" className="space-y-3 p-4">
+    <p>Não foi possível carregar este investimento no grupo ou ele não está disponível para você.</p>
+    <Button variant="outline" onClick={() => { void todas.refetch(); void consolidado.refetch() }}>Tentar novamente</Button>
+    {(titularId || instituicaoId || situacao) && <Button variant="outline" onClick={() => atualizarFiltros('', '', undefined)}>Limpar filtros</Button>}
+  </div>
+
+  return <div className="min-w-0 space-y-5">
+    <div className="flex items-start gap-3">
+      <Button variant="ghost" size="icon" onClick={() => window.history.back()} aria-label="Voltar"><ArrowLeft className="h-5 w-5" /></Button>
+      <div className="min-w-0"><h1 className="break-words text-2xl font-bold">{item.nome || item.ticker}</h1>
+        <p className="text-sm text-muted-foreground">{item.ticker} · {item.subtipo} · {grupoNome ?? 'Grupo selecionado'}</p>
+        <p className="text-sm text-muted-foreground">Consolidado das carteiras acessíveis{titularId ? ` · ${titulares.find(([id]) => id === titularId)?.[1] ?? 'titular selecionado'}` : ''}</p>
+      </div>
+    </div>
+    <Card><CardHeader><CardTitle>Filtrar participação</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid min-w-0 gap-2"><Label htmlFor="consolidado-titular">Titular</Label>
+        <select id="consolidado-titular" className="h-10 min-w-0 rounded-md border bg-background px-2" value={titularId} onChange={event => {
+          const titular = event.target.value
+          const instituicaoCompativel = !titular || !instituicaoId || carteiras.some(carteira => carteira.titularId === titular && carteira.instituicaoFinanceiraId === instituicaoId)
+          atualizarFiltros(titular, instituicaoCompativel ? instituicaoId : '', situacao)
+        }}>
+          <option value="">Todos os titulares</option>{titulares.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
+        </select></div>
+      <div className="grid min-w-0 gap-2"><Label htmlFor="consolidado-instituicao">Banco ou corretora</Label>
+        <select id="consolidado-instituicao" className="h-10 min-w-0 rounded-md border bg-background px-2" value={instituicaoId} onChange={event => {
+          const instituicao = event.target.value
+          const titularCompativel = !instituicao || !titularId || carteiras.some(carteira => carteira.instituicaoFinanceiraId === instituicao && carteira.titularId === titularId)
+          atualizarFiltros(titularCompativel ? titularId : '', instituicao, situacao)
+        }}>
+          <option value="">Todas as instituições</option>{instituicoes.map(([id, nome]) => <option key={id} value={id}>{nome}</option>)}
+        </select></div>
+      <div className="grid min-w-0 gap-2"><Label htmlFor="consolidado-situacao">Posições</Label>
+        <select id="consolidado-situacao" className="h-10 min-w-0 rounded-md border bg-background px-2" value={situacaoSelecionada} onChange={event => {
+          const valor = event.target.value as 'balance' | 'closed' | 'all'
+          atualizarFiltros(titularId, instituicaoId, valor === 'balance' ? undefined : valor)
+        }}>
+          <option value="balance">Com saldo</option><option value="closed">Encerradas</option><option value="all">Todas</option>
+        </select></div>
+      <div className="grid min-w-0 gap-2"><Label htmlFor="consolidado-carteira">Carteira</Label>
+        <select id="consolidado-carteira" className="h-10 min-w-0 rounded-md border bg-background px-2" value="" onChange={event => {
+          const id = event.target.value
+          const posicao = elegiveis.find(carteira => carteira.carteiraId === id)
+          if (posicao) abrirCarteira(posicao.posicaoId)
+        }}><option value="">Todas as carteiras</option>{elegiveis.map(carteira => <option key={carteira.posicaoId} value={carteira.carteiraId}>{carteira.carteiraNome} · {carteira.titular || 'Sem titular'}</option>)}</select>
+      </div>
+    </CardContent></Card>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <Metric title="Quantidade" value={item.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 8 })} icon={<Wallet className="h-4 w-4" />} detail={`${item.quantidadeCarteiras} carteira(s)`} />
+      <Metric title="Valor investido" value={money(item.totalInvestido)} icon={<BarChart3 className="h-4 w-4" />} detail="Soma das posições" />
+      <Metric title="Valor atual" value={money(item.valorAtual)} icon={<TrendingUp className="h-4 w-4" />} detail="Soma das posições" />
+    </div>
+    <InvestmentEvaluationSummary investment={item} className="rounded-md border p-3" />
+    <Card className="min-w-0"><CardHeader><CardTitle>Participação por carteira</CardTitle></CardHeader><CardContent className="min-w-0 space-y-3">
+      {resultado.data?.dados.carteiras.length === 0 ? <p role="status">Nenhuma posição neste filtro.</p> : <>
+        <p className="text-sm text-muted-foreground">Selecione uma carteira para ver os lançamentos e registrar operações.</p>
+        <Table scrollLabel="Rolagem das carteiras deste investimento" className="min-w-max" aria-label="Carteiras deste investimento"><TableHeader><TableRow><TableHead>Carteira</TableHead><TableHead>Titular</TableHead><TableHead>Instituição</TableHead><TableHead>Data da avaliação</TableHead><TableHead>Quantidade</TableHead><TableHead>Valor atual</TableHead><TableHead><span className="sr-only">Ações</span></TableHead></TableRow></TableHeader><TableBody>
+          {resultado.data?.dados.carteiras.map(carteira => <TableRow key={carteira.posicaoId}>
+            <TableCell>{carteira.carteiraNome}</TableCell><TableCell>{carteira.titular || 'Sem titular'}</TableCell><TableCell>{carteira.instituicaoFinanceira || 'Não informada'}</TableCell><TableCell>{civilDateLabel(carteira.dataAvaliacao)}</TableCell>
+            <TableCell>{carteira.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 8 })}</TableCell><TableCell>{money(carteira.valorAtual)}</TableCell>
+            <TableCell><Button variant="outline" size="sm" onClick={() => abrirCarteira(carteira.posicaoId)}>Ver carteira</Button></TableCell>
+          </TableRow>)}
+        </TableBody></Table>
+      </>}
+    </CardContent></Card>
+    {item.subtipo === 'TESOURO_DIRETO' && <CotacoesTesouro tituloInicial={item.nome} vencimentoInicial={item.dataVencimento?.slice(0, 10)} />}
+  </div>
 }
 
 function Metric({ title, value, icon, detail, valueClass }: { title: string; value: string; icon: React.ReactNode; detail: string; valueClass?: string }) {

@@ -132,6 +132,7 @@ export interface ConvitePendenteGrupoDto {
 export interface ResultadoConviteGrupoDto {
   emailEnviado: boolean
   mensagem: string
+  expiraEmUtc?: string
 }
 
 export interface InstituicaoFinanceiraDto {

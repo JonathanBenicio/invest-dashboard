@@ -11,5 +11,6 @@ namespace InvestDashboard.Application.Interfaces
         Task<List<TransacaoDto>> GetTransactionsByPortfolioIdAsync(Guid portfolioId);
         Task<TransacaoDto> UpdateTransactionAsync(Guid id, AtualizarTransacaoDto dto);
         Task DeleteTransactionAsync(Guid id);
+        Task RebuildPortfolioAsync(Guid portfolioId);
     }
 }

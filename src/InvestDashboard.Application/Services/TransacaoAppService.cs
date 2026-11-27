@@ -14,10 +14,12 @@ public sealed class TransacaoAppService(
     ICarteiraRepository portfolios,
     IAtivoRepository assets,
     IValuacaoPosicaoRepository valuations,
+    IBasePosicaoTesouroRepository basesTesouro,
     IUnitOfWork unitOfWork,
     IUsuarioAtualService currentUser) : ITransacaoAppService
 {
     private const int TransactionLimit = 100;
+    private static readonly TimeZoneInfo FusoBrasil = TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo");
 
     public async Task<TransacaoDto> RegisterTransactionAsync(RegistrarTransacaoDto dto)
     {
@@ -60,6 +62,9 @@ public sealed class TransacaoAppService(
 
         if (asset is not null && !string.Equals(asset.Ticker, ticker, StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("The ticker and asset ID do not match.");
+
+        if (asset is not null)
+            await ValidarDataManualAsync(portfolio.Id, asset.Id, dto.TransactionDate);
 
         if (asset is not null && !string.IsNullOrWhiteSpace(dto.AssetClass) &&
             !string.Equals(GetAssetClass(asset), NormalizeAssetClass(dto.AssetClass), StringComparison.OrdinalIgnoreCase))
@@ -171,6 +176,11 @@ public sealed class TransacaoAppService(
         var asset = transaction.AtivoId.HasValue
             ? await assets.GetByIdAsync(transaction.AtivoId.Value)
             : null;
+        if (transaction.AtivoId.HasValue)
+        {
+            await ValidarDataManualAsync(portfolio.Id, transaction.AtivoId.Value, transaction.TransactionDate);
+            await ValidarDataManualAsync(portfolio.Id, transaction.AtivoId.Value, dto.TransactionDate);
+        }
         if (type == TipoTransacao.Sell && asset is not null && RequiresFiscalModality(asset) &&
             modality == ModalidadeFiscal.NaoInformada)
             throw new ArgumentException("Fiscal modality is required for stock and real estate fund sales.");
@@ -205,6 +215,8 @@ public sealed class TransacaoAppService(
             ?? throw new KeyNotFoundException("Portfolio not found.");
         if (!await portfolios.CanManageAsync(portfolio.Id, userId))
             throw new KeyNotFoundException("Transaction not found.");
+        if (transaction.AtivoId.HasValue)
+            await ValidarDataManualAsync(portfolio.Id, transaction.AtivoId.Value, transaction.TransactionDate);
         var history = (await transactions.GetByPortfolioIdAsync(portfolio.Id))
             .Where(item => item.Id != transaction.Id)
             .ToList();
@@ -225,17 +237,33 @@ public sealed class TransacaoAppService(
 
     private async Task RebuildPositionsAsync(Carteira portfolio, IReadOnlyList<Transacao> history, Ativo? pendingAsset)
     {
+        var bases = (await basesTesouro.GetAtivasAsync(portfolio.Id)).ToDictionary(item => item.AtivoId);
         var existingAssetIds = portfolio.Positions.Select(position => position.AtivoId).ToHashSet();
         var stablePositionIds = portfolio.Positions.ToDictionary(position => position.AtivoId, position => position.Id);
         var previousFixedIncomePrices = portfolio.Positions
             .Where(position => position.TipoAtivo == TipoAtivo.RendaFixa)
             .ToDictionary(position => position.AtivoId, position => position.CurrentPrice);
-        var assetIds = history.Where(item => item.AtivoId.HasValue).Select(item => item.AtivoId!.Value).Distinct().ToArray();
+        var assetIds = history.Where(item => item.AtivoId.HasValue).Select(item => item.AtivoId!.Value).Concat(bases.Keys).Distinct().ToArray();
         var assetMap = (await assets.GetByIdsAsync(assetIds)).ToDictionary(asset => asset.Id);
         if (pendingAsset is not null)
             assetMap[pendingAsset.Id] = pendingAsset;
 
         portfolio.PreparePositionsForRebuild(assetIds, previousFixedIncomePrices);
+        foreach (var saldo in bases.Values)
+        {
+            if (!assetMap.TryGetValue(saldo.AtivoId, out var ativo))
+                throw new InvalidOperationException("A base de posição referencia um ativo ausente.");
+            decimal? precoMaisRecente = null;
+            if (stablePositionIds.TryGetValue(saldo.AtivoId, out var positionId))
+            {
+                var latest = await valuations.GetLatestAsync(positionId);
+                // O extrato informa somente uma data civil; uma observação nesse
+                // mesmo dia não pode ser considerada anterior com segurança.
+                if (latest is not null && DataCivil(latest.DataObservadaUtc) >= saldo.DataReferencia)
+                    precoMaisRecente = latest.PrecoUnitario;
+            }
+            portfolio.AplicarBaseTesouro(saldo, ativo, stablePositionIds, precoMaisRecente);
+        }
         foreach (var item in history)
         {
             if (item.Type is TipoTransacao.Deposit or TipoTransacao.Withdrawal)
@@ -243,6 +271,14 @@ public sealed class TransacaoAppService(
 
             if (!item.AtivoId.HasValue || !assetMap.TryGetValue(item.AtivoId.Value, out var asset))
                 throw new InvalidOperationException("Transaction references a missing asset.");
+
+            if (bases.TryGetValue(item.AtivoId.Value, out var saldo) && DataCivil(item.TransactionDate) <= saldo.DataReferencia)
+            {
+                // Os resultados já apurados do histórico permanecem na carteira;
+                // as posições nessa data já estão incluídas na base.
+                portfolio.AcrescentarResultadoHistorico(item.RealizedGain, item.RealizedCostBasis);
+                continue;
+            }
 
             var marketPrice = asset.CurrentPrice;
             if (asset.TipoAtivo == TipoAtivo.RendaFixa)
@@ -262,6 +298,31 @@ public sealed class TransacaoAppService(
         foreach (var position in portfolio.Positions.Where(position => !existingAssetIds.Contains(position.AtivoId)))
             portfolios.AddPosition(position);
     }
+
+    public async Task RebuildPortfolioAsync(Guid portfolioId)
+    {
+        var userId = currentUser.UserId?.ToString() ?? throw new AuthenticationException("Authentication is required.");
+        var portfolio = await portfolios.GetByIdForUserAsync(portfolioId, userId) ?? throw new KeyNotFoundException("Portfolio not found.");
+        if (!await portfolios.CanManageAsync(portfolio.Id, userId)) throw new UnauthorizedAccessException("You cannot change this portfolio.");
+        var history = await transactions.GetByPortfolioIdAsync(portfolio.Id);
+        try { await RebuildPositionsAsync(portfolio, history, null); }
+        catch (InvalidOperationException) { throw new TransactionLedgerConflictException(); }
+        portfolios.Update(portfolio);
+        await unitOfWork.SaveChangesAsync();
+    }
+
+    private async Task ValidarDataManualAsync(Guid carteiraId, Guid ativoId, DateTime data)
+    {
+        var saldo = (await basesTesouro.GetAtivasAsync(carteiraId)).SingleOrDefault(item => item.AtivoId == ativoId);
+        if (saldo is null) return;
+        if (data.Kind == DateTimeKind.Unspecified)
+            throw new ArgumentException("Informe a data da movimentação com fuso horário.");
+        if (DataCivil(data) <= saldo.DataReferencia)
+            throw new TransactionLedgerConflictException("Movimentações na data da base ou anteriores precisam ser conciliadas com o extrato.");
+    }
+
+    private static DateOnly DataCivil(DateTime data) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(
+        data.Kind == DateTimeKind.Utc ? data : data.ToUniversalTime(), FusoBrasil));
 
     private static Ativo CreateAsset(RegistrarTransacaoDto dto, string ticker)
     {

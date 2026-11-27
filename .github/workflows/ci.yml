@@ -69,7 +69,7 @@ jobs:
         run: docker compose down --volumes --remove-orphans
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: frontend
@@ -89,7 +89,7 @@ jobs:
       - run: bun run test
 
   csv-import-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:15

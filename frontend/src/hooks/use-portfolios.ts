@@ -10,6 +10,21 @@ export function usePortfolios(filters: CarteiraFiltros = {}) {
   })
 }
 
+export function useAllAccessiblePortfolios() {
+  return useQuery({
+    queryKey: ['portfolios', 'all-accessible'],
+    queryFn: async () => {
+      const primeira = await portfolioService.getAll({ pagina: 1, itensPorPagina: 100 })
+      const carteiras = [...primeira.dados]
+      for (let pagina = 2; pagina <= primeira.paginacao.totalPaginas; pagina += 1) {
+        const resposta = await portfolioService.getAll({ pagina, itensPorPagina: 100 })
+        carteiras.push(...resposta.dados)
+      }
+      return { ...primeira, dados: carteiras }
+    },
+  })
+}
+
 export function usePortfolio(id: string) {
   return useQuery({
     queryKey: ['portfolio', id],
