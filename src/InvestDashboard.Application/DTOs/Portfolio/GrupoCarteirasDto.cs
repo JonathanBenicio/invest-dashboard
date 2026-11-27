@@ -5,5 +5,5 @@ public sealed record MembroGrupoDto(Guid Id, string UsuarioId, string Email, str
 public sealed record CriarGrupoCarteirasDto(string Nome);
 public sealed record AlterarPapelGrupoDto(string Papel);
 public sealed record ConvidarMembroGrupoDto(string Email, string Papel);
-public sealed record ResultadoConviteGrupoDto(bool EmailEnviado, string Mensagem);
+public sealed record ResultadoConviteGrupoDto(bool EmailEnviado, string Mensagem, DateTime ExpiraEmUtc);
 public sealed record ConvitePendenteGrupoDto(Guid Id, Guid GrupoId, string GrupoNome, string Papel, DateTime ExpiraEmUtc);

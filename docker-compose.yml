@@ -29,9 +29,11 @@ services:
       Storage__SupabaseUrl: ${SUPABASE_URL:?Configure SUPABASE_URL in .env}
       Storage__SupabaseApiKey: ${SUPABASE_PUBLISHABLE_KEY:?Configure SUPABASE_PUBLISHABLE_KEY in .env}
       Storage__SupabaseSecretKey: ${SUPABASE_SECRET_KEY:?Configure SUPABASE_SECRET_KEY in .env}
+      Storage__SupabaseSignupRedirectUrl: ${SUPABASE_SIGNUP_REDIRECT_URL:-http://localhost:8080/login}
       Storage__SupabaseInviteRedirectUrl: ${SUPABASE_INVITE_REDIRECT_URL:?Configure SUPABASE_INVITE_REDIRECT_URL in .env}
       MarketData__BrapiToken: ${BRAPI_API_TOKEN:-}
       Cors__AllowedOrigins__0: http://localhost:8080
+      Cors__AllowedOrigins__1: ${APP_PUBLIC_URL:-http://localhost:8080}
     depends_on:
       db:
         condition: service_healthy
@@ -48,6 +50,17 @@ services:
       - "127.0.0.1:8080:80"
     depends_on:
       - api
+    restart: unless-stopped
+
+  ngrok:
+    image: ngrok/ngrok:3
+    command: ["http", "--url=${APP_PUBLIC_URL:?Configure APP_PUBLIC_URL in .env}", "http://frontend:80"]
+    volumes:
+      - ${HOME}/.config/ngrok/invest-dashboard.yml:/etc/ngrok.yml:ro
+    environment:
+      NGROK_CONFIG: /etc/ngrok.yml
+    depends_on:
+      - frontend
     restart: unless-stopped
 
 volumes:

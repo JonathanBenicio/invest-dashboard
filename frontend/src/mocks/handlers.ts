@@ -411,8 +411,18 @@ export const handlers = [
   }),
   http.get(BASE_URL + '/grupos-carteiras/:groupId/membros', async () =>
     HttpResponse.json(createResponse([{ id: 'member-1', usuarioId: 'mock-admin', email: 'admin@investpro.com', nome: 'Admin', papel: 'Admin', ativo: true }]))),
-  http.post(BASE_URL + '/grupos-carteiras/:groupId/convites', async () =>
-    HttpResponse.json(createResponse({ emailEnviado: true, mensagem: 'O Supabase enviou um link de convite; ele expira em uma hora.' }))),
+  http.post(BASE_URL + '/grupos-carteiras/:groupId/convites', async ({ request }) => {
+    const { email } = await request.json() as { email: string }
+    const emailEnviado = email !== 'investidor@example.com'
+    const expiresAt = new Date(Date.now() + (emailEnviado ? 60 * 60_000 : 7 * 24 * 60 * 60_000)).toISOString()
+    return HttpResponse.json(createResponse({
+      emailEnviado,
+      mensagem: emailEnviado
+        ? 'Convite enviado. A pessoa deve abrir o link do e-mail para entrar no grupo.'
+        : 'Não foi enviado um novo link. A pessoa deve entrar com este endereço e aceitar o convite em Grupos e usuários.',
+      expiraEmUtc: expiresAt,
+    }))
+  }),
   http.get(BASE_URL + '/grupos-carteiras/convites-pendentes', async () =>
     HttpResponse.json(createResponse([]))),
   http.post(BASE_URL + '/grupos-carteiras/:groupId/convites/:invitationId/aceitar', async () =>
